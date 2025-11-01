@@ -1,0 +1,153 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Poppins", Arial, sans-serif;
+  background: #0f172a;
+  color: #0f172a;
+}
+
+.container {
+  width: min(1100px, 100% - 2rem);
+  margin: 0 auto;
+}
+
+/* topo */
+.topo {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topo .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+}
+
+.logo {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+nav a {
+  color: #e2e8f0;
+  text-decoration: none;
+  margin-left: 1rem;
+  font-size: 0.9rem;
+}
+
+.hero {
+  background: linear-gradient(135deg, #0f172a 0%, #0ea5e9 100%);
+  color: #fff;
+  padding: 4rem 0 5rem;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.hero h1 {
+  font-size: clamp(2.4rem, 4vw, 3.2rem);
+  margin-bottom: 1.2rem;
+}
+
+.hero p {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #e2e8f0;
+}
+
+.lista {
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.form-card {
+  background: #fff;
+  border-radius: 1.2rem;
+  padding: 1.5rem 1.5rem 1.8rem;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  color: #0f172a;
+}
+
+.form-card h2 {
+  margin-bottom: .3rem;
+}
+
+.form-card p {
+  margin-bottom: 1.3rem;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.campo label {
+  font-weight: 500;
+  margin-bottom: 0.35rem;
+  font-size: .85rem;
+}
+
+.campo input {
+  padding: 0.65rem 0.7rem;
+  border-radius: 0.45rem;
+  border: 1px solid #cbd5f5;
+  outline: none;
+  font-size: 0.9rem;
+}
+
+button {
+  background: linear-gradient(90deg, #0ea5e9, #0284c7);
+  color: #fff;
+  border: none;
+  width: 100%;
+  padding: 0.7rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .2s;
+}
+
+button:hover {
+  opacity: .9;
+}
+
+#retorno {
+  margin-top: 1rem;
+}
+
+#retorno .resultado {
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  padding: .75rem .9rem;
+  border-radius: .8rem;
+  color: #166534;
+  font-size: .9rem;
+}
+
+@media (max-width: 850px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  nav {
+    display: none;
+  }
+}
