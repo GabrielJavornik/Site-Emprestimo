@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Site de Empréstimo</title>
+  <title>SiteEmprestimo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -11,9 +11,10 @@
     <div class="container">
       <div class="logo">SiteEmprestimo</div>
       <nav>
-        <a href="#como">Como funciona</a>
-        <a href="#vantagens">Vantagens</a>
-        <a href="#contato">Contato</a>
+        <a href="/" class="ativo">Início</a>
+        <a href="/como-fazer">Como funciona</a>
+        <a href="/vantagens">Vantagens</a>
+        <a href="/simulacoes">Simulações</a>
       </nav>
     </div>
   </header>
@@ -34,7 +35,7 @@
         <h2>Simule seu empréstimo</h2>
         <p>Preencha os dados abaixo e veja se podemos liberar pra você.</p>
 
-        <form id="form-simulacao" autocomplete="off">
+        <form id="form-simulacao">
           <div class="campo">
             <label for="nome">Nome completo</label>
             <input type="text" id="nome" name="nome" required />
@@ -51,50 +52,29 @@
               maxlength="14"
               required
             />
+            <small id="erro-cpf" style="color: red; display: none;">CPF inválido.</small>
           </div>
 
           <div class="campo">
             <label for="valor">Valor desejado (R$)</label>
-            <input
-              type="number"
-              id="valor"
-              name="valor"
-              placeholder="Ex: 1500.50"
-              step="any"
-              required
-            />
+            <input type="number" id="valor" name="valor" step="0.01" min="0" required />
+          </div>
+
+          <div class="campo">
+            <label for="parcelas">Número de parcelas</label>
+            <select id="parcelas" name="parcelas" required>
+              <option value="3">3x</option>
+              <option value="6" selected>6x</option>
+              <option value="9">9x</option>
+              <option value="12">12x</option>
+            </select>
           </div>
 
           <button type="submit">Simular agora</button>
         </form>
 
-        <div id="retorno"></div>
+        <div id="retorno" style="margin-top: 1rem;"></div>
       </div>
-    </div>
-  </section>
-
-  <section id="como" class="secao">
-    <div class="container">
-      <h2>Como funciona</h2>
-      <p>Você preenche, nós calculamos o valor aproximado e salvamos sua simulação.</p>
-    </div>
-  </section>
-
-  <section id="vantagens" class="secao">
-    <div class="container">
-      <h2>Vantagens</h2>
-      <ul>
-        <li>Resposta rápida</li>
-        <li>Simulação sem compromisso</li>
-        <li>Podemos entrar em contato depois</li>
-      </ul>
-    </div>
-  </section>
-
-  <section id="contato" class="secao">
-    <div class="container">
-      <h2>Contato</h2>
-      <p>Este é um projeto de estudo. Para integrar com atendimento real, adicionar API de WhatsApp ou e-mail.</p>
     </div>
   </section>
 
