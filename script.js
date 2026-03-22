@@ -3,116 +3,186 @@ const retorno = document.getElementById('retorno');
 const cpfInput = document.getElementById('cpf');
 const erroCpf = document.getElementById('erro-cpf');
 
-/* util: mantém só números */
-function onlyDigits(str) {
-  return (str || '').replace(/\D/g, '');
-}
+/**
+ * 1. FUNÇÕES DO MODAL E MÁSCARAS (NOVA PARTE)
+ */
 
-/* máscara de CPF */
+// MÁSCARA DE CPF (000.000.000-00)
 function formatCPF(value) {
-  const d = onlyDigits(value).slice(0, 11);
-  let out = d;
-  if (d.length > 9) {
-    out = d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  } else if (d.length > 6) {
-    out = d.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
-  } else if (d.length > 3) {
-    out = d.replace(/(\d{3})(\d{1,3})/, '$1.$2');
-  }
-  return out;
+    const d = onlyDigits(value).slice(0, 11);
+    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+            .replace(/\.$/, '').replace(/-$/, '');
 }
 
-/* valida CPF brasileiro */
-function validaCPF(cpf) {
-  const d = onlyDigits(cpf);
-  if (d.length !== 11) return false;
-  if (/^(\d)\1{10}$/.test(d)) return false;
-
-  let soma = 0;
-  for (let i = 0; i < 9; i++) soma += parseInt(d.charAt(i), 10) * (10 - i);
-  let resto = (soma * 10) % 11;
-  if (resto === 10 || resto === 11) resto = 0;
-  if (resto !== parseInt(d.charAt(9), 10)) return false;
-
-  soma = 0;
-  for (let i = 0; i < 10; i++) soma += parseInt(d.charAt(i), 10) * (11 - i);
-  resto = (soma * 10) % 11;
-  if (resto === 10 || resto === 11) resto = 0;
-  if (resto !== parseInt(d.charAt(10), 10)) return false;
-
-  return true;
-}
-
-/* máscara ao digitar CPF */
-cpfInput.addEventListener('input', (e) => {
-  const antes = e.target.value;
-  const pos = e.target.selectionStart;
-  e.target.value = formatCPF(antes);
-  const diff = e.target.value.length - antes.length;
-  e.target.setSelectionRange(pos + diff, pos + diff);
-
-  if (erroCpf) erroCpf.style.display = 'none';
-});
-
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const nome = form.nome.value.trim();
-  const cpf = cpfInput.value.trim();
-  const valorStr = form.valor.value;
-  const valorNumber = Number(valorStr);
-  const parcelas = form.parcelas.value; // 👈 novo
-
-  if (!nome) {
-    retorno.innerHTML = `<p style="color:red;">Informe o nome.</p>`;
-    return;
-  }
-
-  if (!validaCPF(cpf)) {
-    erroCpf.style.display = 'block';
-    retorno.innerHTML = `<p style="color:red;">CPF inválido.</p>`;
-    return;
-  }
-
-  if (!isFinite(valorNumber) || valorNumber < 0) {
-    retorno.innerHTML = `<p style="color:red;">Valor inválido.</p>`;
-    return;
-  }
-
-  const dados = {
-    nome,
-    cpf,
-    valor: valorNumber,
-    parcelas: Number(parcelas)
-  };
-
-  try {
-    const resp = await fetch('/simular', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dados)
+// MÁSCARA DE DINHEIRO (R$ 1.000,00)
+function formatMoeda(value) {
+    let v = onlyDigits(value);
+    v = (Number(v) / 100).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
     });
+    return v;
+}
 
-    const json = await resp.json();
-
-    if (json.ok) {
-      retorno.innerHTML = `
-        <div style="background:#e8fff0; border:1px solid #bff0cd; padding:1rem; border-radius:.5rem;">
-          <p>Simulação para <strong>${json.nome}</strong></p>
-          <p>CPF: <strong>${cpf}</strong></p>
-          <p>Valor solicitado: <strong>R$ ${json.valor}</strong></p>
-          <p>Parcelas: <strong>${json.parcelas}x de R$ ${json.parcela}</strong></p>
-          <p>Total a pagar: <strong>R$ ${json.total}</strong></p>
-          <p style="color:green; margin-top:.5rem;">${json.message}</p>
-        </div>
-      `;
-      form.reset();
-      erroCpf.style.display = 'none';
-    } else {
-      retorno.innerHTML = `<p style="color:red;">${json.message || 'Erro ao simular.'}</p>`;
+// Ouvinte para formatar CPF e Moeda em tempo real
+document.addEventListener('input', (e) => {
+    // Formata campos de CPF
+    if (e.target.placeholder && e.target.placeholder.includes('000.000.000-00')) {
+        e.target.value = formatCPF(e.target.value);
     }
-  } catch (err) {
-    console.error(err);
-    retorno.innerHTML = `<p style="color:red;">Erro ao conectar com o servidor.</p>`;
-  }
+    // Formata campos de Valor/Dinheiro
+    if (e.target.id === 'v' || e.target.name === 'valor' || e.target.id === 'valor') {
+        e.target.value = formatMoeda(e.target.value);
+    }
 });
+
+function abrirModal() { 
+    document.getElementById('modalLogin').style.display = "block"; 
+    switchTab('login'); 
+}
+
+function fecharModal() { 
+    document.getElementById('modalLogin').style.display = "none"; 
+}
+
+function switchTab(type) {
+    const isLogin = type === 'login';
+    document.getElementById('form-login').style.display = isLogin ? 'block' : 'none';
+    document.getElementById('form-cadastro').style.display = isLogin ? 'none' : 'block';
+    document.getElementById('tab-login').classList.toggle('active', isLogin);
+    document.getElementById('tab-cadastro').classList.toggle('active', !isLogin);
+    document.getElementById('msg-auth').innerText = ""; 
+}
+
+window.onclick = function(event) {
+    let modal = document.getElementById('modalLogin');
+    if (event.target == modal) fecharModal();
+}
+
+/**
+ * 2. VALIDAÇÃO TÉCNICA
+ */
+function onlyDigits(str) { return String(str || '').replace(/\D/g, ''); }
+
+function validaCPF(cpf) {
+    const d = onlyDigits(cpf);
+    if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+    let soma = 0;
+    for (let i = 0; i < 9; i++) soma += parseInt(d.charAt(i)) * (10 - i);
+    let resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(d.charAt(9))) return false;
+    soma = 0;
+    for (let i = 0; i < 10; i++) soma += parseInt(d.charAt(i)) * (11 - i);
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    return resto === parseInt(d.charAt(10));
+}
+
+/**
+ * 3. EVENTOS DE FORMULÁRIO
+ */
+
+// --- SIMULAÇÃO ---
+if (form) {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nome = form.nome.value.trim();
+        const cpfLimpo = onlyDigits(cpfInput.value);
+        
+        // Pegamos o valor removendo o "R$" e formatando para número real
+        const valorLimpo = Number(onlyDigits(form.valor.value)) / 100;
+
+        if (!validaCPF(cpfLimpo)) {
+            erroCpf.style.display = 'block';
+            return;
+        } else {
+            erroCpf.style.display = 'none';
+        }
+
+        const dados = { nome, cpf: cpfLimpo, valor: valorLimpo, parcelas: Number(form.parcelas.value) };
+
+        try {
+            retorno.innerHTML = "<p style='color:orange'>Consultando AzulCrédito...</p>";
+            const resp = await fetch('/simular', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            });
+            const json = await resp.json();
+
+            if (json.ok) {
+                const zapLink = `https://wa.me/5554992026684?text=Olá! Fiz uma simulação: ${json.nome}, CPF: ${json.cpf}, Valor: R$${json.valor}, Parcelas: ${json.parcelas}x`;
+                retorno.innerHTML = `
+                    <div class="resultado" style="background:#f0fdf4; padding:20px; border-radius:12px; border:1px solid #bbf7d0; margin-top:15px;">
+                        <h4 style="color: #166534">🎉 Aprovado!</h4>
+                        <p>Valor solicitado: <strong>R$ ${valorLimpo.toFixed(2)}</strong></p>
+                        <a href="${zapLink}" target="_blank" style="background:#25d366; color:white; padding:10px; display:block; text-align:center; border-radius:8px; text-decoration:none; font-weight:bold; margin-top:10px;">CONTRATAR NO WHATSAPP</a>
+                    </div>`;
+                form.reset();
+            }
+        } catch (err) {
+            retorno.innerHTML = "<p style='color:red'>Erro ao conectar com o servidor.</p>";
+        }
+    });
+}
+
+// --- LOGIN REAL ---
+const formLogin = document.getElementById('form-login');
+if (formLogin) {
+    formLogin.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const msg = document.getElementById('msg-auth');
+        const cpf = onlyDigits(document.getElementById('login-cpf').value);
+        const senha = document.getElementById('login-senha').value;
+
+        msg.style.color = "orange";
+        msg.innerText = "Verificando dados...";
+
+        try {
+            const resp = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cpf, senha })
+            });
+            const json = await resp.json();
+
+            if (json.ok) {
+                msg.style.color = "#2ecc71";
+                msg.innerText = `✅ Bem-vindo! Redirecionando...`;
+                setTimeout(() => { window.location.href = `/simulacoes?cpf=${cpf}`; }, 1500);
+            } else {
+                msg.style.color = "#e74c3c";
+                msg.innerText = "❌ Usuário ou senha incorretos.";
+            }
+        } catch (err) { msg.innerText = "Erro de conexão."; }
+    });
+}
+
+// --- CADASTRO REAL ---
+const formCad = document.getElementById('form-cadastro');
+if (formCad) {
+    formCad.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const msg = document.getElementById('msg-auth');
+        const nome = document.getElementById('cad-nome').value;
+        const cpf = onlyDigits(document.getElementById('cad-cpf').value);
+        const senha = document.getElementById('cad-senha').value;
+
+        try {
+            msg.style.color = "orange";
+            msg.innerText = "Criando sua conta...";
+            const resp = await fetch('/cadastro', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, cpf, senha })
+            });
+            const json = await resp.json();
+            if (json.ok) {
+                msg.style.color = "#2ecc71";
+                msg.innerText = "✅ Conta criada! Faça login.";
+                setTimeout(() => switchTab('login'), 2000);
+            }
+        } catch (err) { msg.innerText = "Erro ao cadastrar."; }
+    });
+}

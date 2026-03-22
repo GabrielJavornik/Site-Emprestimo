@@ -2,82 +2,160 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>SiteEmprestimo</title>
+  <title>AzulCrédito - Simulação Rápida e Segura</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
+
   <header class="topo">
     <div class="container">
-      <div class="logo">SiteEmprestimo</div>
+      <div class="logo">Azul<span>Crédito</span></div>
       <nav>
-        <a href="/" class="ativo">Início</a>
-        <a href="/como-fazer">Como funciona</a>
-        <a href="/vantagens">Vantagens</a>
-        <a href="/simulacoes">Simulações</a>
+        <a href="/">Início</a>
+        <a href="#como">Como funciona</a> 
+        <a href="javascript:void(0)" class="btn-login-nav" onclick="abrirModal()">Área do Cliente</a>
       </nav>
     </div>
   </header>
 
   <section class="hero">
     <div class="container hero-grid">
-      <div>
-        <h1>Empréstimo online rápido</h1>
-        <p>Dinheiro na conta com análise simples. Mesmo se estiver negativado.</p>
+      <div class="hero-text">
+        <h1>O "Sim" que você precisa, na velocidade que você merece.</h1>
+        <p>Dinheiro na conta via PIX em poucos minutos. Sem burocracia, 100% digital e seguro.</p>
         <ul class="lista">
-          <li>✔ 100% online</li>
-          <li>✔ Depósito por PIX</li>
-          <li>✔ Parcelas que cabem no bolso</li>
+          <li><span class="material-icons">check_circle</span> Aprovação para negativados</li>
+          <li><span class="material-icons">check_circle</span> Zero taxas antecipadas</li>
+          <li><span class="material-icons">check_circle</span> Dinheiro na conta em 5 min</li>
         </ul>
+        
+        <div class="cta-area" style="margin-top: 30px;">
+          <button onclick="abrirModal()" class="btn-principal-grande">
+            SIMULAR EMPRÉSTIMO AGORA
+          </button>
+          <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.8; color: white;">
+            <span class="material-icons" style="font-size: 14px; vertical-align: middle;">lock</span> 
+            Ambiente 100% seguro e criptografado
+          </p>
+        </div>
       </div>
 
-      <div class="form-card">
-        <h2>Simule seu empréstimo</h2>
-        <p>Preencha os dados abaixo e veja se podemos liberar pra você.</p>
-
-        <form id="form-simulacao">
-          <div class="campo">
-            <label for="nome">Nome completo</label>
-            <input type="text" id="nome" name="nome" required />
-          </div>
-
-          <div class="campo">
-            <label for="cpf">CPF</label>
-            <input
-              type="text"
-              id="cpf"
-              name="cpf"
-              placeholder="000.000.000-00"
-              inputmode="numeric"
-              maxlength="14"
-              required
-            />
-            <small id="erro-cpf" style="color: red; display: none;">CPF inválido.</small>
-          </div>
-
-          <div class="campo">
-            <label for="valor">Valor desejado (R$)</label>
-            <input type="number" id="valor" name="valor" step="0.01" min="0" required />
-          </div>
-
-          <div class="campo">
-            <label for="parcelas">Número de parcelas</label>
-            <select id="parcelas" name="parcelas" required>
-              <option value="3">3x</option>
-              <option value="6" selected>6x</option>
-              <option value="9">9x</option>
-              <option value="12">12x</option>
-            </select>
-          </div>
-
-          <button type="submit">Simular agora</button>
-        </form>
-
-        <div id="retorno" style="margin-top: 1rem;"></div>
+      <div class="hero-image">
+        <img src="celular-azulcredito.png" alt="AzulCrédito App">
       </div>
     </div>
   </section>
 
+  <section class="secao-stats">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <h3>+2Mi</h3>
+          <p>Brasileiros atendidos</p>
+        </div>
+        <div class="stat-item">
+          <h3>R$ 0</h3>
+          <p>Taxa de adesão</p>
+        </div>
+        <div class="stat-item">
+          <h3>100%</h3>
+          <p>Seguro e Criptografado</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="como" class="secao">
+    <div class="container">
+      <h2 style="text-align:center; margin-bottom: 3rem; color: var(--primary-color);">Como funciona?</h2>
+      <div class="beneficios-grid">
+        <div class="beneficio-card">
+          <span class="material-icons">bolt</span>
+          <h3>Simule</h3>
+          <p>Escolha o valor e as parcelas que cabem no seu bolso.</p>
+        </div>
+        <div class="beneficio-card">
+          <span class="material-icons">assignment_ind</span>
+          <h3>Analise</h3>
+          <p>Validamos seus dados instantaneamente com segurança.</p>
+        </div>
+        <div class="beneficio-card">
+          <span class="material-icons">verified_user</span>
+          <h3>Receba</h3>
+          <p>Após a aprovação, o dinheiro cai direto na sua conta via PIX.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao-alerta">
+    <div class="container">
+      <div class="alerta-box">
+        <span class="material-icons">gpp_maybe</span>
+        <div>
+          <h4>Atenção: Segurança em primeiro lugar!</h4>
+          <p>A AzulCrédito <strong>não solicita depósitos antecipados</strong>. Se alguém pedir dinheiro para liberar seu crédito, é golpe!</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="logo">Azul<span>Crédito</span></div>
+      <p>&copy; 2026 AzulCrédito S.A. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <div id="modalLogin" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fecharModal()">&times;</span>
+      
+      <div class="modal-tabs">
+        <button id="tab-login" class="active" onclick="switchTab('login')">Entrar</button>
+        <button id="tab-cadastro" onclick="switchTab('cadastro')">Criar Conta</button>
+      </div>
+
+      <form id="form-login">
+        <div class="campo">
+          <label>CPF</label>
+          <input type="text" id="login-cpf" placeholder="000.000.000-00" required>
+        </div>
+        <div class="campo">
+          <label>Senha</label>
+          <input type="password" id="login-senha" placeholder="Sua senha" required>
+        </div>
+        <button type="submit" class="btn-azul">Entrar na AzulCrédito</button>
+      </form>
+
+      <form id="form-cadastro" style="display: none;">
+        <div class="campo">
+          <label>Nome Completo</label>
+          <input type="text" id="cad-nome" placeholder="Seu nome" required>
+        </div>
+        <div class="campo">
+          <label>CPF</label>
+          <input type="text" id="cad-cpf" placeholder="000.000.000-00" required>
+        </div>
+        <div class="campo">
+          <label>Criar Senha</label>
+          <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres" required>
+        </div>
+        <button type="submit" class="btn-azul">Finalizar Cadastro</button>
+      </form>
+
+      <div id="msg-auth" style="margin-top: 15px; font-weight: bold; font-size: 0.9rem;"></div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
+  <a href="https://wa.me/5554992026684?text=Olá! Gostaria de saber mais sobre o empréstimo da AzulCrédito." 
+   class="whatsapp-fixed" 
+   target="_blank">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+    <span class="tooltip-whatsapp">Fale Conosco</span>
+</a>
 </body>
 </html>
