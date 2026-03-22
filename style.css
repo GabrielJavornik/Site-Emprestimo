@@ -1,151 +1,149 @@
 /* 1. CONFIGURAÇÕES GERAIS E VARIÁVEIS */
 html { 
-  scroll-behavior: smooth; 
+    scroll-behavior: smooth; 
 }
 
 :root {
-  --primary-color: #003b5c;   /* Navy Blue profissional */
-  --secondary-color: #0078d7; /* Royal Blue */
-  --accent-color: #00a8ff;    /* Sky Blue */
-  --success-color: #2ecc71;   /* Verde Sucesso */
-  --bg-light: #f8fbff;
-  --text-main: #2c3e50;
-  --white: #ffffff;
-  --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.05);
-  --shadow-strong: 0 20px 40px rgba(0, 0, 0, 0.15);
+    --primary-color: #003b5c;   /* Navy Blue profissional */
+    --secondary-color: #0078d7; /* Royal Blue */
+    --accent-color: #00a8ff;    /* Sky Blue */
+    --success-color: #2ecc71;   /* Verde Sucesso */
+    --bg-light: #f8fbff;
+    --text-main: #2c3e50;
+    --white: #ffffff;
+    --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.05);
+    --shadow-strong: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 * { 
-  margin: 0; 
-  padding: 0; 
-  box-sizing: border-box; 
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
 }
 
 body { 
-  background: var(--bg-light); 
-  color: var(--text-main); 
-  line-height: 1.6; 
-  overflow-x: hidden;
+    background: var(--bg-light); 
+    color: var(--text-main); 
+    line-height: 1.6; 
+    overflow-x: hidden;
 }
 
 .container { 
-  width: min(1200px, 92%); 
-  margin: 0 auto; 
+    width: min(1200px, 92%); 
+    margin: 0 auto; 
 }
 
 /* 2. HEADER E NAVEGAÇÃO */
 .topo { 
-  background: var(--primary-color); 
-  padding: 1rem 0; 
-  position: sticky; 
-  top: 0; 
-  z-index: 1000; 
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+    background: var(--primary-color); 
+    padding: 1rem 0; 
+    position: sticky; 
+    top: 0; 
+    z-index: 1000; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
 }
 
 .topo .container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .logo { 
-  font-size: 1.6rem; 
-  font-weight: 800; 
-  color: var(--white); 
-  text-decoration: none;
+    font-size: 1.6rem; 
+    font-weight: 800; 
+    color: var(--white); 
+    text-decoration: none;
 }
 
 .logo span { 
-  color: var(--accent-color); 
+    color: var(--accent-color); 
 }
 
 nav {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 nav a { 
-  color: var(--white); 
-  text-decoration: none; 
-  margin-left: 1.5rem; 
-  font-weight: 500; 
-  transition: color 0.3s; 
+    color: var(--white); 
+    text-decoration: none; 
+    margin-left: 1.5rem; 
+    font-weight: 500; 
+    transition: color 0.3s; 
 }
 
 nav a:hover { 
-  color: var(--accent-color); 
+    color: var(--accent-color); 
 }
 
 .btn-login-nav {
-  background: var(--secondary-color) !important;
-  padding: 8px 18px !important;
-  border-radius: 8px;
-  font-weight: bold;
-  transition: 0.3s;
+    background: var(--secondary-color) !important;
+    padding: 8px 18px !important;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: 0.3s;
 }
 
 .btn-login-nav:hover {
-  background: var(--white) !important;
-  color: var(--primary-color) !important;
-  transform: translateY(-1px);
+    background: var(--white) !important;
+    color: var(--primary-color) !important;
+    transform: translateY(-1px);
 }
 
-/* 3. HERO SECTION (BANNER PRINCIPAL) */
+/* 3. HERO SECTION */
 .hero { 
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); 
-  color: var(--white); 
-  padding: 6rem 0; 
-  position: relative;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); 
+    color: var(--white); 
+    padding: 6rem 0; 
+    position: relative;
 }
 
 .hero-grid { 
-  display: grid; 
-  grid-template-columns: 1.2fr 0.8fr; 
-  gap: 4rem; 
-  align-items: center; 
+    display: grid; 
+    grid-template-columns: 1.2fr 0.8fr; 
+    gap: 4rem; 
+    align-items: center; 
 }
 
 .hero h1 { 
-  font-size: 3.2rem; 
-  line-height: 1.1; 
-  margin-bottom: 2rem; 
+    font-size: 3.2rem; 
+    line-height: 1.1; 
+    margin-bottom: 2rem; 
 }
 
 .hero p { 
-  font-size: 1.2rem; 
-  margin-bottom: 2.5rem; 
-  opacity: 0.9; 
+    font-size: 1.2rem; 
+    margin-bottom: 2.5rem; 
+    opacity: 0.9; 
 }
 
 .lista li { 
-  list-style: none; 
-  margin-bottom: 1rem; 
-  display: flex; 
-  align-items: center; 
-  gap: 12px; 
-  font-weight: 500; 
+    list-style: none; 
+    margin-bottom: 1rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    font-weight: 500; 
 }
 
 .lista .material-icons { 
-  color: var(--accent-color); 
+    color: var(--accent-color); 
 }
 
-/* IMAGEM DO CELULAR COM ANIMAÇÃO */
 .hero-image img {
-  width: 100%;
-  max-width: 450px;
-  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
-  animation: float 4s ease-in-out infinite;
+    width: 100%;
+    max-width: 450px;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
+    animation: float 4s ease-in-out infinite;
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-20px); }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
 }
 
-/* BOTÃO AZUL NEON */
 .btn-principal-grande {
     background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
     color: white;
@@ -160,6 +158,7 @@ nav a:hover {
     text-transform: uppercase;
     letter-spacing: 1px;
     display: inline-block;
+    text-decoration: none;
 }
 
 .btn-principal-grande:hover {
@@ -168,174 +167,175 @@ nav a:hover {
     filter: brightness(1.2);
 }
 
-/* 4. SEÇÕES DE CONTEÚDO (STATS E BENEFÍCIOS) */
+/* 4. STATS E BENEFÍCIOS */
 .secao-stats { 
-  padding: 4rem 0; 
-  background: var(--white); 
-  border-bottom: 1px solid #eee; 
+    padding: 4rem 0; 
+    background: var(--white); 
+    border-bottom: 1px solid #eee; 
 }
 
 .stats-grid { 
-  display: grid; 
-  grid-template-columns: repeat(3, 1fr); 
-  gap: 2rem; 
-  text-align: center; 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 2rem; 
+    text-align: center; 
 }
 
 .stat-item h3 { 
-  font-size: 2.5rem; 
-  color: var(--secondary-color); 
-  margin-bottom: 5px; 
+    font-size: 2.5rem; 
+    color: var(--secondary-color); 
+    margin-bottom: 5px; 
 }
 
 .stat-item p { 
-  font-weight: 600; 
-  font-size: 0.9rem; 
-  color: #7f8c8d; 
-  text-transform: uppercase; 
+    font-weight: 600; 
+    font-size: 0.9rem; 
+    color: #7f8c8d; 
+    text-transform: uppercase; 
 }
 
 .secao { padding: 6rem 0; }
 
 .beneficios-grid { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
-  gap: 2.5rem; 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+    gap: 2.5rem; 
 }
 
 .beneficio-card { 
-  background: var(--white); 
-  padding: 3rem 2rem; 
-  border-radius: 20px; 
-  text-align: center; 
-  box-shadow: var(--shadow-soft); 
-  transition: 0.4s; 
+    background: var(--white); 
+    padding: 3rem 2rem; 
+    border-radius: 20px; 
+    text-align: center; 
+    box-shadow: var(--shadow-soft); 
+    transition: 0.4s; 
 }
 
 .beneficio-card:hover { 
-  transform: translateY(-10px); 
-  box-shadow: var(--shadow-strong); 
+    transform: translateY(-10px); 
+    box-shadow: var(--shadow-strong); 
 }
 
 .beneficio-card .material-icons { 
-  font-size: 3.5rem; 
-  color: var(--secondary-color); 
-  margin-bottom: 1.5rem; 
+    font-size: 3.5rem; 
+    color: var(--secondary-color); 
+    margin-bottom: 1.5rem; 
 }
 
-/* 5. MODAL DE LOGIN E ABAS */
+/* 5. MODAL DE LOGIN (CORRIGIDO) */
 .modal {
-  display: none; 
-  position: fixed;
-  z-index: 2000;
-  left: 0; top: 0;
-  width: 100%; height: 100%;
-  background-color: rgba(0,0,0,0.7);
-  backdrop-filter: blur(5px);
+    display: none; 
+    position: fixed;
+    z-index: 2000;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0,0,0,0.7);
+    backdrop-filter: blur(5px);
+    overflow-y: auto; /* Permite rolar a tela se o modal for maior que o celular */
 }
 
 .modal-content {
-  background-color: white;
-  margin: 5% auto;
-  padding: 30px;
-  border-radius: 20px;
-  width: min(420px, 90%);
-  position: relative;
-  text-align: center;
-  box-shadow: var(--shadow-strong);
+    background-color: white;
+    margin: 2rem auto; /* Espaço do topo */
+    padding: 30px;
+    border-radius: 20px;
+    width: min(420px, 92%);
+    position: relative;
+    text-align: center;
+    box-shadow: var(--shadow-strong);
+    
+    /* CORREÇÃO PARA NÃO ESCONDER O BOTÃO */
+    max-height: 85vh; /* Limita a altura a 85% da tela */
+    overflow-y: auto; /* Cria scroll interno se necessário */
+}
+
+/* Estilização da barra de rolagem interna do modal */
+.modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-content::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
 }
 
 .modal-tabs {
-  display: flex;
-  margin-bottom: 25px;
-  border-bottom: 2px solid #eee;
+    display: flex;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #eee;
+    position: sticky; /* Mantém as abas visíveis no topo do modal */
+    top: -30px;
+    background: white;
+    z-index: 10;
+    padding-top: 10px;
 }
 
 .modal-tabs button {
-  background: none;
-  border: none;
-  color: #666;
-  padding: 12px;
-  cursor: pointer;
-  font-weight: bold;
-  flex: 1;
-  transition: 0.3s;
+    background: none;
+    border: none;
+    color: #666;
+    padding: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    flex: 1;
+    transition: 0.3s;
 }
 
 .modal-tabs button.active {
-  color: var(--secondary-color);
-  border-bottom: 3px solid var(--secondary-color);
+    color: var(--secondary-color);
+    border-bottom: 3px solid var(--secondary-color);
 }
 
 .close {
-  position: absolute;
-  right: 20px; top: 15px;
-  font-size: 28px; cursor: pointer;
-  color: #aaa;
+    position: absolute;
+    right: 20px; top: 15px;
+    font-size: 28px; cursor: pointer;
+    color: #aaa;
+    z-index: 20;
 }
 
-/* Formulários dentro do Modal */
 .campo { 
-  margin-bottom: 1.2rem; 
-  text-align: left;
+    margin-bottom: 1.2rem; 
+    text-align: left;
 }
 
 .campo label { 
-  display: block; 
-  font-size: 0.85rem; 
-  font-weight: 700; 
-  margin-bottom: 6px; 
-  color: #444; 
+    display: block; 
+    font-size: 0.85rem; 
+    font-weight: 700; 
+    margin-bottom: 6px; 
+    color: #444; 
 }
 
 .campo input { 
-  width: 100%; 
-  padding: 0.9rem; 
-  border: 1px solid #ddd; 
-  border-radius: 10px; 
-  font-size: 1rem; 
+    width: 100%; 
+    padding: 0.9rem; 
+    border: 1px solid #ddd; 
+    border-radius: 10px; 
+    font-size: 1rem; 
 }
 
 .btn-azul { 
-  background: var(--secondary-color); 
-  color: white; 
-  border: none; 
-  padding: 15px; 
-  border-radius: 10px; 
-  cursor: pointer; 
-  width: 100%; 
-  font-weight: bold; 
-  font-size: 1.1rem;
-  transition: 0.3s;
+    background: var(--secondary-color); 
+    color: white; 
+    border: none; 
+    padding: 15px; 
+    border-radius: 10px; 
+    cursor: pointer; 
+    width: 100%; 
+    font-weight: bold; 
+    font-size: 1.1rem;
+    transition: 0.3s;
+    margin-top: 10px;
 }
 
-.btn-azul:hover {
-  background: var(--primary-color);
-}
-
-/* 6. RODAPÉ */
+/* RODAPÉ E WHATSAPP */
 footer { 
-  background: var(--primary-color); 
-  color: var(--white); 
-  padding: 4rem 0; 
-  text-align: center; 
+    background: var(--primary-color); 
+    color: var(--white); 
+    padding: 4rem 0; 
+    text-align: center; 
 }
 
-/* 7. RESPONSIVIDADE */
-@media (max-width: 900px) {
-  .hero-grid { 
-    grid-template-columns: 1fr; 
-    text-align: center; 
-  }
-  .hero-image {
-    display: none; /* Esconde o celular no mobile para sobrar espaço */
-  }
-  .hero h1 { font-size: 2.6rem; }
-  .lista li { justify-content: center; }
-  .stats-grid { grid-template-columns: 1fr; gap: 2rem; }
-  nav a:not(.btn-login-nav) { display: none; } 
-}
-/* WhatsApp Flutuante */
 .whatsapp-fixed {
     position: fixed;
     bottom: 30px;
@@ -354,39 +354,21 @@ footer {
 }
 
 .whatsapp-fixed img {
-    width: 35px;
-    height: 35px;
+    width: 35px; height: 35px;
 }
 
-.whatsapp-fixed:hover {
-    transform: scale(1.1);
-    background-color: #1ebe57;
-}
-
-/* Balão de texto que aparece ao passar o mouse */
-.tooltip-whatsapp {
-    position: absolute;
-    right: 75px;
-    background: #333;
-    color: white;
-    padding: 8px 15px;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    white-space: nowrap;
-    visibility: hidden;
-    opacity: 0;
-    transition: 0.3s;
-}
-
-.whatsapp-fixed:hover .tooltip-whatsapp {
-    visibility: visible;
-    opacity: 1;
-}
-
-/* Animação de Pulso */
 @keyframes pulse-whatsapp {
     0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
     70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
     100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+@media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; text-align: center; }
+    .hero-image { display: none; }
+    .hero h1 { font-size: 2.3rem; }
+    .lista li { justify-content: center; }
+    .stats-grid { grid-template-columns: 1fr; }
+    nav a:not(.btn-login-nav) { display: none; }
+    .modal-content { margin: 10% auto; }
 }

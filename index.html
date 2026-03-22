@@ -128,12 +128,27 @@
           <input type="password" id="login-senha" placeholder="Sua senha" required>
         </div>
         <button type="submit" class="btn-azul">Entrar na AzulCrédito</button>
+        
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="javascript:void(0)" onclick="esqueciSenha()" 
+               style="font-size: 0.85rem; color: #3a7bd5; text-decoration: none; font-weight: bold;">
+               Esqueci minha senha
+            </a>
+        </div>
       </form>
 
       <form id="form-cadastro" style="display: none;">
         <div class="campo">
           <label>Nome Completo</label>
           <input type="text" id="cad-nome" placeholder="Seu nome" required>
+        </div>
+        <div class="campo">
+          <label>E-mail</label>
+          <input type="email" id="cad-email" placeholder="seu@email.com" required>
+        </div>
+        <div class="campo">
+          <label>WhatsApp (DDD + Número)</label>
+          <input type="text" id="cad-whatsapp" placeholder="Ex: 54999999999" required>
         </div>
         <div class="campo">
           <label>CPF</label>
@@ -143,6 +158,14 @@
           <label>Criar Senha</label>
           <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres" required>
         </div>
+        
+        <div style="display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; text-align: left;">
+            <input type="checkbox" id="cad-termos" required style="width: auto; margin-top: 4px;">
+            <label style="font-size: 0.75rem; color: #666; line-height: 1.2;">
+                Li e aceito os <a href="javascript:void(0)" onclick="mostrarTermos()" style="color: #3a7bd5; text-decoration: underline;">Termos de Uso e Política de Privacidade</a>.
+            </label>
+        </div>
+
         <button type="submit" class="btn-azul">Finalizar Cadastro</button>
       </form>
 
@@ -151,11 +174,39 @@
   </div>
 
   <script src="script.js"></script>
+  
+  <script>
+    function mostrarTermos() {
+        alert("TERMOS DE USO AZULCRÉDITO\n\n1. O usuário autoriza a análise dos dados para fins de crédito.\n2. Não solicitamos pagamentos antecipados em nenhuma hipótese.\n3. Os dados de contato (E-mail/WhatsApp) serão usados para notificações de aprovação.");
+    }
+
+    async function esqueciSenha() {
+        const cpf = prompt("Digite seu CPF (somente números) para recuperar a senha:");
+        if (!cpf) return;
+        const novaSenha = prompt("Digite sua NOVA senha:");
+        if (!novaSenha) { alert("A senha não pode estar vazia."); return; }
+
+        try {
+            const res = await fetch('/recuperar-senha', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cpf, novaSenha })
+            });
+            const dados = await res.json();
+            if (dados.ok) {
+                alert("Senha alterada com sucesso!");
+            } else {
+                alert("CPF não encontrado.");
+            }
+        } catch (e) { alert("Erro na conexão."); }
+    }
+  </script>
+
   <a href="https://wa.me/5554992026684?text=Olá! Gostaria de saber mais sobre o empréstimo da AzulCrédito." 
-   class="whatsapp-fixed" 
-   target="_blank">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
-    <span class="tooltip-whatsapp">Fale Conosco</span>
-</a>
+     class="whatsapp-fixed" 
+     target="_blank">
+     <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+     <span class="tooltip-whatsapp">Fale Conosco</span>
+  </a>
 </body>
 </html>
