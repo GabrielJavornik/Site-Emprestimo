@@ -80,6 +80,37 @@ function validaCPF(cpf) {
 }
 
 /**
+ * 3. FAQ INTERATIVO
+ */
+window.addEventListener('load', () => {
+    const faqs = [
+        { q: 'Qual é o valor máximo que posso solicitar?', a: 'O valor máximo é R$ 20.000.' },
+        { q: 'Qual é o prazo máximo de parcelamento?', a: 'Você pode parcelar em até 24 meses.' },
+        { q: 'Quanto tempo leva para aprovar?', a: 'A aprovação leva em média 24-48 horas.' },
+        { q: 'Preciso de renda comprovada?', a: 'Sim, precisa de contracheque ou extrato.' },
+        { q: 'Vocês cobram taxa de antecipação?', a: 'Não! Zero taxa antecipada.' },
+        { q: 'Como recebo o dinheiro?', a: 'Via PIX direto em sua conta.' }
+    ];
+
+    const container = document.getElementById('faq-container');
+    if (container) {
+        let html = '';
+        faqs.forEach((item, i) => {
+            html += `
+                <div style="margin-bottom:15px;background:white;padding:15px;border-radius:8px;border-left:4px solid #0078d7;">
+                    <div style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="document.getElementById('resp-${i}').style.display = document.getElementById('resp-${i}').style.display === 'none' ? 'block' : 'none';">
+                        <strong style="color:#1e3c72;">❓ ${item.q}</strong>
+                        <span style="color:#0078d7;">▼</span>
+                    </div>
+                    <p id="resp-${i}" style="margin:10px 0 0 0;color:#555;display:none;padding-top:10px;border-top:1px solid #eee;">✅ ${item.a}</p>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+});
+
+/**
  * 3. EVENTOS DE FORMULÁRIO
  */
 
@@ -125,7 +156,7 @@ if (form) {
     });
 }
 
-// --- LOGIN (ATUALIZADO COM REDIRECIONAMENTO SEGURO) ---
+// --- LOGIN COM VALIDAÇÃO DE EMAIL ---
 const formLogin = document.getElementById('form-login');
 if (formLogin) {
     formLogin.addEventListener('submit', async function(e) {
@@ -148,25 +179,26 @@ if (formLogin) {
             if (json.ok) {
                 msg.style.color = "#2ecc71";
                 msg.innerText = `✅ Bem-vindo! Redirecionando...`;
-                
-                // MUDANÇA AQUI: Agora redirecionamos apenas para /simulacoes
-                // O servidor saberá quem você é através da sessão (cookie)
                 setTimeout(() => { window.location.href = '/simulacoes'; }, 1500);
             } else {
                 msg.style.color = "#e74c3c";
-                msg.innerText = "❌ Usuário ou senha incorretos.";
+                if (json.msg === 'Email não confirmado. Verifique sua caixa de entrada!') {
+                    msg.innerText = "⚠️ " + json.msg;
+                } else {
+                    msg.innerText = "❌ Usuário ou senha incorretos.";
+                }
             }
         } catch (err) { msg.innerText = "Erro de conexão."; }
     });
 }
 
-// --- CADASTRO REAL (ATUALIZADO COM EMAIL E WHATSAPP) ---
+// --- CADASTRO COM CONFIRMAÇÃO DE EMAIL ---
 const formCad = document.getElementById('form-cadastro');
 if (formCad) {
     formCad.addEventListener('submit', async function(e) {
         e.preventDefault();
         const msg = document.getElementById('msg-auth');
-        
+
         const nome = document.getElementById('cad-nome').value;
         const email = document.getElementById('cad-email').value;
         const whatsapp = onlyDigits(document.getElementById('cad-whatsapp').value);
@@ -187,25 +219,25 @@ if (formCad) {
         try {
             msg.style.color = "orange";
             msg.innerText = "Criando sua conta...";
-            
+
             const resp = await fetch('/cadastro', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nome, email, whatsapp, cpf, senha })
             });
-            
+
             const json = await resp.json();
             if (json.ok) {
                 msg.style.color = "#2ecc71";
-                msg.innerText = "✅ Conta criada! Faça login.";
-                setTimeout(() => switchTab('login'), 2000);
+                msg.innerText = "✅ Conta criada! Verifique seu email para confirmar.";
+                setTimeout(() => switchTab('login'), 3000);
             } else {
                 msg.style.color = "#e74c3c";
                 msg.innerText = "❌ Erro: CPF ou E-mail já cadastrado.";
             }
-        } catch (err) { 
+        } catch (err) {
             msg.style.color = "#e74c3c";
-            msg.innerText = "Erro ao conectar com o servidor."; 
+            msg.innerText = "Erro ao conectar com o servidor.";
         }
     });
 }

@@ -12,6 +12,7 @@
   "author": "Gabriel",
   "license": "MIT",
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "bcrypt": "^6.0.0",
     "express": "^5.2.1",
     "express-basic-auth": "^1.2.1",

@@ -90,6 +90,13 @@
     </div>
   </section>
 
+  <section id="faq" class="secao">
+    <div class="container">
+      <h2 style="text-align:center; margin-bottom: 3rem; color: var(--primary-color);">❓ Dúvidas Frequentes</h2>
+      <div id="faq-container" style="max-width:700px;margin:0 auto;"></div>
+    </div>
+  </section>
+
   <section class="secao-alerta">
     <div class="container">
       <div class="alerta-box">
@@ -181,24 +188,37 @@
     }
 
     async function esqueciSenha() {
-        const cpf = prompt("Digite seu CPF (somente números) para recuperar a senha:");
-        if (!cpf) return;
-        const novaSenha = prompt("Digite sua NOVA senha:");
-        if (!novaSenha) { alert("A senha não pode estar vazia."); return; }
+        const cpfRaw = prompt("Digite seu CPF:");
+        if (!cpfRaw) return;
+
+        const cpf = cpfRaw.replace(/\D/g, '');
+
+        if (cpf.length !== 11) {
+            alert("❌ CPF deve ter 11 números!");
+            return;
+        }
 
         try {
-            const res = await fetch('/recuperar-senha', {
+            console.log('📤 Enviando CPF:', cpf);
+            const res = await fetch('/solicitar-reset-senha', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cpf, novaSenha })
+                body: JSON.stringify({ cpf })
             });
+
+            console.log('📥 Resposta:', res.status);
             const dados = await res.json();
+            console.log('📋 Dados:', dados);
+
             if (dados.ok) {
-                alert("Senha alterada com sucesso!");
+                alert("✅ Email enviado! Verifique inbox.");
             } else {
-                alert("CPF não encontrado.");
+                alert("❌ CPF não encontrado.");
             }
-        } catch (e) { alert("Erro na conexão."); }
+        } catch (e) {
+            console.error('❌ Erro:', e);
+            alert("❌ Erro ao conectar.");
+        }
     }
   </script>
 

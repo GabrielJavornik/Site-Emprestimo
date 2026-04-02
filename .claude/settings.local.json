@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm list:*)",
+      "Bash(grep -l \"PAGAMENTOS\" *.sql)",
+      "Bash(ls -la *.sql)",
+      "Bash(psql -U postgres -h localhost -d site_emprestimo -f setup-banco.sql)",
+      "Bash(timeout 10 node server.js)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(timeout 5 node server.js)"
+    ]
+  }
+}

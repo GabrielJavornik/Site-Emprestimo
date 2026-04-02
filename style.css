@@ -7,7 +7,7 @@ html {
     --primary-color: #003b5c;   /* Navy Blue profissional */
     --secondary-color: #0078d7; /* Royal Blue */
     --accent-color: #00a8ff;    /* Sky Blue */
-    --success-color: #2ecc71;   /* Verde Sucesso */
+    --success-color: #25d366;   /* Verde WhatsApp */
     --bg-light: #f8fbff;
     --text-main: #2c3e50;
     --white: #ffffff;
@@ -35,13 +35,42 @@ body {
 }
 
 /* 2. HEADER E NAVEGAÇÃO */
-.topo { 
-    background: var(--primary-color); 
-    padding: 1rem 0; 
-    position: sticky; 
-    top: 0; 
-    z-index: 1000; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+.topo {
+    background: var(--primary-color);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Header padrão para painel cliente e admin */
+.header {
+    background: #1e3c72;
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.header a[href="/sair"] {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.header a[href="/sair"]:hover {
+    background: white;
+    color: #1e3c72;
 }
 
 .topo .container {
@@ -222,7 +251,7 @@ nav a:hover {
     margin-bottom: 1.5rem; 
 }
 
-/* 5. MODAL DE LOGIN (CORRIGIDO) */
+/* 5. MODAL DE LOGIN E CADASTRO */
 .modal {
     display: none; 
     position: fixed;
@@ -231,52 +260,39 @@ nav a:hover {
     width: 100%; height: 100%;
     background-color: rgba(0,0,0,0.7);
     backdrop-filter: blur(5px);
-    overflow-y: auto; /* Permite rolar a tela se o modal for maior que o celular */
 }
 
 .modal-content {
     background-color: white;
-    margin: 2rem auto; /* Espaço do topo */
+    margin: 5vh auto; 
     padding: 30px;
-    border-radius: 20px;
-    width: min(420px, 92%);
+    border-radius: 24px;
+    width: min(450px, 92%);
     position: relative;
-    text-align: center;
     box-shadow: var(--shadow-strong);
-    
-    /* CORREÇÃO PARA NÃO ESCONDER O BOTÃO */
-    max-height: 85vh; /* Limita a altura a 85% da tela */
-    overflow-y: auto; /* Cria scroll interno se necessário */
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
-/* Estilização da barra de rolagem interna do modal */
-.modal-content::-webkit-scrollbar {
-    width: 6px;
-}
-.modal-content::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 10px;
-}
+/* Scrollbar personalizada para o modal */
+.modal-content::-webkit-scrollbar { width: 6px; }
+.modal-content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
 
 .modal-tabs {
     display: flex;
     margin-bottom: 25px;
-    border-bottom: 2px solid #eee;
-    position: sticky; /* Mantém as abas visíveis no topo do modal */
-    top: -30px;
-    background: white;
-    z-index: 10;
-    padding-top: 10px;
+    border-bottom: 2px solid #f0f0f0;
 }
 
 .modal-tabs button {
     background: none;
     border: none;
-    color: #666;
-    padding: 12px;
+    color: #999;
+    padding: 15px;
     cursor: pointer;
     font-weight: bold;
     flex: 1;
+    font-size: 1rem;
     transition: 0.3s;
 }
 
@@ -289,9 +305,10 @@ nav a:hover {
     position: absolute;
     right: 20px; top: 15px;
     font-size: 28px; cursor: pointer;
-    color: #aaa;
-    z-index: 20;
+    color: #bbb;
+    transition: 0.3s;
 }
+.close:hover { color: #333; }
 
 .campo { 
     margin-bottom: 1.2rem; 
@@ -302,73 +319,153 @@ nav a:hover {
     display: block; 
     font-size: 0.85rem; 
     font-weight: 700; 
-    margin-bottom: 6px; 
-    color: #444; 
+    margin-bottom: 8px; 
+    color: #555; 
 }
 
 .campo input { 
     width: 100%; 
-    padding: 0.9rem; 
-    border: 1px solid #ddd; 
-    border-radius: 10px; 
+    padding: 1rem; 
+    border: 2px solid #f0f0f0; 
+    border-radius: 12px; 
     font-size: 1rem; 
+    transition: 0.3s;
+}
+
+.campo input:focus {
+    border-color: var(--secondary-color);
+    outline: none;
+    background: #fff;
 }
 
 .btn-azul { 
     background: var(--secondary-color); 
     color: white; 
     border: none; 
-    padding: 15px; 
-    border-radius: 10px; 
+    padding: 18px; 
+    border-radius: 12px; 
     cursor: pointer; 
     width: 100%; 
     font-weight: bold; 
     font-size: 1.1rem;
     transition: 0.3s;
     margin-top: 10px;
+    box-shadow: 0 8px 15px rgba(0, 120, 215, 0.2);
 }
 
-/* RODAPÉ E WHATSAPP */
-footer { 
-    background: var(--primary-color); 
-    color: var(--white); 
-    padding: 4rem 0; 
-    text-align: center; 
+.btn-azul:hover {
+    background: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px rgba(0, 120, 215, 0.3);
 }
 
+/* 6. WHATSAPP FIXO - BOTÃO FLUTUANTE */
 .whatsapp-fixed {
     position: fixed;
     bottom: 30px;
     right: 30px;
-    width: 60px;
-    height: 60px;
+    width: 65px;
+    height: 65px;
     background-color: #25d366;
-    border-radius: 50px;
+    border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+    box-shadow: 0 10px 25px rgba(37, 211, 102, 0.5);
     z-index: 9999;
-    transition: 0.3s;
-    animation: pulse-whatsapp 2s infinite;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+    border: none;
+    padding: 0;
 }
 
 .whatsapp-fixed img {
-    width: 35px; height: 35px;
+    width: 38px;
+    height: 38px;
+    pointer-events: none;
 }
 
-@keyframes pulse-whatsapp {
-    0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
-    70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+.whatsapp-fixed:hover {
+    transform: scale(1.15) rotate(10deg);
+    box-shadow: 0 15px 35px rgba(37, 211, 102, 0.7);
 }
 
+.tooltip-whatsapp {
+    position: absolute;
+    bottom: 85px;
+    right: 0;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.whatsapp-fixed:hover .tooltip-whatsapp {
+    opacity: 1;
+}
+
+/* 7. FAQ INTERATIVO */
+#faq {
+    background: #f8fbff;
+}
+
+#faq-container > div {
+    margin-bottom: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    border-left: 5px solid #0078d7;
+    overflow: visible !important;
+    transition: 0.3s;
+}
+
+#faq-container > div:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+#faq-container h4 {
+    margin: 0;
+    color: #1e3c72;
+    font-weight: bold;
+}
+
+#faq-container p {
+    margin: 15px 0 0 0;
+    color: #666;
+    line-height: 1.6;
+    font-size: 1rem;
+    display: none;
+}
+
+#faq-container p[style*="display: block"] {
+    display: block !important;
+}
+
+/* 7. RODAPÉ */
+footer {
+    background: var(--primary-color);
+    color: var(--white);
+    padding: 4rem 0;
+    text-align: center;
+}
+
+/* 8. RESPONSIVIDADE */
 @media (max-width: 900px) {
     .hero-grid { grid-template-columns: 1fr; text-align: center; }
     .hero-image { display: none; }
-    .hero h1 { font-size: 2.3rem; }
+    .hero h1 { font-size: 2.5rem; }
     .lista li { justify-content: center; }
-    .stats-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr; gap: 3rem; }
     nav a:not(.btn-login-nav) { display: none; }
-    .modal-content { margin: 10% auto; }
+    .topo .container { justify-content: center; flex-direction: column; gap: 15px; }
+    .modal-content { margin: 2vh auto; width: 95%; }
+    .whatsapp-fixed { bottom: 20px; right: 20px; width: 60px; height: 60px; }
+    .whatsapp-fixed img { width: 35px; height: 35px; }
+    .tooltip-whatsapp { bottom: 80px; font-size: 0.75rem; }
 }
