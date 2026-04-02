@@ -316,6 +316,12 @@ app.get('/simulacoes', async (req, res) => {
     const cpf = req.session.userCpf;
     try {
         const result = await pool.query('SELECT * FROM SIMULACOES WHERE CPF = $1 ORDER BY CRIADO_EM DESC', [cpf]);
+
+        // Fetch total paid for each simulation
+        const pagamentosPromises = result.rows.map(r =>
+            pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [r.id])
+        );
+        const pagamentosResults = await Promise.all(pagamentosPromises);
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Painel AzulCrédito</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script><style>
             body{font-family:"Segoe UI",sans-serif;background:#f4f7fa;margin:0;padding:0;}
             .header{background:#1e3c72;color:white;padding:15px 30px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
@@ -337,8 +343,12 @@ app.get('/simulacoes', async (req, res) => {
             <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#1e3c72; font-weight:bold;">R$ 0,00</span><br><small>*Incluso taxa de 5% por parcela</small></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:15px;"><div><label>FOTO ID</label><input type="file" name="doc_id" required></div><div><label>RENDA</label><input type="file" name="doc_renda" required></div></div>
             <button type="submit" class="btn-blue">SOLICITAR CRÉDITO</button></form></div>
-            <div class="card"><h3>📋 Meu Histórico</h3><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
-            ${result.rows.map(r => `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${formatarMoeda(r.total)}</td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td><button class="btn-pdf" onclick="gerarPDF(${r.id}, '${r.nome}', '${formatarMoeda(r.valor)}', '${formatarMoeda(r.total)}', '${r.status}', '${new Date(r.criado_em).toLocaleDateString()}')">📥 PDF</button><button class="btn-pdf" style="background:#27ae60;margin-left:5px;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`).join('')}
+            <div class="card"><h3>📋 Meu Histórico</h3><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PAGO</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
+            ${result.rows.map((r, idx) => {
+                const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
+                const percentualPago = ((totalPago / parseFloat(r.total)) * 100).toFixed(1);
+                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${formatarMoeda(r.total)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td><button class="btn-pdf" onclick="gerarPDF(${r.id}, '${r.nome}', '${formatarMoeda(r.valor)}', '${formatarMoeda(r.total)}', '${r.status}', '${new Date(r.criado_em).toLocaleDateString()}')">📥 PDF</button><button class="btn-pdf" style="background:#27ae60;margin-left:5px;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
+            }).join('')}
             </tbody></table></div></div>
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
                 <div style="background:white;padding:30px;border-radius:15px;width:min(600px,90%);margin:30px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
@@ -576,14 +586,22 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             </div>
 
             <h2 style="color:#1e3c72;margin-bottom:20px;">👥 Gerenciar Propostas</h2>` +
-            Object.keys(perfis).map(cpf => {
+            (await Promise.all(Object.keys(perfis).map(async cpf => {
                 const p = perfis[cpf];
-                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small></div><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
-                p.pedidos.map(ped => {
+                // Fetch payment totals for each proposal
+                const pagamentosPromises = p.pedidos.map(ped =>
+                    pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [ped.id])
+                );
+                const pagamentosResults = await Promise.all(pagamentosPromises);
+
+                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small></div><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PAGO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
+                p.pedidos.map((ped, idx) => {
                     const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : 'st-analise');
-                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(ped.total)}</td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}"><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')">OK</button><button style="background:#27ae60;margin-left:5px;" onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Pagamento</button></td></tr>`;
+                    const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
+                    const percentualPago = ((totalPago / parseFloat(ped.total)) * 100).toFixed(1);
+                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(ped.total)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}"><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')">OK</button><button style="background:#27ae60;margin-left:5px;" onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Pagamento</button></td></tr>`;
                 }).join('') + '</tbody></table></div>';
-            }).join('') +
+            }))).join('') +
             `<div id="modalPagamento" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
                 <div style="background:white;padding:30px;border-radius:15px;width:min(400px,90%);box-shadow:0 10px 40px rgba(0,0,0,0.2);">
                     <h3 style="margin-top:0;color:#1e3c72;">Registrar Pagamento</h3>
