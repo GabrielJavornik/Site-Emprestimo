@@ -385,7 +385,23 @@ app.get('/simulacoes', async (req, res) => {
                     }
                 }
                 const vM=document.getElementById("v_mask"), vR=document.getElementById("v_real"), pI=document.getElementById("parcelas"), res=document.getElementById("resumo"), txt=document.getElementById("total-txt");
-                function calc(){ const val=parseFloat(vR.value)||0; const par=parseInt(pI.value)||0; if(val>0 && par>0){ const tot=val+(val*0.05*par); txt.innerText=tot.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); res.style.display="block"; }else{res.style.display="none";}}
+                function calc(){
+                    const val=parseFloat(vR.value)||0;
+                    const par=parseInt(pI.value)||0;
+                    if(val>0 && par>0){
+                        const tot=val+(val*0.05*par);
+                        const valorParcela=tot/par;
+                        txt.innerHTML=\`<div style="margin-bottom:15px;"><strong>📊 Resumo da Simulação</strong></div>
+                        <div style="margin-bottom:10px;padding:10px;background:#fff9e6;border-radius:8px;">
+                            <div style="margin:8px 0;"><strong>Você pediu:</strong> R$ \${val.toFixed(2).replace('.',',')}</div>
+                            <div style="margin:8px 0;"><strong>Parcelas:</strong> \${par}x</div>
+                            <div style="margin:8px 0;"><strong>Taxa:</strong> 5% por parcela</div>
+                            <div style="margin:8px 0;border-top:1px solid #ddd;padding-top:10px;"><strong>Valor de cada parcela:</strong> <span style="font-size:1.1rem;color:#1e3c72;font-weight:bold;">R$ \${valorParcela.toFixed(2).replace('.',',')}</span></div>
+                            <div style="margin:8px 0;border-top:1px solid #ddd;padding-top:10px;"><strong>Total a pagar:</strong> <span style="font-size:1.3rem;color:#2ecc71;font-weight:bold;">R$ \${tot.toFixed(2).replace('.',',')}</span></div>
+                        </div>\`;
+                        res.style.display="block";
+                    }else{res.style.display="none";}
+                }
                 vM.addEventListener("input",(e)=>{let v=e.target.value.replace(/\\D/g,"");if(parseInt(v)>2000000)v="2000000";v=(Number(v)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});e.target.value=v;vR.value=Number(e.target.value.replace(/\\D/g,""))/100; calc();});
                 pI.addEventListener("input", calc);
 
