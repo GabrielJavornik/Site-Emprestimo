@@ -161,11 +161,45 @@
           <label>CPF</label>
           <input type="text" id="cad-cpf" placeholder="000.000.000-00" required>
         </div>
-        <div class="campo">
+
+        <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
+          <h4 style="margin: 0 0 10px 0; color: #1e3c72; font-size: 0.9rem;">📍 Endereço (Opcional)</h4>
+          <div class="campo">
+            <label>CEP</label>
+            <input type="text" id="cad-cep" placeholder="00000-000" maxlength="9">
+            <small style="color: #666; font-size: 0.8rem; margin-top: 4px; display: block;">Deixe em branco para preencher depois</small>
+          </div>
+          <div class="campo">
+            <label>Rua</label>
+            <input type="text" id="cad-rua" placeholder="Rua/Avenida" readonly style="background:#f5f5f5;">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="campo">
+              <label>Bairro</label>
+              <input type="text" id="cad-bairro" placeholder="Bairro" readonly style="background:#f5f5f5;">
+            </div>
+            <div class="campo">
+              <label>Cidade</label>
+              <input type="text" id="cad-cidade" placeholder="Cidade" readonly style="background:#f5f5f5;">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="campo">
+              <label>Estado</label>
+              <input type="text" id="cad-estado" placeholder="UF" readonly style="background:#f5f5f5; text-transform:uppercase;" maxlength="2">
+            </div>
+            <div class="campo">
+              <label>Número</label>
+              <input type="text" id="cad-numero" placeholder="123">
+            </div>
+          </div>
+        </div>
+
+        <div class="campo" style="margin-top: 15px;">
           <label>Criar Senha</label>
           <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres" required>
         </div>
-        
+
         <div style="display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; text-align: left;">
             <input type="checkbox" id="cad-termos" required style="width: auto; margin-top: 4px;">
             <label style="font-size: 0.75rem; color: #666; line-height: 1.2;">

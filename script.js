@@ -24,7 +24,37 @@ function formatMoeda(value) {
     return v;
 }
 
-// Ouvinte para formatar CPF e Moeda em tempo real
+// MÁSCARA DE CEP (00000-000)
+function formatCEP(value) {
+    const d = onlyDigits(value).slice(0, 8);
+    return d.replace(/(\d{5})(\d{3})/, '$1-$2').replace(/-$/, '');
+}
+
+// BUSCAR ENDEREÇO VIA CEP (ViaCEP)
+async function buscarCEP(cep) {
+    const cepLimpo = onlyDigits(cep);
+    if (cepLimpo.length !== 8) return;
+
+    try {
+        const resp = await fetch(`/api/cep/${cepLimpo}`);
+        const data = await resp.json();
+
+        if (data.ok) {
+            document.getElementById('cad-rua').value = data.rua || '';
+            document.getElementById('cad-bairro').value = data.bairro || '';
+            document.getElementById('cad-cidade').value = data.cidade || '';
+            document.getElementById('cad-estado').value = data.estado || '';
+            document.getElementById('cad-numero').focus();
+        } else {
+            alert('⚠️ ' + data.msg);
+        }
+    } catch (e) {
+        console.error('❌ Erro ao buscar CEP:', e);
+        alert('❌ Erro ao buscar endereço');
+    }
+}
+
+// Ouvinte para formatar CPF, CEP e Moeda em tempo real
 document.addEventListener('input', (e) => {
     // Formata campos de CPF baseando-se no placeholder ou ID
     if (e.target.id.includes('cpf') || (e.target.placeholder && e.target.placeholder.includes('000.000.000-00'))) {
@@ -34,7 +64,18 @@ document.addEventListener('input', (e) => {
     if (e.target.id === 'v' || e.target.name === 'valor' || e.target.id === 'valor' || e.target.id === 'v_mask') {
         e.target.value = formatMoeda(e.target.value);
     }
+    // Formata campo de CEP
+    if (e.target.id.includes('cep') || (e.target.placeholder && e.target.placeholder.includes('00000-000'))) {
+        e.target.value = formatCEP(e.target.value);
+    }
 });
+
+// Ouvinte para buscar endereço ao sair do campo de CEP
+document.addEventListener('blur', (e) => {
+    if (e.target.id === 'cad-cep' && e.target.value.length === 9) {
+        buscarCEP(e.target.value);
+    }
+}, true);
 
 function abrirModal() { 
     document.getElementById('modalLogin').style.display = "block"; 
@@ -206,6 +247,14 @@ if (formCad) {
         const senha = document.getElementById('cad-senha').value;
         const aceitoTermos = document.getElementById('cad-termos').checked;
 
+        // Campos de endereço (opcionais)
+        const cep = document.getElementById('cad-cep').value;
+        const rua = document.getElementById('cad-rua').value;
+        const bairro = document.getElementById('cad-bairro').value;
+        const cidade = document.getElementById('cad-cidade').value;
+        const estado = document.getElementById('cad-estado').value;
+        const numero_casa = document.getElementById('cad-numero').value;
+
         if (!aceitoTermos) {
             alert("Você precisa aceitar os termos de uso.");
             return;
@@ -228,7 +277,7 @@ if (formCad) {
             const resp = await fetch('/cadastro', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nome, email, whatsapp, cpf, senha })
+                body: JSON.stringify({ nome, email, whatsapp, cpf, senha, cep, rua, bairro, cidade, estado, numero_casa })
             });
 
             const json = await resp.json();
