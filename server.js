@@ -7,6 +7,7 @@ const session = require('express-session');
 const sgMail = require('@sendgrid/mail');
 const fs = require('fs');
 const { MercadoPagoConfig, Payment } = require('mercadopago');
+const cron = require('node-cron');
 
 const app = express();
 const PORT = 8080;
@@ -154,6 +155,139 @@ async function enviarEmailQuitado(dest, nome) {
     }
 }
 
+// --- LEMBRETES DE VENCIMENTO ---
+async function enviarEmailLembrete(dest, nome, valorParcela, dataVencimento) {
+    console.log('\n📧 [LEMBRETE] Enviando para:', dest);
+    try {
+        const dataFormatada = new Date(dataVencimento + 'T12:00:00').toLocaleDateString('pt-BR');
+        await sgMail.send({
+            to: dest,
+            from: `AzulCrédito <${EMAIL_REMETENTE}>`,
+            subject: '⚠️ Lembrete: Sua Parcela Vence em 3 Dias!',
+            html: `<div style="font-family:sans-serif;color:#333;max-width:500px;border:2px solid #f39c12;padding:25px;border-radius:15px;background-color:#fffaf0;">
+                    <h2 style="color:#e67e22;">⚠️ Olá, ${nome}!</h2>
+                    <p>Sua próxima parcela vence em <strong>3 dias</strong>.</p>
+                    <div style="background:#fff3cd;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #f39c12;">
+                        <p style="margin:0;"><strong>📅 Data de Vencimento:</strong> ${dataFormatada}</p>
+                        <p style="margin:5px 0 0 0;"><strong>💰 Valor:</strong> R$ ${parseFloat(valorParcela).toFixed(2).replace('.',',')}</p>
+                    </div>
+                    <p>Evite juros e atrasos. Pague até a data de vencimento.</p>
+                    <p style="font-size:0.9rem;color:#666;margin-top:20px;">Equipe AzulCrédito</p>
+                    </div>`
+        });
+        console.log('✅ Email de lembrete enviado com sucesso!');
+    } catch (e) {
+        console.error('❌ Erro ao enviar email de lembrete:', e.response?.body || e.message);
+    }
+}
+
+async function enviarWhatsAppLembrete(numero, nome, valorParcela, dataVencimento) {
+    try {
+        const dataFormatada = new Date(dataVencimento + 'T12:00:00').toLocaleDateString('pt-BR');
+        const msg = `Olá ${nome}! ⚠️ Sua parcela de R$ ${parseFloat(valorParcela).toFixed(2).replace('.',',')} vence em 3 dias (${dataFormatada}). Pague para evitar juros - AzulCrédito`;
+        const numLimpo = numero.replace(/\D/g, '');
+
+        // Por agora: logar a mensagem que seria enviada (pode ser integrado com CallMeBot ou Twilio depois)
+        console.log(`📱 WhatsApp para ${numLimpo}: ${msg}`);
+
+        // TODO: Integrar com CallMeBot ou outra API de WhatsApp
+        // const url = `https://api.callmebot.com/whatsapp.php?phone=55${numLimpo}&text=${encodeURIComponent(msg)}&apikey=SEU_API_KEY`;
+        // await fetch(url);
+    } catch (err) {
+        console.error('❌ Erro ao processar WhatsApp:', err.message);
+    }
+}
+
+// Função principal para verificar vencimentos
+async function verificarVencimentos() {
+    try {
+        console.log('🔍 Verificando vencimentos de parcelas...');
+
+        // Buscar todas as propostas PAGO (aprovadas) que não foram quitadas
+        const sims = await pool.query(`
+            SELECT * FROM SIMULACOES
+            WHERE status = 'PAGO' AND aprovado_em IS NOT NULL
+            ORDER BY id DESC
+        `);
+
+        if (sims.rows.length === 0) {
+            console.log('✅ Nenhuma proposta ativa para verificar');
+            return;
+        }
+
+        const hoje = new Date();
+        const em3Dias = new Date();
+        em3Dias.setDate(hoje.getDate() + 3);
+        const em3DiasStr = em3Dias.toISOString().split('T')[0]; // YYYY-MM-DD
+
+        for (const sim of sims.rows) {
+            // Contar parcelas já pagas
+            const pagoResult = await pool.query(
+                'SELECT COUNT(*) as qtd FROM PAGAMENTOS WHERE simulacao_id = $1 AND status = $2',
+                [sim.id, 'CONFIRMADO']
+            );
+            const parcPagas = parseInt(pagoResult.rows[0].qtd || 0);
+            const parcTotal = parseInt(sim.parcelas);
+
+            // Se todas as parcelas foram pagas, pular
+            if (parcPagas >= parcTotal) {
+                console.log(`✅ Simulação ${sim.id} (${sim.nome}) já foi totalmente quitada`);
+                continue;
+            }
+
+            // Calcular próximo vencimento: aprovado_em + (parcPagas + 1) * 30 dias
+            const aprovadoEm = new Date(sim.aprovado_em);
+            const proximoVencimento = new Date(aprovadoEm);
+            proximoVencimento.setDate(aprovadoEm.getDate() + ((parcPagas + 1) * 30));
+            const vencStr = proximoVencimento.toISOString().split('T')[0];
+
+            // Verificar se faltam exatamente 3 dias para este vencimento
+            if (vencStr !== em3DiasStr) {
+                continue;
+            }
+
+            // Verificar se email já foi enviado para este vencimento
+            const jaEnviado = await pool.query(
+                'SELECT id FROM LEMBRETES_ENVIADOS WHERE simulacao_id=$1 AND data_vencimento=$2 AND tipo=$3',
+                [sim.id, vencStr, 'EMAIL']
+            );
+
+            if (jaEnviado.rows.length > 0) {
+                console.log(`⏭️ Lembrete para simulação ${sim.id} já foi enviado`);
+                continue;
+            }
+
+            console.log(`📧 Enviando lembrete para simulação ${sim.id} (${sim.nome})`);
+
+            // Enviar email
+            if (sim.email) {
+                await enviarEmailLembrete(sim.email, sim.nome, sim.valor_parcela, vencStr);
+
+                // Marcar como enviado
+                await pool.query(
+                    'INSERT INTO LEMBRETES_ENVIADOS (simulacao_id, data_vencimento, tipo) VALUES ($1, $2, $3)',
+                    [sim.id, vencStr, 'EMAIL']
+                );
+            }
+
+            // Enviar WhatsApp
+            if (sim.whatsapp) {
+                await enviarWhatsAppLembrete(sim.whatsapp, sim.nome, sim.valor_parcela, vencStr);
+
+                // Marcar como enviado
+                await pool.query(
+                    'INSERT INTO LEMBRETES_ENVIADOS (simulacao_id, data_vencimento, tipo) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+                    [sim.id, vencStr, 'WHATSAPP']
+                );
+            }
+        }
+
+        console.log('✅ Verificação de vencimentos concluída');
+    } catch (err) {
+        console.error('❌ Erro ao verificar vencimentos:', err.message);
+    }
+}
+
 // --- 3. CONFIGURAÇÕES GERAIS ---
 app.use(session({ secret: 'azul-credito-segredo-2026', resave: false, saveUninitialized: false, cookie: { maxAge: 30 * 60 * 1000 } }));
 const pool = new Pool({ user: 'postgres', host: 'localhost', database: 'site_emprestimo', password: 'Chaves60.', port: 5432 });
@@ -224,6 +358,24 @@ pool.query(`
         FOREIGN KEY (pagamento_id) REFERENCES PAGAMENTOS(id) ON DELETE CASCADE
     )
 `).catch(err => console.error('⚠️ Erro ao criar tabela PAGAMENTOS_VISTOS:', err.message));
+
+// Adicionar coluna aprovado_em à tabela SIMULACOES se não existir
+pool.query(`
+    ALTER TABLE SIMULACOES ADD COLUMN IF NOT EXISTS aprovado_em TIMESTAMP
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna aprovado_em:', err.message));
+
+// Tabela para controlar lembretes enviados
+pool.query(`
+    CREATE TABLE IF NOT EXISTS LEMBRETES_ENVIADOS (
+        id SERIAL PRIMARY KEY,
+        simulacao_id INT NOT NULL,
+        data_vencimento DATE NOT NULL,
+        tipo VARCHAR(20) DEFAULT 'EMAIL',
+        enviado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(simulacao_id, data_vencimento, tipo),
+        FOREIGN KEY (simulacao_id) REFERENCES SIMULACOES(id) ON DELETE CASCADE
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela LEMBRETES_ENVIADOS:', err.message));
 
 const soNumeros = (str) => String(str || '').replace(/\D/g, '');
 const formatarMoeda = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -1762,7 +1914,13 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
     try {
         console.log('📋 Atualizando status da simulação:', { id, status });
         const cli = await pool.query('SELECT nome, email FROM SIMULACOES WHERE ID = $1', [id]);
-        await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE ID = $2', [status, id]);
+
+        // Se status é 'PAGO', salvar data de aprovação para cálculo de vencimentos
+        if (status === 'PAGO') {
+            await pool.query('UPDATE SIMULACOES SET STATUS = $1, aprovado_em = NOW() WHERE ID = $2', [status, id]);
+        } else {
+            await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE ID = $2', [status, id]);
+        }
 
         console.log('✅ Status atualizado. Email:', cli.rows[0].email);
 
@@ -2321,5 +2479,18 @@ app.post('/admin-limpar-dados', adminAuth, async (req, res) => {
         res.status(500).json({ ok: false, msg: 'Erro ao limpar dados' });
     }
 });
+
+// --- SISTEMA DE LEMBRETES AUTOMÁTICOS ---
+// Executar verificação de vencimentos todos os dias às 08:00
+cron.schedule('0 8 * * *', () => {
+    console.log('⏰ [CRON] Iniciando verificação de vencimentos...');
+    verificarVencimentos().catch(err => console.error('❌ [CRON] Erro:', err));
+});
+
+// Executar verificação uma vez na inicialização (para testes)
+setTimeout(() => {
+    console.log('⏰ [STARTUP] Executando verificação inicial de vencimentos...');
+    verificarVencimentos().catch(err => console.error('❌ [STARTUP] Erro:', err));
+}, 2000);
 
 app.listen(PORT, () => { console.log('🚀 Servidor AzulCrédito ON: http://localhost:' + PORT); });

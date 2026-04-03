@@ -16,7 +16,8 @@
       "Bash(xargs kill:*)",
       "Bash(curl -s http://localhost:8080)",
       "Bash(tee server.log)",
-      "Bash(tee server_debug.log)"
+      "Bash(tee server_debug.log)",
+      "Bash(npm install:*)"
     ],
     "additionalDirectories": [
       "\\tmp"
