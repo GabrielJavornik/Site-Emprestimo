@@ -1292,11 +1292,17 @@ app.get('/simulacoes', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM SIMULACOES WHERE CPF = $1 ORDER BY CRIADO_EM DESC', [cpf]);
 
-        // Fetch total paid for each simulation
+        // Fetch total paid and penalties for each simulation
         const pagamentosPromises = result.rows.map(r =>
-            pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [r.id])
+            pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1 AND status = $2', [r.id, 'CONFIRMADO'])
         );
-        const pagamentosResults = await Promise.all(pagamentosPromises);
+        const multasPromises = result.rows.map(r =>
+            pool.query('SELECT COUNT(*) as qtd FROM MULTAS WHERE simulacao_id = $1 AND status = $2', [r.id, 'ATIVA'])
+        );
+        const [pagamentosResults, multasResults] = await Promise.all([
+            Promise.all(pagamentosPromises),
+            Promise.all(multasPromises)
+        ]);
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Painel AzulCrédito</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script><style>
             body{font-family:"Segoe UI",sans-serif;background:#f4f7fa;margin:0;padding:0;}
             .header{background:#1e3c72;color:white;padding:15px 30px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
@@ -1321,6 +1327,7 @@ app.get('/simulacoes', async (req, res) => {
             <div class="card"><h3>📋 Meu Histórico</h3><table><thead><tr><th>DATA</th><th>VALOR</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
             ${result.rows.map((r, idx) => {
                 const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
+                const temMultaAtiva = parseInt(multasResults[idx].rows[0].qtd || 0) > 0;
                 const parcelas = parseInt(r.parcelas || 1);
                 const totalValor = parseFloat(r.total);
                 const valorMensal = totalValor / parcelas;
@@ -1328,8 +1335,9 @@ app.get('/simulacoes', async (req, res) => {
                 const parcelasRestantes = parcelas - parcelasPagas;
                 const faltaPagar = totalValor - totalPago;
                 const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
+                const alertaMulta = temMultaAtiva ? `<div style="background:#fee2e2;color:#991b1b;padding:8px 12px;border-radius:8px;font-size:0.85rem;font-weight:bold;margin-bottom:8px;border-left:3px solid #dc2626;">⚠️ Parcela(s) atrasada(s)!</div>` : '';
                 const btnPix = r.status === 'PAGO' && totalPago < totalValor ? `<button class="btn-pdf" style="background:#0066cc;margin-right:5px;" onclick="abrirModalEscolhaPagamento(${r.id}, ${valorMensal}, ${faltaPagar})">💙 Pagar PIX</button>` : '';
-                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td>${btnPix}<button class="btn-pdf" style="background:#27ae60;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
+                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td>${alertaMulta}${btnPix}<button class="btn-pdf" style="background:#27ae60;" onclick="verHistorico(${r.id})">📊 Histórico</button></td></tr>`;
             }).join('')}
             </tbody></table></div></div>
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
@@ -1398,24 +1406,30 @@ app.get('/simulacoes', async (req, res) => {
 
             <script>
                 function fecharModalPagamentos(){document.getElementById('modalPagamentos').style.display='none';}
-                async function verPagamentos(id){
+                async function verHistorico(id){
                     const modal=document.getElementById('modalPagamentos');
                     const container=document.getElementById('pagamentos-container');
-                    container.innerHTML='<p style="text-align:center;">Carregando...</p>';
+                    container.innerHTML='<p style="text-align:center;color:#666;">Carregando...</p>';
                     modal.style.display='flex';
                     try{
-                        const resp=await fetch('/pagamentos/'+id);
+                        const resp=await fetch('/historico/'+id);
                         const json=await resp.json();
-                        if(json.ok&&json.pagamentos.length>0){
-                            let html='<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f0f7ff;"><th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Data</th><th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Valor</th></tr></thead><tbody>';
-                            json.pagamentos.forEach(p=>{html+=\`<tr><td style="padding:10px;border-bottom:1px solid #eee;">\${new Date(p.data_pagamento).toLocaleDateString()}</td><td style="padding:10px;border-bottom:1px solid #eee;font-weight:bold;">R$ \${parseFloat(p.valor).toFixed(2).replace('.',',')}</td></tr>\`;});
-                            html+='</tbody></table><div style="margin-top:20px;padding:15px;background:#f0fdf4;border-radius:8px;border-left:4px solid #2ecc71;"><strong>Total Pago:</strong> R$ '+parseFloat(json.total_pago).toFixed(2).replace('.',',')+' ✅</div>';
-                            container.innerHTML=html;
-                        }else{
-                            container.innerHTML='<p style="text-align:center;color:#666;">Nenhum pagamento registrado</p>';
-                        }
+                        if(!json.ok){container.innerHTML='<p style="text-align:center;color:red;">Erro ao carregar</p>';return;}
+
+                        const {parcelas,totalPago,totalDivida}=json;
+                        const pct=Math.min((totalPago/totalDivida*100).toFixed(1),100);
+                        let html=\`<div style="background:#f0f7ff;padding:15px;border-radius:10px;margin-bottom:15px;"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span><strong>Pago:</strong> R$ \${totalPago.toFixed(2).replace('.',',')}</span><span><strong>Falta:</strong> R$ \${(totalDivida-totalPago).toFixed(2).replace('.',',')}</span></div><div style="background:#ddd;border-radius:50px;height:10px;"><div style="background:#2ecc71;height:10px;border-radius:50px;width:\${pct}%;transition:width 0.5s;"></div></div><small style="color:#666;">\${pct}% concluído</small></div><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f0f7ff;"><th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Parcela</th><th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Vencimento</th><th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;">Valor</th><th style="padding:10px;text-align:center;border-bottom:2px solid #ddd;">Status</th></tr></thead><tbody>\`;
+                        const badgeStyle={PAGA:'background:#dcfce7;color:#166534;',PENDENTE:'background:#fef9c3;color:#854d0e;',ATRASADA:'background:#fee2e2;color:#991b1b;'};
+                        parcelas.forEach(p=>{
+                            const dataFmt=new Date(p.dataVencimento+'T12:00:00').toLocaleDateString('pt-BR');
+                            const valorExibido=p.status==='ATRASADA'?\`<span style="text-decoration:line-through;color:#999;font-size:0.85rem;">R$ \${p.valorOriginal.toFixed(2).replace('.',',')}</span><br><strong style="color:#dc2626;">R$ \${p.totalDevido.toFixed(2).replace('.',',')} <small>(+multa/juros)</small></strong>\`:\`R$ \${p.valorOriginal.toFixed(2).replace('.',',')}\`;
+                            const rowBg=p.status==='ATRASADA'?'background:#fff5f5;':'';
+                            html+=\`<tr style="\${rowBg}"><td style="padding:10px;border-bottom:1px solid #eee;">\${p.numero}/\${p.total}</td><td style="padding:10px;border-bottom:1px solid #eee;">\${dataFmt}</td><td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">\${valorExibido}</td><td style="padding:10px;border-bottom:1px solid #eee;text-align:center;"><span style="padding:4px 10px;border-radius:50px;font-size:0.8rem;font-weight:bold;\${badgeStyle[p.status]}">\${p.status}</span></td></tr>\`;
+                        });
+                        html+='</tbody></table>';
+                        container.innerHTML=html;
                     }catch(e){
-                        container.innerHTML='<p style="text-align:center;color:red;">Erro ao carregar</p>';
+                        container.innerHTML='<p style="text-align:center;color:red;">Erro ao carregar histórico</p>';
                     }
                 }
 
