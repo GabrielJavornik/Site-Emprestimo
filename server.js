@@ -80,6 +80,37 @@ async function enviarEmailReprovado(dest, nome) {
     }
 }
 
+async function enviarEmailPagamento(dest, nome, valorPago, totalPago, totalDivida, parcelas, parcelasRestantes) {
+    console.log('\n📧 [PAGAMENTO] Enviando para:', dest);
+    try {
+        const percentualPago = ((totalPago / totalDivida) * 100).toFixed(1);
+        await sgMail.send({
+            to: dest,
+            from: `AzulCrédito <${EMAIL_REMETENTE}>`,
+            subject: 'Pagamento Recebido ✅ - AzulCrédito',
+            html: `<div style="font-family:sans-serif;color:#333;max-width:500px;border:1px solid #bbf7d0;padding:25px;border-radius:15px;background-color:#f0fdf4;">
+                    <h2 style="color:#166534;border-bottom:2px solid #166534;padding-bottom:10px;">Pagamento Recebido ✅</h2>
+                    <p>Olá, <strong>${nome}</strong>!</p>
+                    <p>Recebemos seu pagamento com sucesso! Aqui estão os detalhes:</p>
+
+                    <div style="background:#e8f5e9;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #2ecc71;">
+                        <div style="margin:10px 0;"><strong>💰 Valor pago:</strong> R$ ${valorPago.toFixed(2).replace('.', ',')}</div>
+                        <div style="margin:10px 0;"><strong>📊 Total pago até agora:</strong> R$ ${totalPago.toFixed(2).replace('.', ',')}</div>
+                        <div style="margin:10px 0;"><strong>⏳ Ainda faltam:</strong> R$ ${(totalDivida - totalPago).toFixed(2).replace('.', ',')}</div>
+                        <div style="margin:10px 0;"><strong>📋 Parcelas restantes:</strong> ${parcelasRestantes} de ${parcelas}</div>
+                        <div style="margin:10px 0;border-top:1px solid #ccc;padding-top:10px;"><strong>Progresso:</strong> ${percentualPago}% concluído</div>
+                    </div>
+
+                    <p>Continue realizando seus pagamentos no prazo para manter seu crédito em dia!</p>
+                    <p style="font-size:0.9rem;color:#666;margin-top:20px;">Equipe AzulCrédito</p>
+                    </div>`
+        });
+        console.log('✅ Email de pagamento enviado com sucesso!');
+    } catch (e) {
+        console.error('❌ Erro ao enviar email de pagamento:', e.response?.body || e.message);
+    }
+}
+
 // --- 3. CONFIGURAÇÕES GERAIS ---
 app.use(session({ secret: 'azul-credito-segredo-2026', resave: false, saveUninitialized: false, cookie: { maxAge: 30 * 60 * 1000 } }));
 const pool = new Pool({ user: 'postgres', host: 'localhost', database: 'site_emprestimo', password: 'Chaves60.', port: 5432 });
@@ -934,9 +965,39 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
 app.post('/registrar-pagamento', adminAuth, async (req, res) => {
     try {
         const { simulacao_id, valor, data_pagamento } = req.body;
+
+        // Inserir pagamento
         await pool.query('INSERT INTO PAGAMENTOS (simulacao_id, valor, data_pagamento, status) VALUES ($1, $2, $3, $4)',
             [simulacao_id, valor, data_pagamento, 'CONFIRMADO']);
+
         console.log('💰 Pagamento registrado:', { simulacao_id, valor });
+
+        // Buscar dados da simulação para enviar email
+        const simResult = await pool.query('SELECT nome, email, total, parcelas FROM SIMULACOES WHERE id = $1', [simulacao_id]);
+        if (simResult.rows.length > 0) {
+            const sim = simResult.rows[0];
+
+            // Calcular total pago até agora
+            const pagtoResult = await pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [simulacao_id]);
+            const totalPago = parseFloat(pagtoResult.rows[0].total_pago);
+            const totalDivida = parseFloat(sim.total);
+            const valorMensal = totalDivida / parseInt(sim.parcelas);
+            const parcelasRestantes = Math.ceil((totalDivida - totalPago) / valorMensal);
+
+            // Enviar email com blindagem
+            enviarEmailPagamento(
+                sim.email,
+                sim.nome,
+                parseFloat(valor),
+                totalPago,
+                totalDivida,
+                parseInt(sim.parcelas),
+                parcelasRestantes
+            ).catch(err => {
+                console.error('⚠️ Email de pagamento falhou, mas pagamento foi registrado:', err.message);
+            });
+        }
+
         res.json({ ok: true });
     } catch (err) {
         console.error('❌ Erro ao registrar pagamento:', err);
