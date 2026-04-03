@@ -433,6 +433,56 @@ pool.query(`
     ALTER TABLE SIMULACOES ADD COLUMN IF NOT EXISTS aprovado_em TIMESTAMP
 `).catch(err => console.error('⚠️ Erro ao adicionar coluna aprovado_em:', err.message));
 
+// Adicionar colunas de endereço à tabela USUARIOS
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS cep VARCHAR(10)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna cep:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS rua VARCHAR(200)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna rua:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS bairro VARCHAR(100)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna bairro:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS cidade VARCHAR(100)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna cidade:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS estado VARCHAR(2)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna estado:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS numero_casa VARCHAR(20)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna numero_casa:', err.message));
+
+// Adicionar colunas de dados bancários à tabela USUARIOS
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS banco_codigo VARCHAR(10)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna banco_codigo:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS banco_nome VARCHAR(100)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna banco_nome:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS agencia VARCHAR(10)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna agencia:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS conta VARCHAR(20)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna conta:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS conta_digito VARCHAR(3)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna conta_digito:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS conta_tipo VARCHAR(20)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna conta_tipo:', err.message));
+
 // Tabela para controlar lembretes enviados
 pool.query(`
     CREATE TABLE IF NOT EXISTS LEMBRETES_ENVIADOS (
@@ -542,6 +592,24 @@ function calcularParcelasSimulacao(sim, totalPagoAcumulado) {
     }
 
     return resultado;
+}
+
+// Validar CPF matematicamente (verifica dígitos verificadores)
+function validarCPFMath(cpf) {
+    const d = (cpf || '').replace(/\D/g, '');
+    if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+
+    let soma = 0;
+    for (let i = 0; i < 9; i++) soma += parseInt(d[i]) * (10 - i);
+    let r = (soma * 10) % 11;
+    if (r === 10 || r === 11) r = 0;
+    if (r !== parseInt(d[9])) return false;
+
+    soma = 0;
+    for (let i = 0; i < 10; i++) soma += parseInt(d[i]) * (11 - i);
+    r = (soma * 10) % 11;
+    if (r === 10 || r === 11) r = 0;
+    return r === parseInt(d[10]);
 }
 
 // Senhas comuns/fracas a rejeitar
@@ -1054,7 +1122,7 @@ app.post('/confirmar-reset-senha', async (req, res) => {
 
 app.post('/cadastro', async (req, res) => {
     try {
-        const { nome, email, whatsapp, cpf, senha } = req.body;
+        const { nome, email, whatsapp, cpf, senha, cep, rua, bairro, cidade, estado, numero_casa } = req.body;
 
         // Validar força da senha
         const validacao = validarSenha(senha);
@@ -1068,11 +1136,16 @@ app.post('/cadastro', async (req, res) => {
             return res.status(400).json({ ok: false, msg: 'WhatsApp inválido. Use DDD + número (10 ou 11 dígitos).' });
         }
 
+        // Validar CPF matematicamente
+        if (!validarCPFMath(cpf)) {
+            return res.status(400).json({ ok: false, msg: 'CPF inválido. Verifique os dígitos verificadores.' });
+        }
+
         const cpfLimpo = soNumeros(cpf);
         const tokenEmail = require('crypto').randomBytes(32).toString('hex');
 
-        await pool.query('INSERT INTO USUARIOS (nome, cpf, senha, email, whatsapp, email_verificado, token_email) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [nome, cpfLimpo, senha, email, soNumeros(whatsapp), false, tokenEmail]);
+        await pool.query('INSERT INTO USUARIOS (nome, cpf, senha, email, whatsapp, email_verificado, token_email, cep, rua, bairro, cidade, estado, numero_casa) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
+        [nome, cpfLimpo, senha, email, soNumeros(whatsapp), false, tokenEmail, cep || null, rua || null, bairro || null, cidade || null, estado || null, numero_casa || null]);
 
         // Enviar email de confirmação
         const linkConfirmacao = `${BASE_URL}/confirmar-email/${tokenEmail}`;
@@ -2660,6 +2733,79 @@ app.get('/simulacao/:id', async (req, res) => {
     }
 });
 
+// --- ROTAS DE VALIDAÇÃO DE DADOS ---
+
+// Buscar endereço via CEP (ViaCEP API)
+app.get('/api/cep/:cep', async (req, res) => {
+    try {
+        const cep = req.params.cep.replace(/\D/g, '');
+        if (cep.length !== 8) return res.status(400).json({ ok: false, msg: 'CEP inválido' });
+
+        const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await resp.json();
+
+        if (data.erro) return res.json({ ok: false, msg: 'CEP não encontrado' });
+
+        res.json({
+            ok: true,
+            cep: data.cep,
+            rua: data.logradouro,
+            bairro: data.bairro,
+            cidade: data.localidade,
+            estado: data.uf
+        });
+    } catch (e) {
+        console.error('❌ Erro ao consultar CEP:', e.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao consultar CEP' });
+    }
+});
+
+// Validar dados bancários
+app.post('/api/validar-conta', (req, res) => {
+    try {
+        const { banco_codigo, agencia, conta, conta_tipo } = req.body;
+        const ag = soNumeros(agencia);
+        const ct = soNumeros(conta);
+
+        if (!banco_codigo) return res.json({ ok: false, msg: 'Selecione o banco' });
+        if (ag.length < 4 || ag.length > 5) return res.json({ ok: false, msg: 'Agência inválida (4-5 dígitos)' });
+        if (ct.length < 4 || ct.length > 14) return res.json({ ok: false, msg: 'Conta inválida (4-14 dígitos)' });
+        if (!conta_tipo) return res.json({ ok: false, msg: 'Selecione o tipo de conta' });
+
+        res.json({ ok: true, msg: 'Dados bancários válidos' });
+    } catch (e) {
+        res.status(500).json({ ok: false, msg: 'Erro ao validar conta' });
+    }
+});
+
+// Salvar dados bancários
+app.post('/salvar-dados-bancarios', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+        const { banco_codigo, banco_nome, agencia, conta, conta_digito, conta_tipo } = req.body;
+        const ag = soNumeros(agencia);
+        const ct = soNumeros(conta);
+        const dg = soNumeros(conta_digito);
+
+        // Validações
+        if (!banco_codigo) return res.json({ ok: false, msg: 'Selecione o banco' });
+        if (ag.length < 4 || ag.length > 5) return res.json({ ok: false, msg: 'Agência inválida' });
+        if (ct.length < 4 || ct.length > 14) return res.json({ ok: false, msg: 'Conta inválida' });
+        if (!conta_tipo) return res.json({ ok: false, msg: 'Selecione o tipo de conta' });
+
+        await pool.query(
+            'UPDATE USUARIOS SET banco_codigo=$1, banco_nome=$2, agencia=$3, conta=$4, conta_digito=$5, conta_tipo=$6 WHERE cpf=$7',
+            [banco_codigo, banco_nome, ag, ct, dg, conta_tipo, req.session.userCpf]
+        );
+
+        res.json({ ok: true, msg: '✅ Dados bancários salvos com sucesso!' });
+    } catch (e) {
+        console.error('❌ Erro ao salvar dados bancários:', e.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao salvar dados bancários' });
+    }
+});
+
 app.get('/pagamentos/:simulacao_id', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM PAGAMENTOS WHERE simulacao_id = $1 ORDER BY data_pagamento DESC', [req.params.simulacao_id]);
@@ -3112,7 +3258,7 @@ app.post('/api/admin/marcar-pagamento-visto', adminAuth, async (req, res) => {
 app.post('/atualizar-perfil', async (req, res) => {
     if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
 
-    const { nome, email, whatsapp } = req.body;
+    const { nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa } = req.body;
     if (!nome || !email) return res.status(400).json({ ok: false, msg: 'Nome e Email são obrigatórios' });
 
     try {
@@ -3125,8 +3271,8 @@ app.post('/atualizar-perfil', async (req, res) => {
         }
 
         await pool.query(
-            'UPDATE USUARIOS SET nome = $1, email = $2, whatsapp = $3 WHERE cpf = $4',
-            [nome, email, whatsapp || null, cpf]
+            'UPDATE USUARIOS SET nome = $1, email = $2, whatsapp = $3, cep = $4, rua = $5, bairro = $6, cidade = $7, estado = $8, numero_casa = $9 WHERE cpf = $10',
+            [nome, email, whatsapp || null, cep || null, rua || null, bairro || null, cidade || null, estado || null, numero_casa || null, cpf]
         );
 
         // Atualizar nome na sessão
