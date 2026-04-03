@@ -743,4 +743,85 @@ app.get('/pagamentos/:simulacao_id', async (req, res) => {
     }
 });
 
+// --- RESET DO BANCO (ADMIN ONLY) ---
+app.post('/admin-reset', adminAuth, async (req, res) => {
+    try {
+        console.log('⚠️ RESET: Deletando todas as tabelas...');
+
+        // Deletar em ordem de dependência
+        await pool.query('DROP TABLE IF EXISTS PAGAMENTOS CASCADE');
+        await pool.query('DROP TABLE IF EXISTS SIMULACOES CASCADE');
+        await pool.query('DROP TABLE IF EXISTS USUARIOS CASCADE');
+
+        console.log('✅ Tabelas deletadas');
+
+        // Recriar tabelas
+        await pool.query(`
+            CREATE TABLE USUARIOS (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(150) NOT NULL,
+                cpf VARCHAR(11) UNIQUE NOT NULL,
+                email VARCHAR(150) UNIQUE NOT NULL,
+                whatsapp VARCHAR(20),
+                senha VARCHAR(255) NOT NULL,
+                email_verificado BOOLEAN DEFAULT FALSE,
+                token_email VARCHAR(255),
+                reset_token VARCHAR(255),
+                reset_expira TIMESTAMP,
+                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE SIMULACOES (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(150) NOT NULL,
+                cpf VARCHAR(11) NOT NULL,
+                email VARCHAR(150),
+                whatsapp VARCHAR(20),
+                valor DECIMAL(10, 2) NOT NULL,
+                parcelas INT NOT NULL,
+                valor_parcela DECIMAL(10, 2),
+                total DECIMAL(10, 2) NOT NULL,
+                status VARCHAR(50) DEFAULT 'EM ANÁLISE',
+                documento_path VARCHAR(255),
+                renda_path VARCHAR(255),
+                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cpf) REFERENCES USUARIOS(cpf)
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE PAGAMENTOS (
+                id SERIAL PRIMARY KEY,
+                simulacao_id INT NOT NULL,
+                data_pagamento DATE NOT NULL,
+                valor DECIMAL(10, 2) NOT NULL,
+                status VARCHAR(50) DEFAULT 'CONFIRMADO',
+                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (simulacao_id) REFERENCES SIMULACOES(id) ON DELETE CASCADE
+            )
+        `);
+
+        // Criar índices
+        await pool.query('CREATE INDEX idx_usuarios_cpf ON USUARIOS(cpf)');
+        await pool.query('CREATE INDEX idx_usuarios_email ON USUARIOS(email)');
+        await pool.query('CREATE INDEX idx_simulacoes_cpf ON SIMULACOES(cpf)');
+        await pool.query('CREATE INDEX idx_simulacoes_status ON SIMULACOES(status)');
+        await pool.query('CREATE INDEX idx_pagamentos_simulacao_id ON PAGAMENTOS(simulacao_id)');
+
+        // Inserir usuário de teste
+        await pool.query(
+            'INSERT INTO USUARIOS (nome, cpf, email, whatsapp, senha, email_verificado) VALUES ($1, $2, $3, $4, $5, $6)',
+            ['Usuário Teste', '12345678901', 'teste@example.com', '5554992026684', 'teste123', true]
+        );
+
+        console.log('✅ Banco resetado com sucesso!');
+        res.json({ ok: true, msg: '🔄 Banco de dados resetado com sucesso!' });
+    } catch (err) {
+        console.error('❌ Erro ao resetar:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao resetar banco' });
+    }
+});
+
 app.listen(PORT, () => { console.log('🚀 Servidor AzulCrédito ON: http://localhost:' + PORT); });
