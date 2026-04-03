@@ -1230,7 +1230,7 @@ app.get('/perfil', async (req, res) => {
     if (!req.session.usuarioLogado) return res.send("<script>location.href='/';</script>");
     try {
         const cpf = req.session.userCpf;
-        const result = await pool.query('SELECT nome, email, whatsapp FROM USUARIOS WHERE cpf = $1', [cpf]);
+        const result = await pool.query('SELECT nome, email, whatsapp, banco_codigo, banco_nome, agencia, conta, conta_digito, conta_tipo FROM USUARIOS WHERE cpf = $1', [cpf]);
         if (result.rows.length === 0) return res.status(404).send('Usuário não encontrado');
 
         const user = result.rows[0];
@@ -1270,6 +1270,75 @@ app.get('/perfil', async (req, res) => {
                 </div>
 
                 <div class="card">
+                    <h2>📍 Meu Endereço</h2>
+                    <label>CEP</label>
+                    <input type="text" id="cep" value="${user.cep || ''}" placeholder="00000-000" maxlength="9">
+
+                    <label>Rua/Avenida</label>
+                    <input type="text" id="rua" value="${user.rua || ''}" placeholder="Rua, Avenida...">
+
+                    <label>Bairro</label>
+                    <input type="text" id="bairro" value="${user.bairro || ''}" placeholder="Bairro">
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div>
+                            <label>Cidade</label>
+                            <input type="text" id="cidade" value="${user.cidade || ''}" placeholder="Cidade">
+                        </div>
+                        <div>
+                            <label>Estado</label>
+                            <input type="text" id="estado" value="${user.estado || ''}" placeholder="UF" maxlength="2">
+                        </div>
+                    </div>
+
+                    <label>Número</label>
+                    <input type="text" id="numero_casa" value="${user.numero_casa || ''}" placeholder="123">
+
+                    <button onclick="atualizarEndereco()" style="background:#27ae60;">🏠 Salvar Endereço</button>
+                </div>
+
+                <div class="card">
+                    <h2>🏦 Dados Bancários</h2>
+                    <div id="resultado-banco"></div>
+                    <label>Banco</label>
+                    <select id="banco" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;">
+                        <option value="">Selecione seu banco</option>
+                        <option value="001">Banco do Brasil (001)</option>
+                        <option value="033">Banco Santander (033)</option>
+                        <option value="104">Caixa Econômica Federal (104)</option>
+                        <option value="237">Banco Bradesco (237)</option>
+                        <option value="260">Nu Pagamentos S.A. - Nubank (260)</option>
+                        <option value="077">Banco Inter (077)</option>
+                        <option value="341">Itaú Unibanco (341)</option>
+                        <option value="745">Banco Citibank (745)</option>
+                        <option value="399">HSBC Bank Brasil (399)</option>
+                        <option value="072">Banco Bmg (072)</option>
+                    </select>
+
+                    <label>Agência (sem dígito)</label>
+                    <input type="text" id="agencia" placeholder="0000" maxlength="5">
+
+                    <label>Conta (sem dígito)</label>
+                    <input type="text" id="conta" placeholder="0000000" maxlength="14">
+
+                    <label>Dígito da Conta</label>
+                    <input type="text" id="conta-digito" placeholder="0" maxlength="3">
+
+                    <label>Tipo de Conta</label>
+                    <select id="conta-tipo" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;">
+                        <option value="">Selecione o tipo</option>
+                        <option value="corrente">Conta Corrente</option>
+                        <option value="poupanca">Conta Poupança</option>
+                    </select>
+
+                    <button onclick="salvarDadosBancarios()">💾 Salvar Dados Bancários</button>
+                    <div class="info" style="background:#e8f4f8;border-left-color:#0066cc;">
+                        <strong>ℹ️ Informações:</strong>
+                        <p style="margin:8px 0;">Seus dados bancários são armazenados de forma segura e serão usados para transferências futuras.</p>
+                    </div>
+                </div>
+
+                <div class="card">
                     <h2>🔒 Trocar Senha</h2>
                     <div id="resultado-senha"></div>
                     <label>Senha Atual</label>
@@ -1298,6 +1367,64 @@ app.get('/perfil', async (req, res) => {
             </div>
 
             <script>
+                // Preencher select de banco com dados salvos
+                window.addEventListener('load', () => {
+                    if ('${user.banco_codigo}') {
+                        document.getElementById('banco').value = '${user.banco_codigo}';
+                        document.getElementById('agencia').value = '${user.agencia || ''}';
+                        document.getElementById('conta').value = '${user.conta || ''}';
+                        document.getElementById('conta-digito').value = '${user.conta_digito || ''}';
+                        document.getElementById('conta-tipo').value = '${user.conta_tipo || ''}';
+                    }
+                });
+
+                async function salvarDadosBancarios() {
+                    const banco_codigo = document.getElementById('banco').value;
+                    const banco_nome = document.getElementById('banco').options[document.getElementById('banco').selectedIndex]?.text || '';
+                    const agencia = document.getElementById('agencia').value.trim();
+                    const conta = document.getElementById('conta').value.trim();
+                    const conta_digito = document.getElementById('conta-digito').value.trim();
+                    const conta_tipo = document.getElementById('conta-tipo').value;
+
+                    const resultado = document.getElementById('resultado-banco');
+
+                    if (!banco_codigo || !agencia || !conta || !conta_tipo) {
+                        resultado.innerHTML = '<p class="error">❌ Preencha todos os campos obrigatórios!</p>';
+                        return;
+                    }
+
+                    try {
+                        // Validar conta primeiro
+                        const validResp = await fetch('/api/validar-conta', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ banco_codigo, agencia, conta, conta_tipo })
+                        });
+                        const validJson = await validResp.json();
+                        if (!validJson.ok) {
+                            resultado.innerHTML = '<p class="error">❌ ' + validJson.msg + '</p>';
+                            return;
+                        }
+
+                        // Salvar dados
+                        const resp = await fetch('/salvar-dados-bancarios', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ banco_codigo, banco_nome, agencia, conta, conta_digito, conta_tipo })
+                        });
+
+                        const json = await resp.json();
+                        if (json.ok) {
+                            resultado.innerHTML = '<p class="success">' + json.msg + '</p>';
+                        } else {
+                            resultado.innerHTML = '<p class="error">❌ ' + (json.msg || 'Erro ao salvar') + '</p>';
+                        }
+                    } catch (e) {
+                        resultado.innerHTML = '<p class="error">❌ Erro ao conectar ao servidor</p>';
+                        console.error(e);
+                    }
+                }
+
                 async function atualizarPerfil() {
                     const nome = document.getElementById('nome').value.trim();
                     const email = document.getElementById('email').value.trim();
@@ -1319,6 +1446,34 @@ app.get('/perfil', async (req, res) => {
                         document.getElementById('resultado-perfil').innerHTML = '<p class="success">✅ Perfil atualizado com sucesso!</p>';
                     } else {
                         document.getElementById('resultado-perfil').innerHTML = '<p class="error">❌ ' + (json.msg || 'Erro ao atualizar') + '</p>';
+                    }
+                }
+
+                async function atualizarEndereco() {
+                    const cep = document.getElementById('cep').value.trim();
+                    const rua = document.getElementById('rua').value.trim();
+                    const bairro = document.getElementById('bairro').value.trim();
+                    const cidade = document.getElementById('cidade').value.trim();
+                    const estado = document.getElementById('estado').value.trim();
+                    const numero_casa = document.getElementById('numero_casa').value.trim();
+                    const nome = document.getElementById('nome').value.trim();
+                    const email = document.getElementById('email').value.trim();
+                    const whatsapp = document.getElementById('whatsapp').value.trim();
+
+                    const resp = await fetch('/atualizar-perfil', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa })
+                    });
+
+                    const json = await resp.json();
+                    const btn = event.target;
+                    if (json.ok) {
+                        btn.style.background = '#2ecc71';
+                        btn.innerText = '✅ Endereço salvo!';
+                        setTimeout(() => { btn.style.background = '#27ae60'; btn.innerText = '🏠 Salvar Endereço'; }, 2000);
+                    } else {
+                        alert('❌ Erro ao salvar: ' + (json.msg || 'Erro ao atualizar'));
                     }
                 }
 
