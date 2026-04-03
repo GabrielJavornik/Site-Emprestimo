@@ -737,14 +737,15 @@ app.get('/simulacoes', async (req, res) => {
                                 </div>
 
                                 <!-- CONDIÇÕES -->
-                                <div style="margin-bottom:25px;">
-                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">CONDIÇÕES GERAIS</h3>
-                                    <ol style="padding-left:20px;color:#555;font-size:12px;line-height:1.8;">
-                                        <li>O valor total será cobrado em \${s.parcelas} parcelas iguais e sucessivas.</li>
-                                        <li>A taxa de juros de 5% ao mês é aplicada sobre o valor solicitado.</li>
-                                        <li>O pagamento deve ser realizado conforme cronograma estabelecido.</li>
-                                        <li>Em caso de atraso, serão aplicadas multas e juros de mora conforme legislação vigente.</li>
-                                        <li>Este contrato é vinculativo e representa o acordo completo entre as partes.</li>
+                                <div style="margin-bottom:25px;background:#f9f9f9;padding:20px;border-radius:8px;border-left:4px solid #1e3c72;">
+                                    <h3 style="color:#1e3c72;margin-top:0;margin-bottom:15px;">📋 CONDIÇÕES GERAIS</h3>
+                                    <ol style="padding-left:20px;color:#555;font-size:13px;line-height:2;">
+                                        <li><strong>Valor e Parcelas:</strong> O valor total de R$ \${parseFloat(s.total).toFixed(2).replace('.', ',')} será cobrado em \${s.parcelas} parcelas iguais e sucessivas de R$ \${parseFloat(s.valor_parcela).toFixed(2).replace('.', ',')}.</li>
+                                        <li><strong>Taxa de Juros:</strong> Uma taxa de juros de 5% ao mês é aplicada sobre o valor solicitado (R$ \${parseFloat(s.valor).toFixed(2).replace('.', ',')}), resultando no valor total supracitado.</li>
+                                        <li><strong>Cronograma de Pagamento:</strong> O pagamento deve ser realizado conforme cronograma estabelecido, em dia e hora acordados entre as partes.</li>
+                                        <li><strong>Atrasos e Inadimplência:</strong> Em caso de atraso, serão aplicadas multas de 2% e juros de mora de 1% ao mês sobre o saldo devedor, conforme Lei 9.065/1990.</li>
+                                        <li><strong>Documentação:</strong> O contratante declara ter recebido cópia deste contrato e estar de acordo com todos os termos e condições aqui estabelecidos.</li>
+                                        <li><strong>Vigência:</strong> Este contrato é vinculativo e representa o acordo completo entre as partes, vigorando a partir da data de emissão até a quitação total da dívida.</li>
                                     </ol>
                                 </div>
 
@@ -792,17 +793,18 @@ app.get('/simulacoes', async (req, res) => {
                         const dataEmissao = new Date().toLocaleDateString('pt-BR');
                         const cpfFormatado = s.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 
-                        let tabelaPagamentos = '';
-                        let numeroParc = 1;
-                        pagamentos.forEach((p, idx) => {
-                            const bgColor = idx % 2 === 0 ? '#ffffff' : '#f9f9f9';
-                            tabelaPagamentos += \`<tr style="background:\${bgColor};">
-                                <td style="padding:12px;border-bottom:1px solid #eee;">\${new Date(p.data_pagamento).toLocaleDateString()}</td>
-                                <td style="padding:12px;border-bottom:1px solid #eee;">R$ \${parseFloat(p.valor).toFixed(2).replace('.', ',')}</td>
-                                <td style="padding:12px;border-bottom:1px solid #eee;text-align:center;">Parcela \${numeroParc++}</td>
-                                <td style="padding:12px;border-bottom:1px solid #eee;"><span style="background:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-weight:bold;">\${p.status}</span></td>
-                            </tr>\`;
-                        });
+                        let linhasPagamentos = '';
+                        if (pagamentos.length > 0) {
+                            let numeroParc = 1;
+                            pagamentos.forEach((p, idx) => {
+                                const bgColor = idx % 2 === 0 ? '#ffffff' : '#f9f9f9';
+                                const dataFormatada = new Date(p.data_pagamento).toLocaleDateString('pt-BR');
+                                const valorFormatado = parseFloat(p.valor).toFixed(2).replace('.', ',');
+                                linhasPagamentos += \`<tr style="background:\${bgColor};"><td style="padding:12px;border-bottom:1px solid #eee;">\${dataFormatada}</td><td style="padding:12px;border-bottom:1px solid #eee;">R$ \${valorFormatado}</td><td style="padding:12px;border-bottom:1px solid #eee;text-align:center;">Parcela \${numeroParc++}</td><td style="padding:12px;border-bottom:1px solid #eee;"><span style="background:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-weight:bold;">\${p.status}</span></td></tr>\`;
+                            });
+                        } else {
+                            linhasPagamentos = '<tr><td colspan="4" style="padding:20px;text-align:center;color:#999;">Nenhum pagamento registrado até o momento.</td></tr>';
+                        }
 
                         const html = \`
                             <div style="font-family:'Segoe UI', Arial;color:#333;line-height:1.6;">
@@ -870,7 +872,7 @@ app.get('/simulacoes', async (req, res) => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            \${tabelaPagamentos}
+                                            \${linhasPagamentos}
                                         </tbody>
                                     </table>\` : \`<p style="color:#999;text-align:center;padding:20px;">Nenhum pagamento registrado ainda.</p>\`}
                                 </div>
