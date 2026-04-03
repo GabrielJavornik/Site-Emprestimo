@@ -2,7 +2,6 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const multer = require('multer');
-const basicAuth = require('express-basic-auth');
 const session = require('express-session');
 const sgMail = require('@sendgrid/mail');
 const fs = require('fs');
@@ -15,11 +14,17 @@ const BASE_URL = process.env.BASE_URL || 'http://192.168.0.17:8080';
 // Exemplo: 'http://192.168.1.100:8080'
 
 // --- 1. SEGURANÇA ADMIN ---
-const adminAuth = basicAuth({
-    users: { 'admin': 'Azul2026' },
-    challenge: true,
-    unauthorizedResponse: 'Acesso negado.'
-});
+// Middleware customizado para autenticação de admin com sessão
+const adminAuth = (req, res, next) => {
+    if (req.session.adminLogado && req.session.adminUser === 'admin') {
+        return next();
+    }
+    return res.redirect('/admin-login');
+};
+
+// Credenciais admin
+const ADMIN_USER = 'admin';
+const ADMIN_PASS = 'Azul2026';
 
 /// --- 2. CONFIGURAÇÃO DO EMAIL (SendGrid) ---
 const API_KEY_SENDGRID = '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';
@@ -480,6 +485,272 @@ app.get('/ver-arquivo/:nome', adminAuth, (req, res) => {
 // --- 4. ROTAS ---
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
 app.get('/sair', (req, res) => { req.session.destroy(); res.redirect('/'); });
+
+// --- ADMIN LOGIN ---
+app.get('/admin-login', (req, res) => {
+    if (req.session.adminLogado) return res.redirect('/admin-azul');
+
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Admin AzulCrédito - Login</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .login-container {
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 25px 80px rgba(0,0,0,0.3);
+                    padding: 50px 40px;
+                    width: 100%;
+                    max-width: 420px;
+                    animation: slideUp 0.6s ease-out;
+                }
+                @keyframes slideUp {
+                    from {
+                        opacity: 0;
+                        transform: translateY(30px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .logo-area {
+                    text-align: center;
+                    margin-bottom: 40px;
+                }
+                .logo {
+                    font-size: 32px;
+                    font-weight: bold;
+                    color: #1e3c72;
+                    margin-bottom: 10px;
+                }
+                .logo span {
+                    color: #667eea;
+                }
+                .logo-subtitle {
+                    font-size: 0.9rem;
+                    color: #999;
+                    margin-top: 5px;
+                }
+                .admin-badge {
+                    display: inline-block;
+                    background: #667eea;
+                    color: white;
+                    padding: 6px 12px;
+                    border-radius: 20px;
+                    font-size: 0.75rem;
+                    font-weight: bold;
+                    margin-top: 10px;
+                }
+                .form-group {
+                    margin-bottom: 20px;
+                }
+                label {
+                    display: block;
+                    margin-bottom: 8px;
+                    color: #333;
+                    font-weight: 600;
+                    font-size: 0.95rem;
+                }
+                input[type="text"],
+                input[type="password"] {
+                    width: 100%;
+                    padding: 12px 15px;
+                    border: 2px solid #e0e0e0;
+                    border-radius: 10px;
+                    font-size: 1rem;
+                    transition: all 0.3s ease;
+                }
+                input[type="text"]:focus,
+                input[type="password"]:focus {
+                    outline: none;
+                    border-color: #667eea;
+                    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+                }
+                .btn-login {
+                    width: 100%;
+                    padding: 14px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 1rem;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    margin-top: 25px;
+                    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+                }
+                .btn-login:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+                }
+                .btn-login:active {
+                    transform: translateY(0);
+                }
+                .error-message {
+                    display: none;
+                    background: #fee2e2;
+                    color: #991b1b;
+                    padding: 12px 15px;
+                    border-radius: 10px;
+                    margin-bottom: 20px;
+                    font-size: 0.9rem;
+                    border-left: 4px solid #dc2626;
+                }
+                .loading-spinner {
+                    display: none;
+                    width: 16px;
+                    height: 16px;
+                    border: 2px solid #fff;
+                    border-top-color: transparent;
+                    border-radius: 50%;
+                    animation: spin 0.6s linear infinite;
+                    margin: 0 auto;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                .btn-login:disabled {
+                    opacity: 0.7;
+                    cursor: not-allowed;
+                }
+                .back-link {
+                    text-align: center;
+                    margin-top: 20px;
+                }
+                .back-link a {
+                    color: #667eea;
+                    text-decoration: none;
+                    font-size: 0.9rem;
+                    transition: color 0.3s;
+                }
+                .back-link a:hover {
+                    color: #764ba2;
+                }
+                .security-info {
+                    background: #f0f4f8;
+                    padding: 12px 15px;
+                    border-radius: 10px;
+                    font-size: 0.8rem;
+                    color: #666;
+                    margin-top: 20px;
+                    text-align: center;
+                    border-left: 3px solid #667eea;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="login-container">
+                <div class="logo-area">
+                    <div class="logo">Azul<span>Crédito</span></div>
+                    <div class="logo-subtitle">Painel Administrativo</div>
+                    <div class="admin-badge">👤 ADMIN</div>
+                </div>
+
+                <div id="errorMsg" class="error-message"></div>
+
+                <form id="adminLoginForm">
+                    <div class="form-group">
+                        <label for="adminUser">👤 Usuário</label>
+                        <input type="text" id="adminUser" name="user" placeholder="Seu usuário admin" required autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="adminPass">🔐 Senha</label>
+                        <input type="password" id="adminPass" name="pass" placeholder="Sua senha" required autocomplete="off">
+                    </div>
+
+                    <button type="submit" class="btn-login">
+                        <span id="btnText">Entrar no Painel</span>
+                        <div id="spinner" class="loading-spinner"></div>
+                    </button>
+                </form>
+
+                <div class="security-info">
+                    🔒 Conexão segura e criptografada
+                </div>
+
+                <div class="back-link">
+                    <a href="/">← Voltar para Home</a>
+                </div>
+            </div>
+
+            <script>
+                document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const user = document.getElementById('adminUser').value;
+                    const pass = document.getElementById('adminPass').value;
+                    const errorMsg = document.getElementById('errorMsg');
+                    const btn = e.target.querySelector('.btn-login');
+                    const btnText = document.getElementById('btnText');
+                    const spinner = document.getElementById('spinner');
+
+                    errorMsg.style.display = 'none';
+                    btn.disabled = true;
+                    btnText.style.display = 'none';
+                    spinner.style.display = 'block';
+
+                    try {
+                        const res = await fetch('/admin-login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user, pass })
+                        });
+
+                        const data = await res.json();
+                        if (data.ok) {
+                            // Sucesso - redirecionar com animação
+                            setTimeout(() => window.location.href = '/admin-azul', 300);
+                        } else {
+                            errorMsg.innerText = '❌ ' + data.msg;
+                            errorMsg.style.display = 'block';
+                        }
+                    } catch (err) {
+                        errorMsg.innerText = '❌ Erro ao conectar ao servidor.';
+                        errorMsg.style.display = 'block';
+                    } finally {
+                        btn.disabled = false;
+                        btnText.style.display = 'inline';
+                        spinner.style.display = 'none';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+    `);
+});
+
+app.post('/admin-login', async (req, res) => {
+    const { user, pass } = req.body;
+
+    if (user === ADMIN_USER && pass === ADMIN_PASS) {
+        req.session.adminLogado = true;
+        req.session.adminUser = ADMIN_USER;
+        return res.json({ ok: true, msg: 'Login realizado com sucesso!' });
+    }
+
+    res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
+});
+
+app.get('/admin-logout', (req, res) => {
+    req.session.adminLogado = false;
+    req.session.adminUser = null;
+    res.redirect('/admin-login');
+});
 
 // Verificar status de crédito por CPF (GRATUITO)
 app.get('/verificar-cpf/:cpf', (req, res) => {
@@ -1377,7 +1648,144 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
         } else {
             console.warn('⚠️ Usuário sem email cadastrado');
         }
-        res.send("<script>alert('Proposta enviada!'); window.location.href='/simulacoes';</script>");
+        // Enviar página bonita de sucesso antes de redirecionar
+        res.send(`
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Proposta Enviada - AzulCrédito</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        padding: 20px;
+                    }
+                    .container {
+                        background: white;
+                        border-radius: 20px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                        padding: 60px 40px;
+                        text-align: center;
+                        max-width: 500px;
+                        animation: slideUp 0.6s ease-out;
+                    }
+                    @keyframes slideUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(30px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+                    .checkmark {
+                        width: 80px;
+                        height: 80px;
+                        margin: 0 auto 20px;
+                        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 48px;
+                        animation: pop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                    }
+                    @keyframes pop {
+                        0% {
+                            transform: scale(0);
+                        }
+                        50% {
+                            transform: scale(1.2);
+                        }
+                        100% {
+                            transform: scale(1);
+                        }
+                    }
+                    h1 {
+                        color: #1e3c72;
+                        margin-bottom: 15px;
+                        font-size: 32px;
+                    }
+                    p {
+                        color: #666;
+                        font-size: 16px;
+                        line-height: 1.6;
+                        margin-bottom: 10px;
+                    }
+                    .info {
+                        background: #f0f7ff;
+                        border-left: 4px solid #0066cc;
+                        padding: 20px;
+                        border-radius: 8px;
+                        margin: 30px 0;
+                        text-align: left;
+                    }
+                    .info p {
+                        margin: 8px 0;
+                        font-size: 14px;
+                    }
+                    .button {
+                        display: inline-block;
+                        background: linear-gradient(135deg, #0066cc 0%, #003d99 100%);
+                        color: white;
+                        padding: 15px 40px;
+                        border-radius: 10px;
+                        text-decoration: none;
+                        font-weight: bold;
+                        margin-top: 20px;
+                        transition: transform 0.2s, box-shadow 0.2s;
+                        cursor: pointer;
+                        border: none;
+                        font-size: 16px;
+                    }
+                    .button:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 10px 20px rgba(0, 102, 204, 0.3);
+                    }
+                    .logo {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #1e3c72;
+                        margin-bottom: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="logo">AzulCrédito</div>
+                    <div class="checkmark">✓</div>
+                    <h1>Proposta Enviada!</h1>
+                    <p>Sua solicitação foi recebida com sucesso.</p>
+
+                    <div class="info">
+                        <p><strong>✅ Próximos Passos:</strong></p>
+                        <p>• Nossa equipe analisará sua proposta em breve</p>
+                        <p>• Você receberá atualizações por email</p>
+                        <p>• Acompanhe o status na sua área do cliente</p>
+                    </div>
+
+                    <p style="color: #999; font-size: 14px;">Você será redirecionado em 3 segundos...</p>
+                    <button onclick="window.location.href='/simulacoes'" class="button">
+                        Ir para Minhas Propostas
+                    </button>
+                </div>
+
+                <script>
+                    setTimeout(() => {
+                        window.location.href = '/simulacoes';
+                    }, 3000);
+                </script>
+            </body>
+            </html>
+        `);
     } catch (e) {
         console.error('❌ Erro em /enviar-proposta:', e);
         res.status(500).send("Erro ao processar.");
@@ -1492,7 +1900,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
                     </div>
                     <button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>
-                    <a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
+                    <a href="/admin-logout" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
                 </div>
             </div>
 
