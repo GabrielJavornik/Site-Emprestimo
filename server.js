@@ -106,6 +106,59 @@ pool.query(`
 const soNumeros = (str) => String(str || '').replace(/\D/g, '');
 const formatarMoeda = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// Senhas comuns/fracas a rejeitar
+const SENHAS_FRACAS = [
+    '123456', '12345678', '1234567890', '123456789',
+    'password', 'senha123', 'admin', 'root', '000000',
+    'qwerty', 'abc123', 'aaaaaa', '111111', '666666',
+    'senha', 'teste123', 'usuario', '000000', '1234567',
+    'azul123', 'credito', 'emprestimo', 'cliente'
+];
+
+// Validar força da senha
+function validarSenha(senha) {
+    // Mínimo 8 caracteres
+    if (senha.length < 8) {
+        return { valida: false, msg: 'Senha deve ter no mínimo 8 caracteres' };
+    }
+
+    // Não pode estar na lista de senhas fracas
+    if (SENHAS_FRACAS.includes(senha.toLowerCase())) {
+        return { valida: false, msg: 'Esta senha é muito comum. Escolha uma senha mais segura' };
+    }
+
+    // Verificar se tem letra maiúscula
+    if (!/[A-Z]/.test(senha)) {
+        return { valida: false, msg: 'Senha deve conter pelo menos 1 letra MAIÚSCULA' };
+    }
+
+    // Verificar se tem letra minúscula
+    if (!/[a-z]/.test(senha)) {
+        return { valida: false, msg: 'Senha deve conter pelo menos 1 letra minúscula' };
+    }
+
+    // Verificar se tem número
+    if (!/[0-9]/.test(senha)) {
+        return { valida: false, msg: 'Senha deve conter pelo menos 1 número' };
+    }
+
+    // Verificar se tem caractere especial
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+        return { valida: false, msg: 'Senha deve conter pelo menos 1 caractere especial (!@#$%^&*...)' };
+    }
+
+    // Não pode ter sequências óbvias (123, abc, 111, etc)
+    if (/(\d)\1{2,}/.test(senha)) { // 3+ números iguais seguidos
+        return { valida: false, msg: 'Senha não pode ter 3+ caracteres repetidos' };
+    }
+
+    if (/(?:123|234|345|456|567|678|789|890|abc|bcd|cde|def)/.test(senha.toLowerCase())) {
+        return { valida: false, msg: 'Senha não pode conter sequências óbvias (123, abc, etc)' };
+    }
+
+    return { valida: true, msg: 'Senha forte ✅' };
+}
+
 app.get('/ver-arquivo/:nome', adminAuth, (req, res) => {
     const caminho = path.join(__dirname, 'uploads', req.params.nome);
     if (fs.existsSync(caminho)) res.sendFile(caminho);
@@ -212,6 +265,13 @@ app.get('/reset-senha/:token', async (req, res) => {
 app.post('/confirmar-reset-senha', async (req, res) => {
     try {
         const { token, novaSenha } = req.body;
+
+        // Validar força da senha
+        const validacao = validarSenha(novaSenha);
+        if (!validacao.valida) {
+            return res.status(400).json({ ok: false, msg: validacao.msg });
+        }
+
         const result = await pool.query('UPDATE USUARIOS SET senha = $1, reset_token = NULL, reset_expira = NULL WHERE reset_token = $2 AND reset_expira > NOW() RETURNING id', [novaSenha, token]);
 
         if (result.rows.length > 0) {
@@ -227,6 +287,13 @@ app.post('/confirmar-reset-senha', async (req, res) => {
 app.post('/cadastro', async (req, res) => {
     try {
         const { nome, email, whatsapp, cpf, senha } = req.body;
+
+        // Validar força da senha
+        const validacao = validarSenha(senha);
+        if (!validacao.valida) {
+            return res.status(400).json({ ok: false, msg: validacao.msg });
+        }
+
         const cpfLimpo = soNumeros(cpf);
         const tokenEmail = require('crypto').randomBytes(32).toString('hex');
 
@@ -369,8 +436,16 @@ app.get('/perfil', async (req, res) => {
 
                     <button onclick="trocarSenha()">🔒 Trocar Senha</button>
 
-                    <div class="info">
-                        💡 <strong>Dica:</strong> Use uma senha forte com letras, números e caracteres especiais.
+                    <div class="info" style="background:#fff3cd;border-left-color:#ff9800;">
+                        <strong>🔐 Requisitos de Senha Forte:</strong>
+                        <ul style="margin:10px 0;padding-left:20px;">
+                            <li>Mínimo 8 caracteres</li>
+                            <li>Pelo menos 1 LETRA MAIÚSCULA (A-Z)</li>
+                            <li>Pelo menos 1 letra minúscula (a-z)</li>
+                            <li>Pelo menos 1 número (0-9)</li>
+                            <li>Pelo menos 1 caractere especial (!@#$%^&*)</li>
+                            <li>Sem sequências óbvias (123, abc, 111...)</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -412,11 +487,6 @@ app.get('/perfil', async (req, res) => {
 
                     if (novaSenha !== confirmar) {
                         document.getElementById('resultado-senha').innerHTML = '<p class="error">❌ As senhas não correspondem!</p>';
-                        return;
-                    }
-
-                    if (novaSenha.length < 6) {
-                        document.getElementById('resultado-senha').innerHTML = '<p class="error">❌ A nova senha deve ter pelo menos 6 caracteres!</p>';
                         return;
                     }
 
@@ -932,6 +1002,12 @@ app.post('/trocar-senha', async (req, res) => {
 
         if (result.rows[0].senha !== senha_atual) {
             return res.status(401).json({ ok: false, msg: 'Senha atual incorreta' });
+        }
+
+        // Validar força da nova senha
+        const validacao = validarSenha(nova_senha);
+        if (!validacao.valida) {
+            return res.status(400).json({ ok: false, msg: validacao.msg });
         }
 
         // Atualizar senha
