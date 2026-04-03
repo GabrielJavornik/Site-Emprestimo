@@ -192,14 +192,27 @@ async function enviarWhatsAppLembrete(numero, nome, valorParcela, dataVencimento
         const msg = `Olá ${nome}! ⚠️ Sua parcela de R$ ${parseFloat(valorParcela).toFixed(2).replace('.',',')} vence em 3 dias (${dataFormatada}). Pague para evitar juros - AzulCrédito`;
         const numLimpo = numero.replace(/\D/g, '');
 
-        // Por agora: logar a mensagem que seria enviada (pode ser integrado com CallMeBot ou Twilio depois)
-        console.log(`📱 WhatsApp para ${numLimpo}: ${msg}`);
+        // Chamar CallMeBot API para enviar mensagem WhatsApp
+        const apikey = process.env.CALLMEBOT_API_KEY || ''; // API key opcional para melhor confiabilidade
 
-        // TODO: Integrar com CallMeBot ou outra API de WhatsApp
-        // const url = `https://api.callmebot.com/whatsapp.php?phone=55${numLimpo}&text=${encodeURIComponent(msg)}&apikey=SEU_API_KEY`;
-        // await fetch(url);
+        const urlParams = new URLSearchParams();
+        urlParams.append('phone', `55${numLimpo}`);
+        urlParams.append('text', msg);
+        if (apikey) urlParams.append('apikey', apikey);
+
+        const url = `https://api.callmebot.com/whatsapp.php?${urlParams.toString()}`;
+
+        const response = await fetch(url, { method: 'GET', timeout: 5000 });
+
+        if (response.ok) {
+            console.log(`✅ WhatsApp enviado com sucesso para ${numLimpo}`);
+        } else {
+            console.warn(`⚠️ CallMeBot retornou status ${response.status} para ${numLimpo}. Mensagem pode não ter sido entregue. Detalhes: ${await response.text()}`);
+        }
     } catch (err) {
-        console.error('❌ Erro ao processar WhatsApp:', err.message);
+        console.error(`❌ Erro ao enviar WhatsApp para ${numero.replace(/\D/g, '')}: ${err.message}`);
+        console.log(`   → Número: ${numero.replace(/\D/g, '')}`);
+        console.log(`   → Mensagem será registrada no banco mesmo se falhar`);
     }
 }
 
