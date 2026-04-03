@@ -1230,7 +1230,7 @@ app.get('/perfil', async (req, res) => {
     if (!req.session.usuarioLogado) return res.send("<script>location.href='/';</script>");
     try {
         const cpf = req.session.userCpf;
-        const result = await pool.query('SELECT nome, email, whatsapp, banco_codigo, banco_nome, agencia, conta, conta_digito, conta_tipo FROM USUARIOS WHERE cpf = $1', [cpf]);
+        const result = await pool.query('SELECT nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa, banco_codigo, banco_nome, agencia, conta, conta_digito, conta_tipo FROM USUARIOS WHERE cpf = $1', [cpf]);
         if (result.rows.length === 0) return res.status(404).send('Usuário não encontrado');
 
         const user = result.rows[0];
@@ -1271,8 +1271,9 @@ app.get('/perfil', async (req, res) => {
 
                 <div class="card">
                     <h2>📍 Meu Endereço</h2>
+                    <div id="resultado-endereco"></div>
                     <label>CEP</label>
-                    <input type="text" id="cep" value="${user.cep || ''}" placeholder="00000-000" maxlength="9">
+                    <input type="text" id="cep" value="${user.cep || ''}" placeholder="00000-000" maxlength="9" onblur="buscarCEPPerfil()">
 
                     <label>Rua/Avenida</label>
                     <input type="text" id="rua" value="${user.rua || ''}" placeholder="Rua, Avenida...">
@@ -1367,6 +1368,31 @@ app.get('/perfil', async (req, res) => {
             </div>
 
             <script>
+                // Buscar endereço por CEP na página de perfil
+                async function buscarCEPPerfil() {
+                    const cepInput = document.getElementById('cep');
+                    const cep = cepInput.value.replace(/\D/g, '');
+                    if (cep.length !== 8) return;
+
+                    try {
+                        const resp = await fetch(\`/api/cep/\${cep}\`);
+                        const data = await resp.json();
+
+                        if (data.ok) {
+                            document.getElementById('rua').value = data.rua || '';
+                            document.getElementById('bairro').value = data.bairro || '';
+                            document.getElementById('cidade').value = data.cidade || '';
+                            document.getElementById('estado').value = data.estado || '';
+                            document.getElementById('numero_casa').focus();
+                        } else {
+                            alert('⚠️ ' + data.msg);
+                        }
+                    } catch (e) {
+                        console.error('❌ Erro ao buscar CEP:', e);
+                        alert('❌ Erro ao buscar endereço');
+                    }
+                }
+
                 // Preencher select de banco com dados salvos
                 window.addEventListener('load', () => {
                     if ('${user.banco_codigo}') {
@@ -1460,20 +1486,35 @@ app.get('/perfil', async (req, res) => {
                     const email = document.getElementById('email').value.trim();
                     const whatsapp = document.getElementById('whatsapp').value.trim();
 
-                    const resp = await fetch('/atualizar-perfil', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa })
-                    });
+                    const resultado = document.getElementById('resultado-endereco');
 
-                    const json = await resp.json();
-                    const btn = event.target;
-                    if (json.ok) {
-                        btn.style.background = '#2ecc71';
-                        btn.innerText = '✅ Endereço salvo!';
-                        setTimeout(() => { btn.style.background = '#27ae60'; btn.innerText = '🏠 Salvar Endereço'; }, 2000);
-                    } else {
-                        alert('❌ Erro ao salvar: ' + (json.msg || 'Erro ao atualizar'));
+                    // Validação básica
+                    if (!nome || !email) {
+                        resultado.innerHTML = '<p class="error">❌ Nome e Email são obrigatórios!</p>';
+                        return;
+                    }
+
+                    console.log('📤 Enviando dados:', { nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa });
+
+                    try {
+                        const resp = await fetch('/atualizar-perfil', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa })
+                        });
+
+                        const json = await resp.json();
+                        console.log('📥 Resposta do servidor:', json);
+
+                        if (json.ok) {
+                            resultado.innerHTML = '<p class="success">✅ Endereço salvo com sucesso!</p>';
+                            setTimeout(() => resultado.innerHTML = '', 3000);
+                        } else {
+                            resultado.innerHTML = '<p class="error">❌ Erro ao salvar: ' + (json.msg || 'Erro ao atualizar') + '</p>';
+                        }
+                    } catch (err) {
+                        console.error('❌ Erro ao salvar endereço:', err);
+                        resultado.innerHTML = '<p class="error">❌ Erro de conexão ao salvar endereço</p>';
                     }
                 }
 
@@ -2198,10 +2239,11 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
     try {
         // Query otimizada: JOIN para evitar N+1
         const allSimsResult = await pool.query(`
-            SELECT s.*, COALESCE(SUM(p.valor), 0) as total_pago
+            SELECT s.*, u.cidade, u.estado, u.banco_nome, u.banco_codigo, u.agencia, u.conta, u.conta_digito, u.conta_tipo, COALESCE(SUM(p.valor), 0) as total_pago
             FROM SIMULACOES s
+            LEFT JOIN USUARIOS u ON u.cpf = s.cpf
             LEFT JOIN PAGAMENTOS p ON p.simulacao_id = s.id
-            GROUP BY s.id
+            GROUP BY s.id, u.cpf
             ORDER BY s.criado_em DESC
         `);
         const allSims = { rows: allSimsResult.rows };
@@ -2277,7 +2319,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
         const perfis = {};
         allSims.rows.forEach(r => {
-            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, pedidos: [] };
+            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, pedidos: [] };
             perfis[r.cpf].pedidos.push(r);
         });
 
@@ -3420,6 +3462,7 @@ app.post('/atualizar-perfil', async (req, res) => {
 
     try {
         const cpf = req.session.userCpf;
+        console.log('📥 Recebendo atualização de perfil:', { cpf, nome, email, cep, rua, bairro, cidade, estado, numero_casa });
 
         // Verificar se email já existe (para outro usuário)
         const emailExists = await pool.query('SELECT cpf FROM USUARIOS WHERE email = $1 AND cpf != $2', [email, cpf]);
@@ -3427,15 +3470,17 @@ app.post('/atualizar-perfil', async (req, res) => {
             return res.status(400).json({ ok: false, msg: 'Este email já está cadastrado' });
         }
 
-        await pool.query(
+        const result = await pool.query(
             'UPDATE USUARIOS SET nome = $1, email = $2, whatsapp = $3, cep = $4, rua = $5, bairro = $6, cidade = $7, estado = $8, numero_casa = $9 WHERE cpf = $10',
             [nome, email, whatsapp || null, cep || null, rua || null, bairro || null, cidade || null, estado || null, numero_casa || null, cpf]
         );
 
+        console.log('✅ Query executada - linhas afetadas:', result.rowCount);
+
         // Atualizar nome na sessão
         req.session.userName = nome;
 
-        console.log('✅ Perfil atualizado:', { cpf, nome, email });
+        console.log('✅ Perfil atualizado com sucesso:', { cpf, nome, email, endereco: { cep, rua, bairro, cidade, estado, numero_casa } });
         res.json({ ok: true, msg: 'Perfil atualizado com sucesso' });
     } catch (err) {
         console.error('❌ Erro ao atualizar perfil:', err);

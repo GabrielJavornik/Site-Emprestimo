@@ -17,7 +17,8 @@
       "Bash(curl -s http://localhost:8080)",
       "Bash(tee server.log)",
       "Bash(tee server_debug.log)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "WebSearch"
     ],
     "additionalDirectories": [
       "\\tmp"
