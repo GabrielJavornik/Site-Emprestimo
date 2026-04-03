@@ -83,7 +83,7 @@ async function enviarEmailReprovado(dest, nome) {
 async function enviarEmailPagamento(dest, nome, valorPago, totalPago, totalDivida, parcelas, parcelasRestantes) {
     console.log('\n📧 [PAGAMENTO] Enviando para:', dest);
     try {
-        const percentualPago = ((totalPago / totalDivida) * 100).toFixed(1);
+        const percentualPago = Math.min(((totalPago / totalDivida) * 100).toFixed(1), 100);
         await sgMail.send({
             to: dest,
             from: `AzulCrédito <${EMAIL_REMETENTE}>`,
@@ -850,7 +850,7 @@ app.get('/simulacoes', async (req, res) => {
                                 <div style="margin-bottom:25px;">
                                     <h3 style="color:#1e3c72;margin-bottom:15px;">PROGRESSO DE PAGAMENTO</h3>
                                     <div style="background:#e0e0e0;border-radius:8px;overflow:hidden;height:30px;margin-bottom:10px;">
-                                        <div style="background:linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);width:\${percentualPago}%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;">
+                                        <div style="background:linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);width:\${Math.min(percentualPago, 100)}%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;">
                                             \${percentualPago}%
                                         </div>
                                     </div>
@@ -1197,48 +1197,67 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
 app.post('/registrar-pagamento', adminAuth, async (req, res) => {
     try {
         const { simulacao_id, valor, data_pagamento } = req.body;
+        const valorPagamento = parseFloat(valor);
+
+        // Validar se valor é positivo
+        if (valorPagamento <= 0) {
+            return res.status(400).json({ ok: false, msg: 'Valor deve ser maior que zero' });
+        }
+
+        // Buscar dados da simulação para validar
+        const simResult = await pool.query('SELECT nome, email, total, parcelas FROM SIMULACOES WHERE id = $1', [simulacao_id]);
+        if (simResult.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Simulação não encontrada' });
+        }
+
+        const sim = simResult.rows[0];
+        const totalDivida = parseFloat(sim.total);
+
+        // Calcular total pago até agora
+        const pagtoResult = await pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [simulacao_id]);
+        const totalPagoAtual = parseFloat(pagtoResult.rows[0].total_pago);
+        const totalPagoApos = totalPagoAtual + valorPagamento;
+
+        // VALIDAR: não permitir pagamento que ultrapasse o valor total devido
+        if (totalPagoApos > totalDivida) {
+            const restante = (totalDivida - totalPagoAtual).toFixed(2);
+            return res.status(400).json({
+                ok: false,
+                msg: `Valor inválido! Ainda faltam apenas R$ ${restante.replace('.', ',')} para quitar este crédito.`
+            });
+        }
 
         // Inserir pagamento
         await pool.query('INSERT INTO PAGAMENTOS (simulacao_id, valor, data_pagamento, status) VALUES ($1, $2, $3, $4)',
-            [simulacao_id, valor, data_pagamento, 'CONFIRMADO']);
+            [simulacao_id, valorPagamento, data_pagamento, 'CONFIRMADO']);
 
-        console.log('💰 Pagamento registrado:', { simulacao_id, valor });
+        console.log('💰 Pagamento registrado:', { simulacao_id, valor: valorPagamento });
 
-        // Buscar dados da simulação para enviar email
-        const simResult = await pool.query('SELECT nome, email, total, parcelas FROM SIMULACOES WHERE id = $1', [simulacao_id]);
-        if (simResult.rows.length > 0) {
-            const sim = simResult.rows[0];
+        const valorMensal = totalDivida / parseInt(sim.parcelas);
+        const parcelasRestantes = Math.ceil((totalDivida - totalPagoApos) / valorMensal);
 
-            // Calcular total pago até agora
-            const pagtoResult = await pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [simulacao_id]);
-            const totalPago = parseFloat(pagtoResult.rows[0].total_pago);
-            const totalDivida = parseFloat(sim.total);
-            const valorMensal = totalDivida / parseInt(sim.parcelas);
-            const parcelasRestantes = Math.ceil((totalDivida - totalPago) / valorMensal);
+        // Auto-QUITADO: Se totalmente pago, atualizar status
+        if (totalPagoApos >= totalDivida) {
+            await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE id = $2', ['QUITADO', simulacao_id]);
+            console.log('✅ Proposta marcada como QUITADA automaticamente:', simulacao_id);
 
-            // Auto-QUITADO: Se totalmente pago, atualizar status
-            if (totalPago >= totalDivida) {
-                await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE id = $2', ['QUITADO', simulacao_id]);
-                console.log('✅ Proposta marcada como QUITADA automaticamente:', simulacao_id);
-
-                // Enviar email de parabéns
-                enviarEmailQuitado(sim.email, sim.nome).catch(err => {
-                    console.error('⚠️ Email de quitação falhou:', err.message);
-                });
-            } else {
-                // Enviar email de pagamento normal
-                enviarEmailPagamento(
-                    sim.email,
-                    sim.nome,
-                    parseFloat(valor),
-                    totalPago,
-                    totalDivida,
-                    parseInt(sim.parcelas),
-                    parcelasRestantes
-                ).catch(err => {
-                    console.error('⚠️ Email de pagamento falhou, mas pagamento foi registrado:', err.message);
-                });
-            }
+            // Enviar email de parabéns
+            enviarEmailQuitado(sim.email, sim.nome).catch(err => {
+                console.error('⚠️ Email de quitação falhou:', err.message);
+            });
+        } else {
+            // Enviar email de pagamento normal
+            enviarEmailPagamento(
+                sim.email,
+                sim.nome,
+                valorPagamento,
+                totalPagoApos,
+                totalDivida,
+                parseInt(sim.parcelas),
+                parcelasRestantes
+            ).catch(err => {
+                console.error('⚠️ Email de pagamento falhou, mas pagamento foi registrado:', err.message);
+            });
         }
 
         res.json({ ok: true });
