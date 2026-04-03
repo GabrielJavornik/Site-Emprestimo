@@ -308,6 +308,55 @@ async function verificarVencimentos() {
     }
 }
 
+// Enviar email de atraso
+async function enviarEmailAtraso(dest, nome, numParcela, valorOriginal, dataVenc, multa, juros, totalDevido) {
+    try {
+        const dataFormatada = new Date(dataVenc + 'T12:00:00').toLocaleDateString('pt-BR');
+        await sgMail.send({
+            to: dest,
+            from: `AzulCrédito <${EMAIL_REMETENTE}>`,
+            subject: `URGENTE: Parcela ${numParcela} em atraso - AzulCrédito`,
+            html: `<div style="font-family:sans-serif;color:#333;max-width:500px;border:2px solid #dc2626;padding:25px;border-radius:15px;background:#fef2f2;">
+                    <h2 style="color:#dc2626;">⚠️ Parcela ${numParcela} em Atraso</h2>
+                    <p>Olá, <strong>${nome}</strong>! Identificamos que sua parcela venceu sem pagamento.</p>
+                    <div style="background:#fee2e2;padding:15px;border-radius:8px;border-left:4px solid #dc2626;margin:15px 0;">
+                        <p style="margin:8px 0;"><strong>📅 Vencimento:</strong> ${dataFormatada}</p>
+                        <p style="margin:8px 0;"><strong>💵 Valor original:</strong> R$ ${parseFloat(valorOriginal).toFixed(2).replace('.',',')}</p>
+                        <p style="margin:8px 0;"><strong>📌 Multa (2%):</strong> R$ ${multa.toFixed(2).replace('.',',')}</p>
+                        <p style="margin:8px 0;"><strong>📊 Juros:</strong> R$ ${juros.toFixed(2).replace('.',',')}</p>
+                        <p style="margin:8px 0;font-size:1.2rem;font-weight:bold;color:#dc2626;"><strong>💸 TOTAL A PAGAR:</strong> R$ ${totalDevido.toFixed(2).replace('.',',')}</p>
+                    </div>
+                    <p style="color:#dc2626;font-weight:bold;">Regularize sua situação o quanto antes para evitar acúmulo de juros!</p>
+                    <p style="font-size:0.9rem;color:#666;margin-top:20px;">Equipe AzulCrédito</p></div>`
+        });
+        console.log(`✅ Email de atraso enviado para ${dest}`);
+    } catch (e) {
+        console.error('❌ Erro ao enviar email de atraso:', e.message);
+    }
+}
+
+// Enviar WhatsApp de atraso
+async function enviarWhatsAppAtraso(numero, nome, numParcela, valorOriginal, totalDevido) {
+    try {
+        const numLimpo = numero.replace(/\D/g, '');
+        const msg = `ATENÇÃO ${nome}! ⚠️ Sua parcela ${numParcela} está em ATRASO. ` +
+            `Valor original: R$ ${parseFloat(valorOriginal).toFixed(2).replace('.',',')}. ` +
+            `Com multa e juros: R$ ${totalDevido.toFixed(2).replace('.',',')}. ` +
+            `Regularize agora para evitar mais juros - AzulCrédito`;
+
+        const url = `https://api.callmebot.com/whatsapp.php?phone=55${numLimpo}&text=${encodeURIComponent(msg)}&apikey=${process.env.CALLMEBOT_API_KEY || ''}`;
+        const response = await fetch(url, { method: 'GET', timeout: 5000 });
+
+        if (response.ok) {
+            console.log(`✅ WhatsApp de atraso enviado para ${numLimpo}`);
+        } else {
+            console.warn(`⚠️ Falha ao enviar WhatsApp de atraso: status ${response.status}`);
+        }
+    } catch (e) {
+        console.error(`❌ Erro ao enviar WhatsApp de atraso: ${e.message}`);
+    }
+}
+
 // --- 3. CONFIGURAÇÕES GERAIS ---
 app.use(session({ secret: 'azul-credito-segredo-2026', resave: false, saveUninitialized: false, cookie: { maxAge: 30 * 60 * 1000 } }));
 const pool = new Pool({ user: 'postgres', host: 'localhost', database: 'site_emprestimo', password: 'Chaves60.', port: 5432 });
@@ -397,8 +446,103 @@ pool.query(`
     )
 `).catch(err => console.error('⚠️ Erro ao criar tabela LEMBRETES_ENVIADOS:', err.message));
 
+// Tabela para registrar multas por atraso
+pool.query(`
+    CREATE TABLE IF NOT EXISTS MULTAS (
+        id SERIAL PRIMARY KEY,
+        simulacao_id INT NOT NULL,
+        parcela_num INT NOT NULL,
+        data_vencimento DATE NOT NULL,
+        valor_original DECIMAL(10,2) NOT NULL,
+        multa DECIMAL(10,2) NOT NULL DEFAULT 0,
+        juros DECIMAL(10,2) NOT NULL DEFAULT 0,
+        total_devido DECIMAL(10,2) NOT NULL,
+        dias_atraso INT NOT NULL DEFAULT 0,
+        status VARCHAR(20) DEFAULT 'ATIVA',
+        notificado_em TIMESTAMP,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(simulacao_id, parcela_num),
+        FOREIGN KEY (simulacao_id) REFERENCES SIMULACOES(id) ON DELETE CASCADE
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela MULTAS:', err.message));
+
+pool.query(`CREATE INDEX IF NOT EXISTS idx_multas_simulacao ON MULTAS(simulacao_id)`)
+    .catch(() => {});
+
 const soNumeros = (str) => String(str || '').replace(/\D/g, '');
 const formatarMoeda = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Calcular juros e multa por atraso
+function calcularJurosMulta(valorParcela, dataVencimento) {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const venc = new Date(dataVencimento + 'T12:00:00');
+    venc.setHours(0, 0, 0, 0);
+
+    const diasAtraso = Math.floor((hoje - venc) / (1000 * 60 * 60 * 24));
+
+    if (diasAtraso <= 0) {
+        return { multa: 0, juros: 0, total: parseFloat(valorParcela), diasAtraso: 0 };
+    }
+
+    const valor = parseFloat(valorParcela);
+    const multa = valor * 0.02;
+    const juros = valor * 0.00033 * diasAtraso;
+    const total = valor + multa + juros;
+
+    return {
+        multa: parseFloat(multa.toFixed(2)),
+        juros: parseFloat(juros.toFixed(2)),
+        total: parseFloat(total.toFixed(2)),
+        diasAtraso
+    };
+}
+
+// Calcular todas as parcelas de uma simulação
+function calcularParcelasSimulacao(sim, totalPagoAcumulado) {
+    const aprovadoEm = new Date(sim.aprovado_em);
+    aprovadoEm.setHours(0, 0, 0, 0);
+    const parcelas = parseInt(sim.parcelas);
+    const valorMensal = parseFloat(sim.total) / parcelas;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    let saldoPago = parseFloat(totalPagoAcumulado || 0);
+    const resultado = [];
+
+    for (let n = 1; n <= parcelas; n++) {
+        const venc = new Date(aprovadoEm);
+        venc.setDate(aprovadoEm.getDate() + (n * 30));
+        const vencStr = venc.toISOString().split('T')[0];
+
+        let statusParcela;
+        if (saldoPago >= valorMensal) {
+            statusParcela = 'PAGA';
+            saldoPago -= valorMensal;
+        } else if (venc < hoje) {
+            statusParcela = 'ATRASADA';
+        } else {
+            statusParcela = 'PENDENTE';
+        }
+
+        const { multa, juros, total: totalDevido, diasAtraso } = calcularJurosMulta(valorMensal, vencStr);
+
+        resultado.push({
+            numero: n,
+            total: parcelas,
+            dataVencimento: vencStr,
+            valorOriginal: parseFloat(valorMensal.toFixed(2)),
+            multa: statusParcela === 'ATRASADA' ? multa : 0,
+            juros: statusParcela === 'ATRASADA' ? juros : 0,
+            totalDevido: statusParcela === 'ATRASADA' ? totalDevido : parseFloat(valorMensal.toFixed(2)),
+            diasAtraso: statusParcela === 'ATRASADA' ? diasAtraso : 0,
+            status: statusParcela
+        });
+    }
+
+    return resultado;
+}
 
 // Senhas comuns/fracas a rejeitar
 const SENHAS_FRACAS = [
@@ -2471,6 +2615,104 @@ app.get('/pagamentos/:simulacao_id', async (req, res) => {
     }
 });
 
+// Rota de histórico detalhado de parcelas
+app.get('/historico/:simulacao_id', async (req, res) => {
+    try {
+        const simId = parseInt(req.params.simulacao_id);
+
+        const simResult = await pool.query('SELECT * FROM SIMULACOES WHERE id = $1', [simId]);
+        if (simResult.rows.length === 0) return res.status(404).json({ ok: false, msg: 'Não encontrado' });
+
+        const sim = simResult.rows[0];
+
+        // Verificação de autenticação
+        if (req.session.usuarioLogado && sim.cpf !== req.session.userCpf) {
+            return res.status(403).json({ ok: false, msg: 'Acesso negado' });
+        }
+
+        if (!req.session.usuarioLogado && !req.session.adminLogado) {
+            return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+        }
+
+        if (!sim.aprovado_em) {
+            return res.json({ ok: true, parcelas: [], totalPago: 0, totalDivida: 0 });
+        }
+
+        const pagtoResult = await pool.query(
+            'SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1 AND status = $2',
+            [simId, 'CONFIRMADO']
+        );
+        const totalPago = parseFloat(pagtoResult.rows[0].total_pago);
+
+        // Buscar multas já registradas
+        const multasResult = await pool.query(
+            'SELECT * FROM MULTAS WHERE simulacao_id = $1', [simId]
+        );
+        const multasMap = {};
+        multasResult.rows.forEach(m => { multasMap[m.parcela_num] = m; });
+
+        const parcelas = calcularParcelasSimulacao(sim, totalPago);
+
+        // Enriquecer com dados da tabela MULTAS
+        parcelas.forEach(p => {
+            if (multasMap[p.numero]) {
+                p.multa = parseFloat(multasMap[p.numero].multa);
+                p.juros = parseFloat(multasMap[p.numero].juros);
+                p.totalDevido = parseFloat(multasMap[p.numero].total_devido);
+                p.diasAtraso = multasMap[p.numero].dias_atraso;
+            }
+        });
+
+        res.json({
+            ok: true,
+            simulacao: {
+                id: sim.id,
+                nome: sim.nome,
+                valor: parseFloat(sim.valor),
+                total: parseFloat(sim.total),
+                parcelas: parseInt(sim.parcelas),
+                aprovadoEm: sim.aprovado_em,
+                status: sim.status
+            },
+            totalPago,
+            totalDivida: parseFloat(sim.total),
+            parcelasPagas: parcelas.filter(p => p.status === 'PAGA').length,
+            parcelasAtrasadas: parcelas.filter(p => p.status === 'ATRASADA').length,
+            parcelas
+        });
+    } catch (err) {
+        console.error('❌ Erro ao buscar histórico:', err.message);
+        res.status(500).json({ ok: false });
+    }
+});
+
+// Rota de multas ativas
+app.get('/api/multas/:simulacao_id', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado && !req.session.adminLogado) {
+            return res.status(401).json({ ok: false });
+        }
+
+        const simId = parseInt(req.params.simulacao_id);
+
+        if (req.session.usuarioLogado) {
+            const check = await pool.query('SELECT cpf FROM SIMULACOES WHERE id = $1', [simId]);
+            if (!check.rows.length || check.rows[0].cpf !== req.session.userCpf) {
+                return res.status(403).json({ ok: false });
+            }
+        }
+
+        const result = await pool.query(
+            `SELECT * FROM MULTAS WHERE simulacao_id = $1 AND status = 'ATIVA' ORDER BY parcela_num ASC`,
+            [simId]
+        );
+
+        res.json({ ok: true, multas: result.rows });
+    } catch (err) {
+        res.status(500).json({ ok: false });
+    }
+});
+
 // --- PIX QR CODE MOCK (SIMULADO PARA AULA) ---
 app.post('/pix/gerar', async (req, res) => {
     try {
@@ -2903,6 +3145,88 @@ app.post('/admin-limpar-dados', adminAuth, async (req, res) => {
     }
 });
 
+// --- FUNÇÃO DE VERIFICAÇÃO DE MULTAS ---
+async function verificarMultas() {
+    try {
+        console.log('🔍 [MULTAS] Verificando parcelas atrasadas...');
+
+        const sims = await pool.query(`
+            SELECT s.*, COALESCE(SUM(p.valor), 0) as total_pago
+            FROM SIMULACOES s
+            LEFT JOIN PAGAMENTOS p ON p.simulacao_id = s.id AND p.status = 'CONFIRMADO'
+            WHERE s.status = 'PAGO' AND s.aprovado_em IS NOT NULL
+            GROUP BY s.id
+        `);
+
+        let novasMultas = 0;
+
+        for (const sim of sims.rows) {
+            const totalPago = parseFloat(sim.total_pago || 0);
+            const parcelas = calcularParcelasSimulacao(sim, totalPago);
+
+            for (const parcela of parcelas) {
+                if (parcela.status !== 'ATRASADA') continue;
+
+                const { multa, juros, total, diasAtraso } = calcularJurosMulta(
+                    parcela.valorOriginal, parcela.dataVencimento
+                );
+
+                // Upsert: atualiza juros diariamente se a multa já existia
+                await pool.query(`
+                    INSERT INTO MULTAS
+                        (simulacao_id, parcela_num, data_vencimento, valor_original, multa, juros, total_devido, dias_atraso, status)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'ATIVA')
+                    ON CONFLICT (simulacao_id, parcela_num) DO UPDATE SET
+                        juros = EXCLUDED.juros,
+                        total_devido = EXCLUDED.total_devido,
+                        dias_atraso = EXCLUDED.dias_atraso
+                `, [sim.id, parcela.numero, parcela.dataVencimento,
+                    parcela.valorOriginal, multa, juros, total, diasAtraso]);
+
+                // Notificar apenas uma vez (quando notificado_em for NULL)
+                const jaNotificado = await pool.query(
+                    'SELECT notificado_em FROM MULTAS WHERE simulacao_id=$1 AND parcela_num=$2',
+                    [sim.id, parcela.numero]
+                );
+
+                if (jaNotificado.rows[0] && !jaNotificado.rows[0].notificado_em) {
+                    // Enviar email de atraso
+                    if (sim.email) {
+                        await enviarEmailAtraso(sim.email, sim.nome, parcela.numero,
+                            parcela.valorOriginal, parcela.dataVencimento, multa, juros, total);
+                    }
+                    // Enviar WhatsApp de atraso
+                    if (sim.whatsapp) {
+                        await enviarWhatsAppAtraso(sim.whatsapp, sim.nome, parcela.numero,
+                            parcela.valorOriginal, total);
+                    }
+                    // Marcar como notificado
+                    await pool.query(
+                        'UPDATE MULTAS SET notificado_em = NOW() WHERE simulacao_id=$1 AND parcela_num=$2',
+                        [sim.id, parcela.numero]
+                    );
+                    novasMultas++;
+                }
+            }
+
+            // Marcar multas como QUITADA se parcela foi paga
+            for (const parcela of parcelas) {
+                if (parcela.status === 'PAGA') {
+                    await pool.query(
+                        `UPDATE MULTAS SET status = 'QUITADA'
+                         WHERE simulacao_id = $1 AND parcela_num = $2 AND status = 'ATIVA'`,
+                        [sim.id, parcela.numero]
+                    );
+                }
+            }
+        }
+
+        console.log(`✅ [MULTAS] Verificação concluída. ${novasMultas} novas notificações enviadas.`);
+    } catch (err) {
+        console.error('❌ [MULTAS] Erro:', err.message);
+    }
+}
+
 // --- SISTEMA DE LEMBRETES AUTOMÁTICOS ---
 // Executar verificação de vencimentos todos os dias às 08:00
 cron.schedule('0 8 * * *', () => {
@@ -2910,10 +3234,22 @@ cron.schedule('0 8 * * *', () => {
     verificarVencimentos().catch(err => console.error('❌ [CRON] Erro:', err));
 });
 
+// Executar verificação de multas todos os dias às 09:00
+cron.schedule('0 9 * * *', () => {
+    console.log('⏰ [CRON-MULTAS] Iniciando verificação de multas...');
+    verificarMultas().catch(err => console.error('❌ [CRON-MULTAS] Erro:', err));
+});
+
 // Executar verificação uma vez na inicialização (para testes)
 setTimeout(() => {
     console.log('⏰ [STARTUP] Executando verificação inicial de vencimentos...');
     verificarVencimentos().catch(err => console.error('❌ [STARTUP] Erro:', err));
 }, 2000);
+
+// Executar verificação de multas na inicialização
+setTimeout(() => {
+    console.log('⏰ [STARTUP-MULTAS] Executando verificação inicial de multas...');
+    verificarMultas().catch(err => console.error('❌ [STARTUP-MULTAS] Erro:', err));
+}, 2500);
 
 app.listen(PORT, () => { console.log('🚀 Servidor AzulCrédito ON: http://localhost:' + PORT); });
