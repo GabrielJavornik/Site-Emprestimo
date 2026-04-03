@@ -1999,10 +1999,27 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
         // Novos cálculos
         const totalArrecadado = allSims.rows.reduce((acc, r) => acc + parseFloat(r.total_pago || 0), 0);
         const ticketMedio = allSims.rows.length > 0 ? (totalSolicitado / allSims.rows.length).toFixed(2) : 0;
-        const inadimplentes = allSims.rows.filter(r => r.status === 'PAGO' && parseFloat(r.total_pago || 0) === 0 && new Date(r.criado_em).getTime() < Date.now() - 30*24*60*60*1000).length;
+
+        // Buscar count real de inadimplentes na tabela MULTAS
+        const inadimpResult = await pool.query(`SELECT COUNT(DISTINCT simulacao_id) as total FROM MULTAS WHERE status = 'ATIVA'`);
+        const inadimplentes = parseInt(inadimpResult.rows[0].total || 0);
 
         // Taxa de quitação
         const taxaQuitacao = allSims.rows.length > 0 ? ((quitados / allSims.rows.length) * 100).toFixed(1) : 0;
+
+        // Buscar detalhes dos inadimplentes
+        const inadimplentesDetalheResult = await pool.query(`
+            SELECT s.id, s.nome, s.cpf, s.whatsapp, s.email,
+                   COUNT(m.id) as qtd_parcelas_atrasadas,
+                   SUM(m.total_devido) as total_em_atraso,
+                   MAX(m.dias_atraso) as max_dias_atraso
+            FROM MULTAS m
+            JOIN SIMULACOES s ON s.id = m.simulacao_id
+            WHERE m.status = 'ATIVA'
+            GROUP BY s.id, s.nome, s.cpf, s.whatsapp, s.email
+            ORDER BY max_dias_atraso DESC
+        `);
+        const inadimplentesDetalhe = inadimplentesDetalheResult.rows;
 
         // Dados por mês
         const porMes = {};
@@ -2151,6 +2168,14 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     <thead><tr><th>Cliente</th><th>Propostas</th><th>Valor Total</th></tr></thead>
                     <tbody>${top5.join('')}</tbody>
                 </table>
+            </div>
+
+            <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #dc2626;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-top:0;color:#dc2626;">⚠️ Clientes Inadimplentes</h3>
+                ${inadimplentesDetalhe.length === 0
+                    ? '<p style="color:#666;">Nenhum cliente inadimplente</p>'
+                    : '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#fef2f2;"><th style="padding:12px;text-align:left;border-bottom:2px solid #fee2e2;">Cliente</th><th style="padding:12px;text-align:left;border-bottom:2px solid #fee2e2;">CPF</th><th style="padding:12px;text-align:center;border-bottom:2px solid #fee2e2;color:#dc2626;font-weight:bold;">Parcelas</th><th style="padding:12px;text-align:right;border-bottom:2px solid #fee2e2;color:#dc2626;font-weight:bold;">Atraso</th><th style="padding:12px;text-align:center;border-bottom:2px solid #fee2e2;">Dias</th><th style="padding:12px;text-align:center;border-bottom:2px solid #fee2e2;">Ação</th></tr></thead><tbody>' + inadimplentesDetalhe.map(r => '<tr style="border-bottom:1px solid #fee2e2;"><td style="padding:12px;">'+r.nome+'</td><td style="padding:12px;font-family:monospace;font-size:0.9rem;">'+r.cpf+'</td><td style="padding:12px;text-align:center;font-weight:bold;color:#dc2626;">'+r.qtd_parcelas_atrasadas+'</td><td style="padding:12px;text-align:right;font-weight:bold;color:#dc2626;">'+formatarMoeda(r.total_em_atraso)+'</td><td style="padding:12px;text-align:center;"><span style="background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:50px;font-weight:bold;font-size:0.85rem;">'+r.max_dias_atraso+'d</span></td><td style="padding:12px;text-align:center;"><a href="https://wa.me/55'+soNumeros(r.whatsapp)+'" target="_blank" style="background:#25d366;color:white;padding:6px 14px;border-radius:6px;text-decoration:none;font-size:0.85rem;font-weight:bold;">WhatsApp</a></td></tr>').join('') + '</tbody></table>'
+                }
             </div>
 
             <h2 style="color:#1e3c72;margin-bottom:20px;">👥 Gerenciar Propostas</h2>
