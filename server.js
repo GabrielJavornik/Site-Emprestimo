@@ -2239,11 +2239,15 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
     try {
         // Query otimizada: JOIN para evitar N+1
         const allSimsResult = await pool.query(`
-            SELECT s.*, u.cidade, u.estado, u.banco_nome, u.banco_codigo, u.agencia, u.conta, u.conta_digito, u.conta_tipo, COALESCE(SUM(p.valor), 0) as total_pago
+            SELECT s.*, u.cidade, u.estado, u.banco_nome, u.banco_codigo, u.agencia, u.conta, u.conta_digito, u.conta_tipo,
+                   COALESCE(pag.total_pago, 0) as total_pago
             FROM SIMULACOES s
             LEFT JOIN USUARIOS u ON u.cpf = s.cpf
-            LEFT JOIN PAGAMENTOS p ON p.simulacao_id = s.id
-            GROUP BY s.id, u.cpf
+            LEFT JOIN (
+                SELECT simulacao_id, SUM(valor) as total_pago
+                FROM PAGAMENTOS
+                GROUP BY simulacao_id
+            ) pag ON pag.simulacao_id = s.id
             ORDER BY s.criado_em DESC
         `);
         const allSims = { rows: allSimsResult.rows };
