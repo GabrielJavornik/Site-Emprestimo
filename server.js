@@ -111,6 +111,33 @@ async function enviarEmailPagamento(dest, nome, valorPago, totalPago, totalDivid
     }
 }
 
+async function enviarEmailQuitado(dest, nome) {
+    console.log('\n📧 [QUITADO] Enviando para:', dest);
+    try {
+        await sgMail.send({
+            to: dest,
+            from: `AzulCrédito <${EMAIL_REMETENTE}>`,
+            subject: '🎉 Parabéns! Seu Crédito foi Totalmente Quitado - AzulCrédito',
+            html: `<div style="font-family:sans-serif;color:#333;max-width:500px;border:1px solid #bfdbfe;padding:25px;border-radius:15px;background-color:#eff6ff;">
+                    <h2 style="color:#1e40af;border-bottom:2px solid #1e40af;padding-bottom:10px;">🎉 Crédito Quitado!</h2>
+                    <p>Parabéns, <strong>${nome}</strong>!</p>
+                    <p>Seu crédito foi totalmente quitado! Obrigado por manter seus pagamentos em dia.</p>
+
+                    <div style="background:#dbeafe;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #1e40af;text-align:center;">
+                        <div style="font-size:2rem;margin:10px 0;">✅ 100% PAGO</div>
+                        <div style="font-size:1.2rem;color:#1e40af;font-weight:bold;">Crédito Finalizado</div>
+                    </div>
+
+                    <p>Você é um cliente importante para a AzulCrédito. Qualquer dúvida ou necessidade de novo crédito, estaremos à disposição!</p>
+                    <p style="font-size:0.9rem;color:#666;margin-top:20px;">Equipe AzulCrédito</p>
+                    </div>`
+        });
+        console.log('✅ Email de quitação enviado com sucesso!');
+    } catch (e) {
+        console.error('❌ Erro ao enviar email de quitação:', e.response?.body || e.message);
+    }
+}
+
 // --- 3. CONFIGURAÇÕES GERAIS ---
 app.use(session({ secret: 'azul-credito-segredo-2026', resave: false, saveUninitialized: false, cookie: { maxAge: 30 * 60 * 1000 } }));
 const pool = new Pool({ user: 'postgres', host: 'localhost', database: 'site_emprestimo', password: 'Chaves60.', port: 5432 });
@@ -564,7 +591,7 @@ app.get('/simulacoes', async (req, res) => {
             .btn-pdf{background:#e74c3c;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:0.85rem;margin-top:5px;}
             .resumo-box{background:#f0f7ff; padding:20px; border-radius:15px; margin:15px 0; border-left:5px solid #3a7bd5; display:none;}
             .badge{padding:6px 12px;border-radius:50px;font-size:0.85rem;font-weight:bold;}
-            .st-PAGO{background:#dcfce7;color:#166534;}.st-ANÁLISE{background:#fef9c3;color:#854d0e;}.st-REPROVADO{background:#fee2e2;color:#991b1b;}
+            .st-PAGO{background:#dcfce7;color:#166534;}.st-ANÁLISE{background:#fef9c3;color:#854d0e;}.st-REPROVADO{background:#fee2e2;color:#991b1b;}.st-QUITADO{background:#dbeafe;color:#1e40af;}
             table{width:100%;border-collapse:collapse;}td, th{padding:15px 10px; border-bottom:1px solid #f1f5f9; text-align:left;}
         </style></head><body>
             <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL CRÉDITO</div><div style="display:flex;gap:10px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">SAIR</a></div></div>
@@ -585,7 +612,7 @@ app.get('/simulacoes', async (req, res) => {
                 const parcelasRestantes = parcelas - parcelasPagas;
                 const faltaPagar = totalValor - totalPago;
                 const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
-                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td><button class="btn-pdf" onclick="gerarPDF(${r.id}, '${r.nome}', '${formatarMoeda(r.valor)}', '${formatarMoeda(r.total)}', '${r.status}', '${new Date(r.criado_em).toLocaleDateString()}')">📥 PDF</button><button class="btn-pdf" style="background:#27ae60;margin-left:5px;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
+                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td><button class="btn-pdf" onclick="gerarPDF(${r.id}, '${r.nome}', '${formatarMoeda(r.valor)}', '${formatarMoeda(r.total)}', '${r.status}', '${new Date(r.criado_em).toLocaleDateString()}')">📥 PDF</button><button class="btn-pdf" style="background:#f39c12;margin-left:5px;" onclick="gerarPDFExtrato(${r.id}, '${r.nome}', ${r.total}, ${r.parcelas})">📄 Extrato</button><button class="btn-pdf" style="background:#27ae60;margin-left:5px;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
             }).join('')}
             </tbody></table></div></div>
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
@@ -683,6 +710,100 @@ app.get('/simulacoes', async (req, res) => {
                     \`;
                     const opt = {margin:10, filename:'recibo-azulcredito.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
                     html2pdf().set(opt).from(html).save();
+                }
+
+                async function gerarPDFExtrato(id, nome, total, parcelas) {
+                    try {
+                        const resp = await fetch('/pagamentos/' + id);
+                        const json = await resp.json();
+
+                        if (!json.ok || json.pagamentos.length === 0) {
+                            alert('Nenhum pagamento registrado para este crédito.');
+                            return;
+                        }
+
+                        let tabelaPagamentos = '';
+                        json.pagamentos.forEach(p => {
+                            tabelaPagamentos += \`<tr>
+                                <td style="padding:10px;border-bottom:1px solid #ddd;">\${new Date(p.data_pagamento).toLocaleDateString()}</td>
+                                <td style="padding:10px;border-bottom:1px solid #ddd;">R$ \${parseFloat(p.valor).toFixed(2).replace('.', ',')}</td>
+                                <td style="padding:10px;border-bottom:1px solid #ddd;">\${p.status}</td>
+                            </tr>\`;
+                        });
+
+                        const faltaPagar = total - json.total_pago;
+                        const html = \`
+                            <div style="font-family:Arial;padding:40px;">
+                                <div style="text-align:center;margin-bottom:40px;">
+                                    <h1 style="color:#1e3c72;margin:0;">AzulCrédito</h1>
+                                    <p style="color:#666;margin:5px 0 0 0;">Extrato de Pagamentos</p>
+                                    <p style="color:#999;font-size:0.9rem;">Gerado em: \${new Date().toLocaleString('pt-BR')}</p>
+                                </div>
+
+                                <div style="border:1px solid #ddd;padding:20px;border-radius:8px;margin-bottom:30px;background:#f9f9f9;">
+                                    <h3 style="color:#1e3c72;margin-top:0;">Dados do Contrato</h3>
+                                    <table style="width:100%;">
+                                        <tr>
+                                            <td style="padding:8px;"><strong>Cliente:</strong></td>
+                                            <td style="padding:8px;">\${nome}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:8px;"><strong>Valor Total:</strong></td>
+                                            <td style="padding:8px;">R$ \${total.toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:8px;"><strong>Parcelas:</strong></td>
+                                            <td style="padding:8px;">\${parcelas}x</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <div style="border:1px solid #ddd;padding:20px;border-radius:8px;margin-bottom:30px;">
+                                    <h3 style="color:#1e3c72;margin-top:0;">Histórico de Pagamentos</h3>
+                                    <table style="width:100%;border-collapse:collapse;">
+                                        <thead>
+                                            <tr style="background:#f0f7ff;border-bottom:2px solid #1e3c72;">
+                                                <th style="padding:12px;text-align:left;">Data</th>
+                                                <th style="padding:12px;text-align:left;">Valor</th>
+                                                <th style="padding:12px;text-align:left;">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            \${tabelaPagamentos}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div style="border:1px solid #ddd;padding:20px;border-radius:8px;background:#f0fdf4;">
+                                    <h3 style="color:#166534;margin-top:0;">Resumo</h3>
+                                    <table style="width:100%;">
+                                        <tr>
+                                            <td style="padding:8px;"><strong>Total Pago:</strong></td>
+                                            <td style="padding:8px;font-weight:bold;color:#2ecc71;">R$ \${json.total_pago.toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:8px;"><strong>Ainda Falta:</strong></td>
+                                            <td style="padding:8px;font-weight:bold;color:#e74c3c;">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                        <tr style="border-top:2px solid #ccc;font-weight:bold;font-size:1.1rem;">
+                                            <td style="padding:8px;">Saldo:</td>
+                                            <td style="padding:8px;color:\${faltaPagar <= 0 ? '#2ecc71' : '#e74c3c'};">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <div style="font-size:11px;color:#999;text-align:center;margin-top:30px;">
+                                    <p>Este é um documento oficial de seu histórico de pagamentos junto à AzulCrédito.</p>
+                                </div>
+                            </div>
+                        \`;
+
+                        const opt = {margin:10, filename:'extrato-azulcredito.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
+                        html2pdf().set(opt).from(html).save();
+                    } catch (e) {
+                        console.error('Erro ao gerar extrato:', e);
+                        alert('Erro ao gerar extrato.');
+                    }
                 }
             </script></body></html>`);
     } catch (e) { res.status(500).send("Erro"); }
@@ -782,7 +903,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             .profile-header{background:#1e3c72;color:white;padding:15px 25px;display:flex;justify-content:space-between;align-items:center;}
             .btn-whatsapp{background:#25d366;color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:0.8rem;}
             .badge{padding:4px 12px;border-radius:50px;font-size:0.7rem;font-weight:bold;}
-            .st-pago{background:#d4edda;color:#155724;}.st-analise{background:#fff3cd;color:#856404;}.st-reprovado{background:#f8d7da;color:#721c24;}
+            .st-pago{background:#d4edda;color:#155724;}.st-analise{background:#fff3cd;color:#856404;}.st-reprovado{background:#f8d7da;color:#721c24;}.st-quitado{background:#dbeafe;color:#1e40af;}
             .doc-link{text-decoration:none;font-weight:bold;color:#3498db;margin-right:10px;}
             select,button{padding:6px 10px;border:1px solid #ddd;border-radius:6px;cursor:pointer;}
             button{background:#3a7bd5;color:white;border:none;font-weight:bold;}
@@ -853,7 +974,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
                 return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small></div><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
                 p.pedidos.map((ped, idx) => {
-                    const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : 'st-analise');
+                    const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : (ped.status === 'QUITADO' ? 'st-quitado' : 'st-analise'));
                     const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
                     const parcelas = parseInt(ped.parcelas || 1);
                     const valorMensal = parseFloat(ped.total) / parcelas;
@@ -862,7 +983,8 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     const parcelasRestantes = parcelas - parcelasPagas;
                     const faltaPagar = totalValor - totalPago;
                     const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
-                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}"><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')">OK</button><button style="background:#27ae60;margin-left:5px;" onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Pagamento</button></td></tr>`;
+                    const isQuitado = ped.status === 'QUITADO';
+                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}" ${isQuitado ? 'disabled' : ''}><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option><option value="QUITADO" ${ped.status==='QUITADO'?'selected':''}>Quitado</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''}>OK</button><button style="background:#27ae60;margin-left:5px;" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Pagamento</button></td></tr>`;
                 }).join('') + '</tbody></table></div>';
             }))).join('') +
             `<div id="modalPagamento" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
@@ -951,6 +1073,12 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
                     console.error('⚠️ Email de reprovação falhou:', err.message);
                 });
             }
+            if (status === 'QUITADO') {
+                console.log('📧 Enviando email de QUITAÇÃO...');
+                enviarEmailQuitado(cli.rows[0].email, cli.rows[0].nome).catch(err => {
+                    console.error('⚠️ Email de quitação falhou:', err.message);
+                });
+            }
         } else {
             console.warn('⚠️ Usuário sem email cadastrado');
         }
@@ -984,18 +1112,29 @@ app.post('/registrar-pagamento', adminAuth, async (req, res) => {
             const valorMensal = totalDivida / parseInt(sim.parcelas);
             const parcelasRestantes = Math.ceil((totalDivida - totalPago) / valorMensal);
 
-            // Enviar email com blindagem
-            enviarEmailPagamento(
-                sim.email,
-                sim.nome,
-                parseFloat(valor),
-                totalPago,
-                totalDivida,
-                parseInt(sim.parcelas),
-                parcelasRestantes
-            ).catch(err => {
-                console.error('⚠️ Email de pagamento falhou, mas pagamento foi registrado:', err.message);
-            });
+            // Auto-QUITADO: Se totalmente pago, atualizar status
+            if (totalPago >= totalDivida) {
+                await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE id = $2', ['QUITADO', simulacao_id]);
+                console.log('✅ Proposta marcada como QUITADA automaticamente:', simulacao_id);
+
+                // Enviar email de parabéns
+                enviarEmailQuitado(sim.email, sim.nome).catch(err => {
+                    console.error('⚠️ Email de quitação falhou:', err.message);
+                });
+            } else {
+                // Enviar email de pagamento normal
+                enviarEmailPagamento(
+                    sim.email,
+                    sim.nome,
+                    parseFloat(valor),
+                    totalPago,
+                    totalDivida,
+                    parseInt(sim.parcelas),
+                    parcelasRestantes
+                ).catch(err => {
+                    console.error('⚠️ Email de pagamento falhou, mas pagamento foi registrado:', err.message);
+                });
+            }
         }
 
         res.json({ ok: true });
