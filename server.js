@@ -612,7 +612,7 @@ app.get('/simulacoes', async (req, res) => {
                 const parcelasRestantes = parcelas - parcelasPagas;
                 const faltaPagar = totalValor - totalPago;
                 const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
-                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td><button class="btn-pdf" onclick="gerarPDF(${r.id}, '${r.nome}', '${formatarMoeda(r.valor)}', '${formatarMoeda(r.total)}', '${r.status}', '${new Date(r.criado_em).toLocaleDateString()}')">📥 PDF</button><button class="btn-pdf" style="background:#f39c12;margin-left:5px;" onclick="gerarPDFExtrato(${r.id}, '${r.nome}', ${r.total}, ${r.parcelas})">📄 Extrato</button><button class="btn-pdf" style="background:#27ae60;margin-left:5px;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
+                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td><button class="btn-pdf" onclick="gerarPDF(${r.id})">📥 PDF</button><button class="btn-pdf" style="background:#f39c12;margin-left:5px;" onclick="gerarPDFExtrato(${r.id})">📄 Extrato</button><button class="btn-pdf" style="background:#27ae60;margin-left:5px;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
             }).join('')}
             </tbody></table></div></div>
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
@@ -667,138 +667,242 @@ app.get('/simulacoes', async (req, res) => {
                 vM.addEventListener("input",(e)=>{let v=e.target.value.replace(/\\D/g,"");if(parseInt(v)>2000000)v="2000000";v=(Number(v)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});e.target.value=v;vR.value=Number(e.target.value.replace(/\\D/g,""))/100; calc();});
                 pI.addEventListener("input", calc);
 
-                function gerarPDF(id, nome, valor, total, status, data) {
-                    const html = \`
-                        <div style="font-family:Arial;padding:40px;">
-                            <div style="text-align:center;margin-bottom:40px;">
-                                <h1 style="color:#1e3c72;margin:0;">AzulCrédito</h1>
-                                <p style="color:#666;margin:5px 0 0 0;">Recibo de Proposta</p>
-                            </div>
-                            <div style="border:1px solid #ddd;padding:20px;border-radius:8px;margin-bottom:30px;">
-                                <table style="width:100%;">
-                                    <tr>
-                                        <td><strong>ID da Proposta:</strong></td>
-                                        <td>\${id}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Nome:</strong></td>
-                                        <td>\${nome}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Valor Solicitado:</strong></td>
-                                        <td>\${valor}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Valor Total (com juros):</strong></td>
-                                        <td style="font-weight:bold;color:#1e3c72;">\${total}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Status:</strong></td>
-                                        <td>\${status}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Data:</strong></td>
-                                        <td>\${data}</td>
-                                    </tr>
-                                </table>
-                            </div>
-                            <div style="font-size:12px;color:#999;text-align:center;">
-                                <p>Este é um recibo oficial de sua proposta de empréstimo.</p>
-                                <p>Gerado em: \${new Date().toLocaleString('pt-BR')}</p>
-                            </div>
-                        </div>
-                    \`;
-                    const opt = {margin:10, filename:'recibo-azulcredito.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
-                    html2pdf().set(opt).from(html).save();
-                }
-
-                async function gerarPDFExtrato(id, nome, total, parcelas) {
+                async function gerarPDF(id) {
                     try {
-                        const resp = await fetch('/pagamentos/' + id);
+                        const resp = await fetch('/simulacao/' + id);
                         const json = await resp.json();
+                        if (!json.ok) { alert('Erro ao carregar dados do contrato'); return; }
 
-                        if (!json.ok || json.pagamentos.length === 0) {
-                            alert('Nenhum pagamento registrado para este crédito.');
-                            return;
-                        }
+                        const s = json.simulacao;
+                        const dataEmissao = new Date(s.criado_em).toLocaleDateString('pt-BR');
+                        const cpfFormatado = s.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 
-                        let tabelaPagamentos = '';
-                        json.pagamentos.forEach(p => {
-                            tabelaPagamentos += \`<tr>
-                                <td style="padding:10px;border-bottom:1px solid #ddd;">\${new Date(p.data_pagamento).toLocaleDateString()}</td>
-                                <td style="padding:10px;border-bottom:1px solid #ddd;">R$ \${parseFloat(p.valor).toFixed(2).replace('.', ',')}</td>
-                                <td style="padding:10px;border-bottom:1px solid #ddd;">\${p.status}</td>
-                            </tr>\`;
-                        });
-
-                        const faltaPagar = total - json.total_pago;
                         const html = \`
-                            <div style="font-family:Arial;padding:40px;">
-                                <div style="text-align:center;margin-bottom:40px;">
-                                    <h1 style="color:#1e3c72;margin:0;">AzulCrédito</h1>
-                                    <p style="color:#666;margin:5px 0 0 0;">Extrato de Pagamentos</p>
-                                    <p style="color:#999;font-size:0.9rem;">Gerado em: \${new Date().toLocaleString('pt-BR')}</p>
+                            <div style="font-family:'Segoe UI', Arial;color:#333;line-height:1.6;">
+                                <!-- CABEÇALHO -->
+                                <div style="border-bottom:4px solid #1e3c72;padding-bottom:20px;margin-bottom:30px;text-align:center;">
+                                    <h1 style="color:#1e3c72;margin:0;font-size:28px;">AzulCrédito</h1>
+                                    <p style="color:#666;margin:5px 0 0 0;font-size:14px;">CNPJ: 00.000.000/0000-00</p>
                                 </div>
 
-                                <div style="border:1px solid #ddd;padding:20px;border-radius:8px;margin-bottom:30px;background:#f9f9f9;">
-                                    <h3 style="color:#1e3c72;margin-top:0;">Dados do Contrato</h3>
-                                    <table style="width:100%;">
+                                <!-- TÍTULO -->
+                                <div style="text-align:center;margin-bottom:30px;padding:15px;background:#f0f7ff;border-left:4px solid #1e3c72;">
+                                    <h2 style="color:#1e3c72;margin:0;font-size:20px;">CONTRATO DE EMPRÉSTIMO PESSOAL</h2>
+                                    <p style="color:#666;margin:5px 0 0 0;">Contrato nº #\${String(id).padStart(6, '0')}</p>
+                                </div>
+
+                                <!-- DADOS DO CONTRATANTE -->
+                                <div style="margin-bottom:25px;">
+                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">DADOS DO CONTRATANTE</h3>
+                                    <table style="width:100%;border-collapse:collapse;">
                                         <tr>
-                                            <td style="padding:8px;"><strong>Cliente:</strong></td>
-                                            <td style="padding:8px;">\${nome}</td>
+                                            <td style="width:50%;padding:10px;"><strong>Nome Completo:</strong> \${s.nome}</td>
+                                            <td style="width:50%;padding:10px;"><strong>CPF:</strong> \${cpfFormatado}</td>
+                                        </tr>
+                                        <tr style="background:#f9f9f9;">
+                                            <td style="width:50%;padding:10px;"><strong>Email:</strong> \${s.email}</td>
+                                            <td style="width:50%;padding:10px;"><strong>WhatsApp:</strong> \${s.whatsapp}</td>
                                         </tr>
                                         <tr>
-                                            <td style="padding:8px;"><strong>Valor Total:</strong></td>
-                                            <td style="padding:8px;">R$ \${total.toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                        <tr>
-                                            <td style="padding:8px;"><strong>Parcelas:</strong></td>
-                                            <td style="padding:8px;">\${parcelas}x</td>
+                                            <td colspan="2" style="padding:10px;"><strong>Data da Proposta:</strong> \${dataEmissao}</td>
                                         </tr>
                                     </table>
                                 </div>
 
-                                <div style="border:1px solid #ddd;padding:20px;border-radius:8px;margin-bottom:30px;">
-                                    <h3 style="color:#1e3c72;margin-top:0;">Histórico de Pagamentos</h3>
+                                <!-- DADOS DO CRÉDITO -->
+                                <div style="margin-bottom:25px;">
+                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">DADOS DO CRÉDITO</h3>
                                     <table style="width:100%;border-collapse:collapse;">
+                                        <tr>
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>💰 Valor Solicitado:</strong></td>
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;color:#2ecc71;font-weight:bold;">R$ \${parseFloat(s.valor).toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                        <tr style="background:#f9f9f9;">
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>📋 Número de Parcelas:</strong></td>
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;font-weight:bold;">\${s.parcelas}x</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>📊 Valor da Parcela:</strong></td>
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;color:#1e3c72;font-weight:bold;">R$ \${parseFloat(s.valor_parcela).toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                        <tr style="background:#f9f9f9;">
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>% Taxa de Juros:</strong></td>
+                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;font-weight:bold;">5% por parcela</td>
+                                        </tr>
+                                        <tr style="background:#f0fdf4;">
+                                            <td style="width:50%;padding:12px;border:2px solid #2ecc71;"><strong>✅ Valor Total com Juros:</strong></td>
+                                            <td style="width:50%;padding:12px;border:2px solid #2ecc71;font-size:18px;color:#166534;font-weight:bold;">R$ \${parseFloat(s.total).toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <!-- CONDIÇÕES -->
+                                <div style="margin-bottom:25px;">
+                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">CONDIÇÕES GERAIS</h3>
+                                    <ol style="padding-left:20px;color:#555;font-size:12px;line-height:1.8;">
+                                        <li>O valor total será cobrado em \${s.parcelas} parcelas iguais e sucessivas.</li>
+                                        <li>A taxa de juros de 5% ao mês é aplicada sobre o valor solicitado.</li>
+                                        <li>O pagamento deve ser realizado conforme cronograma estabelecido.</li>
+                                        <li>Em caso de atraso, serão aplicadas multas e juros de mora conforme legislação vigente.</li>
+                                        <li>Este contrato é vinculativo e representa o acordo completo entre as partes.</li>
+                                    </ol>
+                                </div>
+
+                                <!-- ASSINATURAS -->
+                                <div style="margin-top:50px;margin-bottom:30px;">
+                                    <h3 style="color:#1e3c72;margin-bottom:30px;">ASSINATURAS</h3>
+                                    <table style="width:100%;border-collapse:collapse;">
+                                        <tr>
+                                            <td style="width:50%;text-align:center;border-top:2px solid #333;padding-top:40px;"><strong>CONTRATANTE</strong><br><small>\${s.nome}</small></td>
+                                            <td style="width:50%;text-align:center;border-top:2px solid #333;padding-top:40px;"><strong>AzulCrédito</strong><br><small>Representante Autorizado</small></td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <!-- RODAPÉ -->
+                                <div style="border-top:1px solid #ddd;padding-top:15px;text-align:center;font-size:11px;color:#999;">
+                                    <p>Documento gerado digitalmente em \${new Date().toLocaleString('pt-BR')}</p>
+                                    <p>Este contrato é documento oficial e tem validade legal.</p>
+                                </div>
+                            </div>
+                        \`;
+
+                        const opt = {margin:10, filename:'contrato-azulcredito-'+id+'.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
+                        html2pdf().set(opt).from(html).save();
+                    } catch (e) {
+                        console.error('Erro ao gerar contrato:', e);
+                        alert('Erro ao gerar contrato.');
+                    }
+                }
+
+                async function gerarPDFExtrato(id) {
+                    try {
+                        const respSim = await fetch('/simulacao/' + id);
+                        const jsonSim = await respSim.json();
+                        if (!jsonSim.ok) { alert('Erro ao carregar dados'); return; }
+
+                        const respPag = await fetch('/pagamentos/' + id);
+                        const jsonPag = await respPag.json();
+
+                        const s = jsonSim.simulacao;
+                        const pagamentos = jsonPag.ok ? jsonPag.pagamentos : [];
+                        const totalPago = jsonPag.ok ? jsonPag.total_pago : 0;
+                        const faltaPagar = parseFloat(s.total) - totalPago;
+                        const percentualPago = ((totalPago / parseFloat(s.total)) * 100).toFixed(1);
+                        const dataEmissao = new Date().toLocaleDateString('pt-BR');
+                        const cpfFormatado = s.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+
+                        let tabelaPagamentos = '';
+                        let numeroParc = 1;
+                        pagamentos.forEach((p, idx) => {
+                            const bgColor = idx % 2 === 0 ? '#ffffff' : '#f9f9f9';
+                            tabelaPagamentos += \`<tr style="background:\${bgColor};">
+                                <td style="padding:12px;border-bottom:1px solid #eee;">\${new Date(p.data_pagamento).toLocaleDateString()}</td>
+                                <td style="padding:12px;border-bottom:1px solid #eee;">R$ \${parseFloat(p.valor).toFixed(2).replace('.', ',')}</td>
+                                <td style="padding:12px;border-bottom:1px solid #eee;text-align:center;">Parcela \${numeroParc++}</td>
+                                <td style="padding:12px;border-bottom:1px solid #eee;"><span style="background:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-weight:bold;">\${p.status}</span></td>
+                            </tr>\`;
+                        });
+
+                        const html = \`
+                            <div style="font-family:'Segoe UI', Arial;color:#333;line-height:1.6;">
+                                <!-- CABEÇALHO -->
+                                <div style="border-bottom:4px solid #1e3c72;padding-bottom:20px;margin-bottom:30px;text-align:center;">
+                                    <h1 style="color:#1e3c72;margin:0;font-size:28px;">AzulCrédito</h1>
+                                    <p style="color:#666;margin:5px 0 0 0;font-size:14px;">CNPJ: 00.000.000/0000-00</p>
+                                </div>
+
+                                <!-- TÍTULO -->
+                                <div style="text-align:center;margin-bottom:30px;padding:15px;background:#f0f7ff;border-left:4px solid #1e3c72;">
+                                    <h2 style="color:#1e3c72;margin:0;font-size:20px;">EXTRATO DE PAGAMENTOS</h2>
+                                    <p style="color:#666;margin:5px 0 0 0;">Contrato nº #\${String(id).padStart(6, '0')} | Emitido em \${dataEmissao}</p>
+                                </div>
+
+                                <!-- DADOS DO CLIENTE -->
+                                <div style="margin-bottom:25px;">
+                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">DADOS DO CLIENTE</h3>
+                                    <table style="width:100%;border-collapse:collapse;">
+                                        <tr>
+                                            <td style="width:50%;padding:10px;"><strong>Nome Completo:</strong> \${s.nome}</td>
+                                            <td style="width:50%;padding:10px;"><strong>CPF:</strong> \${cpfFormatado}</td>
+                                        </tr>
+                                        <tr style="background:#f9f9f9;">
+                                            <td style="width:50%;padding:10px;"><strong>Email:</strong> \${s.email}</td>
+                                            <td style="width:50%;padding:10px;"><strong>WhatsApp:</strong> \${s.whatsapp}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <!-- RESUMO DO CONTRATO -->
+                                <div style="margin-bottom:25px;padding:15px;background:#f0fdf4;border-left:4px solid #2ecc71;border-radius:8px;">
+                                    <h3 style="color:#166534;margin-top:0;margin-bottom:15px;">RESUMO DO CONTRATO</h3>
+                                    <table style="width:100%;border-collapse:collapse;">
+                                        <tr>
+                                            <td style="width:25%;padding:10px;"><strong>Valor Contratado:</strong><br>R$ \${parseFloat(s.valor).toFixed(2).replace('.', ',')}</td>
+                                            <td style="width:25%;padding:10px;"><strong>Nº de Parcelas:</strong><br>\${s.parcelas}x</td>
+                                            <td style="width:25%;padding:10px;"><strong>Valor Mensal:</strong><br>R$ \${parseFloat(s.valor_parcela).toFixed(2).replace('.', ',')}</td>
+                                            <td style="width:25%;padding:10px;"><strong>Valor Total:</strong><br>R$ \${parseFloat(s.total).toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <!-- BARRA DE PROGRESSO -->
+                                <div style="margin-bottom:25px;">
+                                    <h3 style="color:#1e3c72;margin-bottom:15px;">PROGRESSO DE PAGAMENTO</h3>
+                                    <div style="background:#e0e0e0;border-radius:8px;overflow:hidden;height:30px;margin-bottom:10px;">
+                                        <div style="background:linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);width:\${percentualPago}%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;">
+                                            \${percentualPago}%
+                                        </div>
+                                    </div>
+                                    <p style="color:#666;font-size:12px;margin:0;">Total pago até o momento de \${percentualPago}% do valor devido</p>
+                                </div>
+
+                                <!-- HISTÓRICO DE PAGAMENTOS -->
+                                <div style="margin-bottom:25px;">
+                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">HISTÓRICO DE PAGAMENTOS</h3>
+                                    \${pagamentos.length > 0 ? \`<table style="width:100%;border-collapse:collapse;">
                                         <thead>
                                             <tr style="background:#f0f7ff;border-bottom:2px solid #1e3c72;">
-                                                <th style="padding:12px;text-align:left;">Data</th>
-                                                <th style="padding:12px;text-align:left;">Valor</th>
-                                                <th style="padding:12px;text-align:left;">Status</th>
+                                                <th style="padding:12px;text-align:left;"><strong>Data</strong></th>
+                                                <th style="padding:12px;text-align:left;"><strong>Valor</strong></th>
+                                                <th style="padding:12px;text-align:center;"><strong>Parcela</strong></th>
+                                                <th style="padding:12px;text-align:left;"><strong>Status</strong></th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             \${tabelaPagamentos}
                                         </tbody>
+                                    </table>\` : \`<p style="color:#999;text-align:center;padding:20px;">Nenhum pagamento registrado ainda.</p>\`}
+                                </div>
+
+                                <!-- TOTALIZADORES -->
+                                <div style="margin-bottom:25px;">
+                                    <h3 style="color:#1e3c72;margin-bottom:15px;">TOTALIZADORES</h3>
+                                    <table style="width:100%;border-collapse:collapse;">
+                                        <tr style="background:#d4edda;">
+                                            <td style="padding:15px;border:1px solid #2ecc71;width:50%;"><strong style="color:#155724;">✅ Total Pago:</strong></td>
+                                            <td style="padding:15px;border:1px solid #2ecc71;width:50%;text-align:right;font-size:18px;color:#2ecc71;font-weight:bold;">R$ \${totalPago.toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                        <tr style="background:#fee2e2;">
+                                            <td style="padding:15px;border:1px solid #f5c2c7;width:50%;"><strong style="color:#721c24;">⏳ Ainda Falta:</strong></td>
+                                            <td style="padding:15px;border:1px solid #f5c2c7;width:50%;text-align:right;font-size:18px;color:#e74c3c;font-weight:bold;">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
+                                        </tr>
+                                        <tr style="background:#e3f2fd;">
+                                            <td style="padding:15px;border:1px solid #90caf9;width:50%;"><strong style="color:#1e3c72;">📊 Saldo Devido:</strong></td>
+                                            <td style="padding:15px;border:1px solid #90caf9;width:50%;text-align:right;font-size:18px;color:1e3c72;font-weight:bold;">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
+                                        </tr>
                                     </table>
                                 </div>
 
-                                <div style="border:1px solid #ddd;padding:20px;border-radius:8px;background:#f0fdf4;">
-                                    <h3 style="color:#166534;margin-top:0;">Resumo</h3>
-                                    <table style="width:100%;">
-                                        <tr>
-                                            <td style="padding:8px;"><strong>Total Pago:</strong></td>
-                                            <td style="padding:8px;font-weight:bold;color:#2ecc71;">R$ \${json.total_pago.toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                        <tr>
-                                            <td style="padding:8px;"><strong>Ainda Falta:</strong></td>
-                                            <td style="padding:8px;font-weight:bold;color:#e74c3c;">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                        <tr style="border-top:2px solid #ccc;font-weight:bold;font-size:1.1rem;">
-                                            <td style="padding:8px;">Saldo:</td>
-                                            <td style="padding:8px;color:\${faltaPagar <= 0 ? '#2ecc71' : '#e74c3c'};">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <div style="font-size:11px;color:#999;text-align:center;margin-top:30px;">
-                                    <p>Este é um documento oficial de seu histórico de pagamentos junto à AzulCrédito.</p>
+                                <!-- RODAPÉ -->
+                                <div style="border-top:1px solid #ddd;padding-top:15px;text-align:center;font-size:11px;color:#999;">
+                                    <p>Documento gerado digitalmente em \${new Date().toLocaleString('pt-BR')}</p>
+                                    <p>Este extrato é documento oficial e certifica a situação de seu crédito junto à AzulCrédito.</p>
                                 </div>
                             </div>
                         \`;
 
-                        const opt = {margin:10, filename:'extrato-azulcredito.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
+                        const opt = {margin:10, filename:'extrato-azulcredito-'+id+'.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
                         html2pdf().set(opt).from(html).save();
                     } catch (e) {
                         console.error('Erro ao gerar extrato:', e);
@@ -1140,6 +1244,16 @@ app.post('/registrar-pagamento', adminAuth, async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         console.error('❌ Erro ao registrar pagamento:', err);
+        res.status(500).json({ ok: false });
+    }
+});
+
+app.get('/simulacao/:id', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM SIMULACOES WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ ok: false, msg: 'Simulação não encontrada' });
+        res.json({ ok: true, simulacao: result.rows[0] });
+    } catch (err) {
         res.status(500).json({ ok: false });
     }
 });
