@@ -555,7 +555,10 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
         </style></head><body>
             <div class="header">
                 <h1 style="margin:0;">📊 Painel de Gestão - AzulCrédito</h1>
-                <a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>
+                    <a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
+                </div>
             </div>
 
             <div class="stats">
@@ -647,6 +650,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             function fecharModalPagamento(){document.getElementById('modalPagamento').style.display='none';}
             async function registrarPagamento(){const val=parseFloat(document.getElementById('valor-pagamento').value);const data=document.getElementById('data-pagamento').value;if(!val||!data){alert('Preencha todos os campos');return;}
             const resp=await fetch('/registrar-pagamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({simulacao_id:simIdAtual,valor:val,data_pagamento:data})});const json=await resp.json();if(json.ok){alert('✅ Pagamento registrado!');location.reload();}else{alert('❌ Erro ao registrar');}}
+            async function limparDados(){if(confirm('⚠️ ATENÇÃO!\\n\\nVocê tem certeza que quer DELETAR TODOS os dados?\\n\\nEsta ação é IRREVERSÍVEL!')){const resp=await fetch('/admin-limpar-dados',{method:'POST',headers:{'Content-Type':'application/json'}});const json=await resp.json();if(json.ok){alert('✅ '+json.msg);location.reload();}else{alert('❌ '+json.msg);}}}
             async function salvar(id,whats,nome){const st=document.getElementById('st-'+id).value;await fetch('/atualizar-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:st})});if(st==='PAGO'){window.open("https://wa.me/"+whats+"?text="+encodeURIComponent("Olá "+nome+"! Seu empréstimo foi APROVADO! 🚀"),"_blank");}location.reload();}
 
             // Gráfico de Status
