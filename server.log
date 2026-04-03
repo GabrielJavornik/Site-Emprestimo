@@ -1,0 +1,7 @@
+
+> site-2@1.0.0 start
+> node server.js
+
+✅ SendGrid CONFIGURADO - Remetente: 093278@aluno.uricer.edu.br
+✅ MercadoPago CONFIGURADO - PIX habilitado
+🚀 Servidor AzulCrédito ON: http://localhost:8080

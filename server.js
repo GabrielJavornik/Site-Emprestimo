@@ -217,6 +217,14 @@ pool.query(`
     )
 `).catch(err => console.error('⚠️ Erro ao criar tabela CUPONS_USADOS:', err.message));
 
+pool.query(`
+    CREATE TABLE IF NOT EXISTS PAGAMENTOS_VISTOS (
+        pagamento_id INT PRIMARY KEY,
+        visto_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (pagamento_id) REFERENCES PAGAMENTOS(id) ON DELETE CASCADE
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela PAGAMENTOS_VISTOS:', err.message));
+
 const soNumeros = (str) => String(str || '').replace(/\D/g, '');
 const formatarMoeda = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -470,6 +478,12 @@ app.post('/cadastro', async (req, res) => {
         const validacao = validarSenha(senha);
         if (!validacao.valida) {
             return res.status(400).json({ ok: false, msg: validacao.msg });
+        }
+
+        // Validar WhatsApp: deve ter 10-11 dígitos (DDD + número)
+        const whatsappLimpo = soNumeros(whatsapp);
+        if (whatsappLimpo.length < 10 || whatsappLimpo.length > 11) {
+            return res.status(400).json({ ok: false, msg: 'WhatsApp inválido. Use DDD + número (10 ou 11 dígitos).' });
         }
 
         const cpfLimpo = soNumeros(cpf);
@@ -830,8 +844,7 @@ app.get('/simulacoes', async (req, res) => {
                     document.getElementById('modalEscolhaPagamento').style.display='none';
                     document.getElementById('opcao-parcela').style.borderColor='#0066cc';
                     document.getElementById('opcao-total').style.borderColor='#27ae60';
-                    limparCupom();
-                    cupomAplicado = false;
+                    // Nota: NÃO resetar cupomAplicado aqui - é preservado até confirmarPagamentoPix()
                 }
 
                 async function abrirModalEscolhaPagamento(simulacaoId, valorParcela, saldoDevido){
@@ -1419,11 +1432,28 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <option value="QUITADO">Quitado</option>
                     </select>
                 </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label style="font-weight:bold;color:#333;">Valor Mín:</label>
+                    <input type="number" id="filtroValorMin" onkeyup="aplicarFiltros()" placeholder="0" style="padding:8px;border:1px solid #ddd;border-radius:6px;width:100px;">
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label style="font-weight:bold;color:#333;">Valor Máx:</label>
+                    <input type="number" id="filtroValorMax" onkeyup="aplicarFiltros()" placeholder="999999" style="padding:8px;border:1px solid #ddd;border-radius:6px;width:100px;">
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label style="font-weight:bold;color:#333;">De:</label>
+                    <input type="date" id="filtroDataInicio" onchange="aplicarFiltros()" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label style="font-weight:bold;color:#333;">Até:</label>
+                    <input type="date" id="filtroDataFim" onchange="aplicarFiltros()" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-grow:1;">
                     <label style="font-weight:bold;color:#333;">🔍 Buscar:</label>
                     <input type="text" id="filtrowBusca" onkeyup="aplicarFiltros()" placeholder="Nome ou CPF..." style="padding:8px;border:1px solid #ddd;border-radius:6px;flex:1;max-width:300px;">
                 </div>
                 <button onclick="exportarCSV()" style="background:#16a34a;padding:8px 16px;border:none;border-radius:6px;color:white;font-weight:bold;cursor:pointer;">📥 Exportar CSV</button>
+                <button onclick="exportarPDF()" style="background:#3b82f6;padding:8px 16px;border:none;border-radius:6px;color:white;font-weight:bold;cursor:pointer;">📄 Exportar PDF</button>
             </div>` +
             (await Promise.all(Object.keys(perfis).map(async cpf => {
                 const p = perfis[cpf];
@@ -1541,10 +1571,15 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 options: {responsive: true, indexAxis: 'y', plugins: {legend: {display: false}}, scales: {x: {beginAtZero: true}}}
             });
 
-            // Filtros e busca
+            // Filtros e busca avançada
             function aplicarFiltros(){
                 const statusFiltro=document.getElementById('filtroStatus').value.toLowerCase();
                 const buscaFiltro=document.getElementById('filtrowBusca').value.toLowerCase();
+                const valorMin=parseFloat(document.getElementById('filtroValorMin').value)||0;
+                const valorMax=parseFloat(document.getElementById('filtroValorMax').value)||999999999;
+                const dataInicio=document.getElementById('filtroDataInicio').value;
+                const dataFim=document.getElementById('filtroDataFim').value;
+
                 const cards=document.querySelectorAll('.profile-card');
                 cards.forEach(card=>{
                     const header=card.querySelector('.profile-header').innerText.toLowerCase();
@@ -1552,7 +1587,30 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     let statusMatch=!statusFiltro;
                     badges.forEach(b=>{if(b.innerText.toLowerCase()===statusFiltro){statusMatch=true;}});
                     const buscaMatch=header.includes(buscaFiltro);
-                    card.style.display=(statusMatch&&buscaMatch)?'block':'none';
+
+                    // Verificar filtros de data e valor nos rows da tabela
+                    let temMatch=statusMatch && buscaMatch;
+                    let temRegistros=false;
+                    if(temMatch){
+                        card.querySelectorAll('tbody tr').forEach(row=>{
+                            const tds=row.querySelectorAll('td');
+                            if(tds.length>0){
+                                const data=tds[0].innerText.trim();
+                                const valor=parseFloat(tds[1].innerText.replace(/[^\\d.,]/g,'').replace(',','.'))||0;
+                                let dataMatch=true;
+                                if(dataInicio || dataFim){
+                                    const [d,m,a]=data.split('/');
+                                    const dataProp=new Date(a,m-1,d);
+                                    if(dataInicio && dataProp < new Date(dataInicio)) dataMatch=false;
+                                    if(dataFim && dataProp > new Date(dataFim)) dataMatch=false;
+                                }
+                                const valorMatch=(valor>=valorMin && valor<=valorMax);
+                                row.style.display=(dataMatch && valorMatch)?'table-row':'none';
+                                if(dataMatch && valorMatch) temRegistros=true;
+                            }
+                        });
+                    }
+                    card.style.display=(temMatch && temRegistros)?'block':'none';
                 });
             }
 
@@ -1568,7 +1626,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         const cpf=cpfParts?cpfParts[1]:'';
                         card.querySelectorAll('tbody tr').forEach(row=>{
                             const tds=row.querySelectorAll('td');
-                            if(tds.length>0){
+                            if(tds.length>0 && row.style.display!=='none'){
                                 const data=tds[0].innerText;
                                 const valor=tds[1].innerText;
                                 const total=tds[2].innerText;
@@ -1588,6 +1646,42 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 link.setAttribute('href',url);
                 link.setAttribute('download','propostas-azulcredito.csv');
                 link.click();
+            }
+
+            // Exportar PDF
+            function exportarPDF(){
+                let html='<h2 style="text-align:center;color:#1e3c72;margin-bottom:30px;">Relatório de Propostas - AzulCrédito</h2>';
+                html+='<p style="text-align:center;font-size:12px;color:#999;">Gerado em '+new Date().toLocaleString('pt-BR')+'</p>';
+                html+='<table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:11px;">';
+                html+='<thead><tr style="background:#1e3c72;color:white;"><th style="border:1px solid #ddd;padding:8px;">Data</th><th style="border:1px solid #ddd;padding:8px;">Nome</th><th style="border:1px solid #ddd;padding:8px;">CPF</th><th style="border:1px solid #ddd;padding:8px;">Valor</th><th style="border:1px solid #ddd;padding:8px;">Parcelas</th><th style="border:1px solid #ddd;padding:8px;">Total</th><th style="border:1px solid #ddd;padding:8px;">Status</th><th style="border:1px solid #ddd;padding:8px;">Total Pago</th></tr></thead><tbody>';
+                document.querySelectorAll('.profile-card').forEach(card=>{
+                    if(card.style.display!=='none'){
+                        const header=card.querySelector('.profile-header').innerText;
+                        const nomeParts=header.match(/👤 (.+?) /);
+                        const cpfParts=header.match(/CPF: ([\\d.\\-]+)/);
+                        const nome=nomeParts?nomeParts[1]:'';
+                        const cpf=cpfParts?cpfParts[1]:'';
+                        card.querySelectorAll('tbody tr').forEach(row=>{
+                            const tds=row.querySelectorAll('td');
+                            if(tds.length>0 && row.style.display!=='none'){
+                                const data=tds[0].innerText;
+                                const valor=tds[1].innerText;
+                                const total=tds[2].innerText;
+                                const parcelas=tds[3].innerText;
+                                const pago=tds[5].innerText;
+                                const status=tds[8].querySelector('.badge')?.innerText||'';
+                                html+=\`<tr><td style="border:1px solid #ddd;padding:8px;">\${data}</td><td style="border:1px solid #ddd;padding:8px;">\${nome}</td><td style="border:1px solid #ddd;padding:8px;">\${cpf}</td><td style="border:1px solid #ddd;padding:8px;">\${valor}</td><td style="border:1px solid #ddd;padding:8px;">\${parcelas}</td><td style="border:1px solid #ddd;padding:8px;">\${total}</td><td style="border:1px solid #ddd;padding:8px;">\${status}</td><td style="border:1px solid #ddd;padding:8px;">\${pago}</td></tr>\`;
+                            }
+                        });
+                    }
+                });
+                html+='</tbody></table>';
+                const printWindow=window.open('','','height=600,width=800');
+                printWindow.document.write('<html><head><title>Relatório de Propostas</title></head><body>');
+                printWindow.document.write(html);
+                printWindow.document.write('</body></html>');
+                printWindow.document.close();
+                setTimeout(()=>{printWindow.print();},500);
             }
 
             // SISTEMA DE NOTIFICAÇÕES PIX
@@ -1972,12 +2066,23 @@ app.post('/notificar-pagamento-pix', async (req, res) => {
 // --- VERIFICAR SE CUPOM JÁ FOI USADO ---
 app.get('/api/cupom-ja-usado', async (req, res) => {
     try {
-        if (!req.session.usuarioLogado) return res.status(401).json({ jaUsado: false });
+        if (!req.session.usuarioLogado) {
+            console.log('⚠️ GET /api/cupom-ja-usado: Usuário não autenticado');
+            return res.status(401).json({ jaUsado: false });
+        }
 
         const cpf = req.session.userCpf;
+        console.log(`🔍 GET /api/cupom-ja-usado: Checando CPF ${cpf}`);
+
         const jaUsado = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, 'OFF5']);
 
-        console.log(`🔍 Verificando cupom OFF5 para CPF ${cpf}: ${jaUsado.rows.length > 0 ? 'JÁ USADO' : 'DISPONÍVEL'}`);
+        console.log(`   Resultado: ${jaUsado.rows.length > 0 ? '❌ JÁ USADO' : '✅ DISPONÍVEL'}`);
+        console.log(`   Registros encontrados: ${jaUsado.rows.length}`);
+
+        if (jaUsado.rows.length > 0) {
+            console.log(`   Dados: ${JSON.stringify(jaUsado.rows[0])}`);
+        }
+
         res.json({ jaUsado: jaUsado.rows.length > 0 });
     } catch (err) {
         console.error('❌ Erro ao verificar cupom:', err);
@@ -1988,12 +2093,18 @@ app.get('/api/cupom-ja-usado', async (req, res) => {
 // --- REGISTRAR CUPOM COMO USADO ---
 app.post('/api/registrar-cupom-usado', async (req, res) => {
     try {
-        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+        if (!req.session.usuarioLogado) {
+            console.log('❌ POST /api/registrar-cupom-usado: Usuário não autenticado');
+            return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+        }
 
         const { cupom, desconto } = req.body;
         const cpf = req.session.userCpf;
 
-        console.log(`💾 Registrando cupom ${cupom} como USADO para CPF ${cpf}, desconto: R$ ${desconto}`);
+        console.log(`\n💾 POST /api/registrar-cupom-usado CHAMADO`);
+        console.log(`   CPF: ${cpf}`);
+        console.log(`   Cupom: ${cupom}`);
+        console.log(`   Desconto: R$ ${desconto}`);
 
         // Verificar se já existe
         const jaExiste = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, cupom]);
@@ -2004,16 +2115,36 @@ app.post('/api/registrar-cupom-usado', async (req, res) => {
         }
 
         // Inserir novo registro
-        await pool.query(
-            'INSERT INTO CUPONS_USADOS (cpf, cupom, desconto) VALUES ($1, $2, $3)',
+        const insertResult = await pool.query(
+            'INSERT INTO CUPONS_USADOS (cpf, cupom, desconto) VALUES ($1, $2, $3) RETURNING *',
             [cpf, cupom, desconto]
         );
 
         console.log(`✅ Cupom ${cupom} registrado com sucesso para CPF ${cpf}`);
+        console.log(`   Registros inseridos: ${insertResult.rows.length}`);
+        console.log(`   Dados: ${JSON.stringify(insertResult.rows[0])}`);
+
         res.json({ ok: true, msg: 'Cupom registrado' });
     } catch (err) {
-        console.error('❌ Erro ao registrar cupom:', err);
-        res.status(500).json({ ok: false, msg: 'Erro ao registrar cupom' });
+        console.error('❌ Erro ao registrar cupom:');
+        console.error('   Mensagem:', err.message);
+        console.error('   Código:', err.code);
+        console.error('   Detalhes:', err.detail);
+        res.status(500).json({ ok: false, msg: 'Erro ao registrar cupom: ' + err.message });
+    }
+});
+
+// --- DEBUG: Ver todos os cupons registrados ---
+app.get('/api/debug-cupons', async (req, res) => {
+    try {
+        console.log('\n🔍 DEBUG: GET /api/debug-cupons');
+        const result = await pool.query('SELECT * FROM CUPONS_USADOS ORDER BY usado_em DESC');
+        console.log(`Total de registros: ${result.rows.length}`);
+        console.log('Registros:', JSON.stringify(result.rows, null, 2));
+        res.json({ total: result.rows.length, cupons: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao buscar cupons:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -2078,6 +2209,24 @@ app.post('/api/marcar-notificacao-lida', adminAuth, async (req, res) => {
     } catch (err) {
         console.error('❌ Erro ao marcar notificação:', err);
         res.status(500).json({ ok: false });
+    }
+});
+
+// --- MARCAR PAGAMENTO COMO VISTO ---
+app.post('/api/admin/marcar-pagamento-visto', adminAuth, async (req, res) => {
+    try {
+        const { pagamento_id } = req.body;
+        if (!pagamento_id) return res.status(400).json({ ok: false, msg: 'ID do pagamento não fornecido' });
+
+        await pool.query(
+            'INSERT INTO PAGAMENTOS_VISTOS (pagamento_id) VALUES ($1) ON CONFLICT DO NOTHING',
+            [pagamento_id]
+        );
+        console.log(`✅ Pagamento ${pagamento_id} marcado como visto`);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('❌ Erro ao marcar pagamento como visto:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao marcar como visto' });
     }
 });
 

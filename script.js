@@ -216,6 +216,11 @@ if (formCad) {
             return;
         }
 
+        if (whatsapp.length < 10 || whatsapp.length > 11) {
+            alert("WhatsApp inválido. Use DDD + número (10 ou 11 dígitos).\nExemplo: 54999999999");
+            return;
+        }
+
         try {
             msg.style.color = "orange";
             msg.innerText = "Criando sua conta...";
@@ -239,5 +244,34 @@ if (formCad) {
             msg.style.color = "#e74c3c";
             msg.innerText = "Erro ao conectar com o servidor.";
         }
+    });
+}
+
+// --- MÁSCARA E VALIDAÇÃO DE WHATSAPP ---
+const inputWhatsApp = document.getElementById('cad-whatsapp');
+if (inputWhatsApp) {
+    inputWhatsApp.addEventListener('input', function() {
+        let valor = onlyDigits(this.value);
+
+        // Limitar a 11 dígitos máximo
+        if (valor.length > 11) {
+            valor = valor.slice(0, 11);
+        }
+
+        // Aplicar máscara: (XX) 9XXXX-XXXX ou (XX) 9XXX-XXXX
+        let mascara = '';
+        if (valor.length === 0) {
+            mascara = '';
+        } else if (valor.length <= 2) {
+            mascara = valor;
+        } else if (valor.length <= 6) {
+            mascara = `(${valor.slice(0, 2)}) ${valor.slice(2)}`;
+        } else if (valor.length <= 10) {
+            mascara = `(${valor.slice(0, 2)}) ${valor.slice(2, 7)}-${valor.slice(7)}`;
+        } else {
+            mascara = `(${valor.slice(0, 2)}) ${valor.slice(2, 7)}-${valor.slice(7, 11)}`;
+        }
+
+        this.value = mascara;
     });
 }

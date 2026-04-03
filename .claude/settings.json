@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(curl -s http://localhost:8080/)",
+      "Bash(pkill -9 node)",
+      "Read(//tmp/**)",
+      "Read(//c/Users/gabri/Desktop/**)",
+      "Bash(chmod +x /tmp/test_cupom.sh)",
+      "Bash(bash /tmp/test_cupom.sh)",
+      "Bash(node test-cupom.js)",
+      "Bash(psql -U postgres -d azulcredito -c \"SELECT cpf, nome, email, email_confirmado FROM usuarios LIMIT 5;\")",
+      "Bash(node test-cupom-v2.js)",
+      "Bash(node test-cupom-simple.js)",
+      "Read(//c/Users/gabri/Desktop/Site-Emprestimo/**)",
+      "Bash(xargs kill:*)",
+      "Bash(curl -s http://localhost:8080)",
+      "Bash(tee server.log)",
+      "Bash(tee server_debug.log)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}
