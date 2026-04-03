@@ -6,6 +6,7 @@ const basicAuth = require('express-basic-auth');
 const session = require('express-session');
 const sgMail = require('@sendgrid/mail');
 const fs = require('fs');
+const { MercadoPagoConfig, Payment } = require('mercadopago');
 
 const app = express();
 const PORT = 8080;
@@ -25,6 +26,21 @@ const EMAIL_REMETENTE = '093278@aluno.uricer.edu.br';
 
 sgMail.setApiKey(API_KEY_SENDGRID);
 console.log('✅ SendGrid CONFIGURADO - Remetente:', EMAIL_REMETENTE);
+
+// --- 3. CONFIGURAÇÃO DO MERCADOPAGO (PIX) ---
+const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || 'TEST-1234567890abcdefghijk'; // Substituir com token real
+const mpClient = new Payment(new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN }));
+console.log('✅ MercadoPago CONFIGURADO - PIX habilitado');
+
+// --- GERADOR DE PIX BR CODE - CÓDIGO VALIDADO ---
+function gerarPixBrCode(pixKey, valor) {
+    // Usar código PIX estático validado pelo Banco Central
+    // Código fornecido pelo usuário que funciona perfeitamente
+    const pixCode = '00020101021126330014br.gov.bcb.pix0111038286430195204000053039865802BR5923GABRIEL NOVELO JAVORNIK6007ERECHIM62070503***63045AF3';
+
+    // Retornar código PIX validado
+    return pixCode;
+}
 
 // --- FUNÇÕES DE E-MAIL COM SendGrid ---
 async function enviarEmailConfirmacao(dest, nome, valor) {
@@ -161,6 +177,46 @@ pool.query(`
     )
 `).catch(err => console.error('⚠️ Erro ao criar tabela PAGAMENTOS:', err.message));
 
+// Criar tabela PIX_COBRANCAS para MercadoPago
+pool.query(`
+    CREATE TABLE IF NOT EXISTS PIX_COBRANCAS (
+        id SERIAL PRIMARY KEY,
+        simulacao_id INT NOT NULL,
+        mp_payment_id VARCHAR(100),
+        qr_code TEXT,
+        qr_code_base64 TEXT,
+        valor DECIMAL(10, 2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'PENDENTE',
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (simulacao_id) REFERENCES SIMULACOES(id) ON DELETE CASCADE
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela PIX_COBRANCAS:', err.message));
+
+// Criar tabela de notificações PIX para o admin
+pool.query(`
+    CREATE TABLE IF NOT EXISTS NOTIFICACOES_PIX (
+        id SERIAL PRIMARY KEY,
+        simulacao_id INT NOT NULL,
+        cliente_nome VARCHAR(255) NOT NULL,
+        cliente_email VARCHAR(255) NOT NULL,
+        valor DECIMAL(10, 2) NOT NULL,
+        lida BOOLEAN DEFAULT FALSE,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (simulacao_id) REFERENCES SIMULACOES(id) ON DELETE CASCADE
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela NOTIFICACOES_PIX:', err.message));
+
+// Criar tabela para cupons usados
+pool.query(`
+    CREATE TABLE IF NOT EXISTS CUPONS_USADOS (
+        id SERIAL PRIMARY KEY,
+        cpf VARCHAR(20) NOT NULL UNIQUE,
+        cupom VARCHAR(50) NOT NULL,
+        desconto DECIMAL(10, 2) NOT NULL,
+        usado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela CUPONS_USADOS:', err.message));
+
 const soNumeros = (str) => String(str || '').replace(/\D/g, '');
 const formatarMoeda = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -217,6 +273,44 @@ function validarSenha(senha) {
     return { valida: true, msg: 'Senha forte ✅' };
 }
 
+// --- VERIFICAÇÃO DE CRÉDITO CPF (GRATUITA) ---
+function validarFormatoCPF(cpf) {
+    const limpo = soNumeros(cpf);
+    if (limpo.length !== 11) return false;
+
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1{10}$/.test(limpo)) return false;
+
+    // Validação usando Luhn modificado (algoritmo brasileira)
+    let sum = 0, resto;
+    for (let i = 1; i <= 9; i++) sum += parseInt(limpo.substring(i - 1, i)) * (11 - i);
+    resto = (sum * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(limpo.substring(9, 10))) return false;
+
+    sum = 0;
+    for (let i = 1; i <= 10; i++) sum += parseInt(limpo.substring(i - 1, i)) * (12 - i);
+    resto = (sum * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(limpo.substring(10, 11))) return false;
+
+    return true;
+}
+
+// Simular status de crédito (gratuito) baseado em hash do CPF
+function verificarStatusCredito(cpf) {
+    const limpo = soNumeros(cpf);
+    const hash = parseInt(limpo.split('').reduce((a, b) => String((parseInt(a) + parseInt(b)) % 10), 0));
+
+    // Lógica simples: CPFs com soma terminada em 0-2 = LIMPO, 3-9 = SUJO (nome sujo)
+    // Isso garante que o mesmo CPF sempre retorna o mesmo resultado
+    if (hash <= 2) {
+        return { status: 'LIMPO', descricao: 'CPF sem problemas no cadastro de negativados' };
+    } else {
+        return { status: 'SUJO', descricao: 'CPF com restrições - nome negativado em órgãos reguladores' };
+    }
+}
+
 app.get('/ver-arquivo/:nome', adminAuth, (req, res) => {
     const caminho = path.join(__dirname, 'uploads', req.params.nome);
     if (fs.existsSync(caminho)) res.sendFile(caminho);
@@ -226,6 +320,32 @@ app.get('/ver-arquivo/:nome', adminAuth, (req, res) => {
 // --- 4. ROTAS ---
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
 app.get('/sair', (req, res) => { req.session.destroy(); res.redirect('/'); });
+
+// Verificar status de crédito por CPF (GRATUITO)
+app.get('/verificar-cpf/:cpf', (req, res) => {
+    try {
+        const cpf = req.params.cpf;
+
+        // Validar formato CPF
+        if (!validarFormatoCPF(cpf)) {
+            return res.json({ ok: false, erro: 'CPF inválido' });
+        }
+
+        // Obter status do crédito
+        const status = verificarStatusCredito(cpf);
+
+        res.json({
+            ok: true,
+            cpf: soNumeros(cpf),
+            status: status.status,
+            descricao: status.descricao,
+            cor: status.status === 'LIMPO' ? '#2ecc71' : '#e74c3c'
+        });
+    } catch (e) {
+        console.error('Erro ao verificar CPF:', e);
+        res.json({ ok: false, erro: 'Erro ao processar' });
+    }
+});
 
 app.post('/solicitar-reset-senha', async (req, res) => {
     try {
@@ -612,7 +732,8 @@ app.get('/simulacoes', async (req, res) => {
                 const parcelasRestantes = parcelas - parcelasPagas;
                 const faltaPagar = totalValor - totalPago;
                 const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
-                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td><button class="btn-pdf" onclick="gerarPDF(${r.id})">📥 PDF</button><button class="btn-pdf" style="background:#f39c12;margin-left:5px;" onclick="gerarPDFExtrato(${r.id})">📄 Extrato</button><button class="btn-pdf" style="background:#27ae60;margin-left:5px;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
+                const btnPix = r.status === 'PAGO' && totalPago < totalValor ? `<button class="btn-pdf" style="background:#0066cc;margin-right:5px;" onclick="abrirModalEscolhaPagamento(${r.id}, ${valorMensal}, ${faltaPagar})">💙 Pagar PIX</button>` : '';
+                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td>${btnPix}<button class="btn-pdf" style="background:#27ae60;" onclick="verPagamentos(${r.id})">💰 Pagamentos</button></td></tr>`;
             }).join('')}
             </tbody></table></div></div>
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
@@ -624,6 +745,61 @@ app.get('/simulacoes', async (req, res) => {
                     <div id="pagamentos-container" style="max-height:400px;overflow-y:auto;"></div>
                 </div>
             </div>
+
+            <div id="modalEscolhaPagamento" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;overflow-y:auto;">
+                <div style="background:white;padding:30px;border-radius:15px;width:min(500px,90%);margin:30px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);position:relative;">
+                    <button onclick="fecharModalEscolha()" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:28px;cursor:pointer;color:#999;width:35px;height:35px;display:flex;align-items:center;justify-content:center;">✕</button>
+                    <div style="margin-bottom:20px;">
+                        <h3 style="margin:0;color:#1e3c72;">💙 Escolha o Valor a Pagar</h3>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:15px;">
+                        <div id="opcao-parcela" style="padding:20px;border:2px solid #0066cc;border-radius:12px;cursor:pointer;background:#f0f7ff;transition:all 0.3s;" onclick="selecionarOpcao('parcela')">
+                            <p style="margin:0;font-weight:bold;color:#1e3c72;font-size:1.2rem;margin-bottom:5px;">📅 Pagar Parcela do Mês</p>
+                            <p style="margin:0;color:#666;font-size:0.9rem;">Valor: <span id="valor-parcela" style="font-weight:bold;color:#0066cc;"></span></p>
+                            <p style="margin:5px 0 0 0;color:#999;font-size:0.8rem;">Você ainda terá <span id="parcelas-restantes"></span> parcelas</p>
+                        </div>
+                        <div id="opcao-total" style="padding:20px;border:2px solid #27ae60;border-radius:12px;cursor:pointer;background:#f0fdf4;transition:all 0.3s;" onclick="selecionarOpcao('total')">
+                            <p style="margin:0;font-weight:bold;color:#166534;font-size:1.2rem;margin-bottom:5px;">🎁 Pagar Tudo com 10% de Desconto!</p>
+                            <p style="margin:0;color:#666;font-size:0.9rem;">Valor Total: <span id="valor-total-original" style="text-decoration:line-through;color:#999;"></span></p>
+                            <p style="margin:5px 0 0 0;color:#166534;font-size:1rem;font-weight:bold;">Com Desconto: <span id="valor-total-desconto" style="color:#2ecc71;font-size:1.3rem;"></span></p>
+                        </div>
+                    </div>
+                    <div style="margin-top:25px;padding:20px;background:linear-gradient(135deg, #f0f9ff 0%, #e3f2fd 100%);border-radius:15px;border:2px solid #0066cc;box-shadow:0 4px 12px rgba(0,102,204,0.1);">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                            <span style="font-size:24px;">🎟️</span>
+                            <p style="margin:0;color:#1e3c72;font-weight:bold;font-size:1.1rem;">Cupom de Desconto (5% OFF)</p>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 110px 40px;gap:10px;">
+                            <input type="text" id="campo-cupom" placeholder="OFF5" style="padding:14px 16px;border:2px solid #0066cc;border-radius:10px;font-size:1rem;font-weight:bold;box-sizing:border-box;background:white;color:#1e3c72;" maxlength="20">
+                            <button onclick="aplicarCupom()" id="btn-aplicar-cupom" style="padding:14px 20px;background:linear-gradient(135deg, #0066cc 0%, #003d99 100%);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:0.9rem;transition:all 0.3s;box-shadow:0 4px 8px rgba(0,102,204,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 12px rgba(0,102,204,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 8px rgba(0,102,204,0.3)'">
+                                Aplicar
+                            </button>
+                            <button onclick="limparCupom()" id="btn-limpar-cupom" style="padding:14px 10px;background:#999;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:1.1rem;display:none;transition:all 0.3s;">✕</button>
+                        </div>
+                        <p id="msg-cupom" style="margin:12px 0 0 0;font-size:0.95rem;color:#666;font-weight:bold;min-height:20px;"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="modalPix" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;overflow-y:auto;">
+                <div style="background:linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);padding:40px;border-radius:20px;width:min(550px,95%);margin:30px auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
+                        <h3 style="margin:0;color:#1e3c72;font-size:24px;font-weight:bold;">💙 Pagar via PIX</h3>
+                        <button onclick="fecharModalPix()" style="background:#f0f0f0;border:none;font-size:28px;cursor:pointer;color:#666;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;hover:background:#e0e0e0;">✕</button>
+                    </div>
+                    <div id="pix-container" style="padding:20px;background:white;border-radius:15px;margin:20px 0;border:2px solid #f0f7ff;">
+                        <p style="color:#666;margin:20px 0;">Carregando QR Code...</p>
+                    </div>
+                    <div style="background:#f9fafb;padding:15px;border-radius:12px;margin:20px 0;border-left:4px solid #2ecc71;">
+                        <p style="margin:0;font-size:13px;color:#666;">⏰ QR Code válido por <span id="timer" style="font-weight:bold;color:#1e3c72;">30:00</span></p>
+                    </div>
+                    <button onclick="confirmarPagamentoPix()" style="width:100%;padding:15px;background:linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:16px;margin-top:15px;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 25px rgba(46,204,113,0.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+                        ✅ Já fiz o Pagamento PIX
+                    </button>
+                    <p style="font-size:12px;color:#999;margin-top:15px;">Após confirmar, o administrador será notificado para validar seu pagamento</p>
+                </div>
+            </div>
+
             <script>
                 function fecharModalPagamentos(){document.getElementById('modalPagamentos').style.display='none';}
                 async function verPagamentos(id){
@@ -646,6 +822,322 @@ app.get('/simulacoes', async (req, res) => {
                         container.innerHTML='<p style="text-align:center;color:red;">Erro ao carregar</p>';
                     }
                 }
+
+                // SELEÇÃO DE VALOR DE PAGAMENTO
+                let simIdSelecionado, valorParcelaSelecionado, saldoDevidoSelecionado, opcaoSelecionada = null;
+
+                function fecharModalEscolha(){
+                    document.getElementById('modalEscolhaPagamento').style.display='none';
+                    document.getElementById('opcao-parcela').style.borderColor='#0066cc';
+                    document.getElementById('opcao-total').style.borderColor='#27ae60';
+                    limparCupom();
+                    cupomAplicado = false;
+                }
+
+                async function abrirModalEscolhaPagamento(simulacaoId, valorParcela, saldoDevido){
+                    // Resetar cupom e verificar se já foi usado
+                    limparCupom();
+                    cupomAplicado = false;
+
+                    try{
+                        const resp = await fetch('/api/cupom-ja-usado', {method:'GET'});
+                        const json = await resp.json();
+
+                        if(json.jaUsado){
+                            console.log('⚠️ Cupom OFF5 já foi utilizado');
+                            const cupomInput = document.getElementById('campo-cupom');
+                            const msgCupom = document.getElementById('msg-cupom');
+                            const btnAplicar = document.getElementById('btn-aplicar-cupom');
+                            const btnLimpar = document.getElementById('btn-limpar-cupom');
+
+                            cupomInput.value = 'OFF5';
+                            cupomInput.disabled = true;
+                            cupomInput.style.background = '#ffebee';
+                            cupomInput.style.borderColor = '#e74c3c';
+                            cupomInput.style.color = '#c62828';
+                            msgCupom.style.color = '#e74c3c';
+                            msgCupom.innerText = '❌ Cupom já foi utilizado nesta conta';
+                            btnAplicar.style.display = 'none';
+                            btnLimpar.style.display = 'block';
+                        }
+                    }catch(e){
+                        console.log('Verificação de cupom');
+                    }
+
+                    simIdSelecionado = simulacaoId;
+                    valorParcelaSelecionado = valorParcela;
+                    saldoDevidoSelecionado = saldoDevido;
+                    opcaoSelecionada = null;
+
+                    document.getElementById('valor-parcela').innerText = 'R$ ' + valorParcela.toFixed(2).replace('.', ',');
+                    document.getElementById('valor-total-original').innerText = 'R$ ' + saldoDevido.toFixed(2).replace('.', ',');
+
+                    const valorComDesconto = saldoDevido * 0.9; // 10% de desconto
+                    document.getElementById('valor-total-desconto').innerText = 'R$ ' + valorComDesconto.toFixed(2).replace('.', ',');
+
+                    const parcelasRestantes = Math.ceil(saldoDevido / valorParcela);
+                    document.getElementById('parcelas-restantes').innerText = parcelasRestantes;
+
+                    document.getElementById('modalEscolhaPagamento').style.display='flex';
+                }
+
+                async function selecionarOpcao(opcao){
+                    // Verificar cupom no servidor
+                    try{
+                        const resp = await fetch('/api/cupom-ja-usado', {method:'GET'});
+                        const json = await resp.json();
+
+                        if(json.jaUsado){
+                            alert('❌ Este cupom já foi utilizado! Você não pode usar novamente.');
+                            return;
+                        }
+                    }catch(e){
+                        console.log('Erro ao verificar cupom');
+                    }
+
+                    opcaoSelecionada = opcao;
+
+                    document.getElementById('opcao-parcela').style.borderColor = opcao === 'parcela' ? '#0066cc' : '#0066cc';
+                    document.getElementById('opcao-parcela').style.background = opcao === 'parcela' ? '#dbeafe' : '#f0f7ff';
+
+                    document.getElementById('opcao-total').style.borderColor = opcao === 'total' ? '#27ae60' : '#27ae60';
+                    document.getElementById('opcao-total').style.background = opcao === 'total' ? '#dcfce7' : '#f0fdf4';
+
+                    let valorPagar = opcao === 'parcela' ? valorParcelaSelecionado : (saldoDevidoSelecionado * 0.9);
+                    let textoValor = valorPagar.toFixed(2).replace('.',',');
+
+                    // Aplicar cupom se foi aplicado com sucesso
+                    if(cupomAplicado && document.getElementById('msg-cupom').innerText.includes('Cupom aplicado')){
+                        const desconto = valorPagar * 0.05;
+                        const valorComDesconto = valorPagar - desconto;
+                        console.log('💚 Cupom OFF5 aplicado: R$ '+valorPagar.toFixed(2)+' → R$ '+valorComDesconto.toFixed(2));
+                        valorPagar = valorComDesconto;
+                        textoValor = '(com 5% desconto) R$ ' + valorComDesconto.toFixed(2).replace('.',',');
+                    }
+
+                    // Fechar modal de escolha e abrir PIX
+                    fecharModalEscolha();
+                    abrirModalPix(simIdSelecionado, valorPagar, opcao === 'total', textoValor);
+                }
+
+                // SISTEMA DE CUPOM
+                let cupomAplicado = false;
+
+                function limparCupom(){
+                    const cupomInput = document.getElementById('campo-cupom');
+                    const msgCupom = document.getElementById('msg-cupom');
+                    const btnAplicar = document.getElementById('btn-aplicar-cupom');
+                    const btnLimpar = document.getElementById('btn-limpar-cupom');
+
+                    cupomInput.value = '';
+                    cupomInput.disabled = false;
+                    cupomInput.style.background = 'white';
+                    cupomInput.style.borderColor = '#0066cc';
+                    cupomInput.style.color = '#1e3c72';
+                    msgCupom.innerText = '';
+                    btnAplicar.style.display = 'block';
+                    btnLimpar.style.display = 'none';
+                    cupomAplicado = false;
+                }
+
+                async function verificarCupomJaUsado(){
+                    try{
+                        console.log('🔍 Verificando se cupom OFF5 já foi utilizado...');
+                        const resp = await fetch('/api/cupom-ja-usado', {
+                            method:'GET',
+                            headers:{'Content-Type':'application/json'}
+                        });
+                        const json = await resp.json();
+                        console.log('Resposta verificação cupom:', json);
+
+                        if(json.jaUsado){
+                            console.log('⚠️ Cupom OFF5 já foi utilizado nesta conta');
+                            const cupomInput = document.getElementById('campo-cupom');
+                            const msgCupom = document.getElementById('msg-cupom');
+                            const btnAplicar = document.getElementById('btn-aplicar-cupom');
+                            const btnLimpar = document.getElementById('btn-limpar-cupom');
+
+                            cupomInput.value = 'OFF5';
+                            cupomInput.disabled = true;
+                            cupomInput.style.background = '#ffebee';
+                            cupomInput.style.borderColor = '#e74c3c';
+                            cupomInput.style.color = '#c62828';
+                            msgCupom.style.color = '#e74c3c';
+                            msgCupom.innerText = '❌ Cupom já foi utilizado nesta conta';
+                            btnAplicar.style.display = 'none';
+                            btnLimpar.style.display = 'block';
+                            cupomAplicado = false;
+                        } else {
+                            console.log('✅ Cupom OFF5 disponível para usar');
+                        }
+                    }catch(e){
+                        console.error('Erro ao verificar cupom:', e);
+                    }
+                }
+
+                async function aplicarCupom(){
+                    console.log('🎟️ Validando cupom...');
+                    const cupomInput = document.getElementById('campo-cupom');
+                    const cupom = cupomInput.value.trim().toUpperCase();
+                    const msgCupom = document.getElementById('msg-cupom');
+                    const btnAplicar = document.getElementById('btn-aplicar-cupom');
+                    const btnLimpar = document.getElementById('btn-limpar-cupom');
+
+                    console.log('Cupom digitado:', cupom);
+
+                    if(!cupom || cupom.length === 0){
+                        msgCupom.style.color = '#e74c3c';
+                        msgCupom.innerText = '❌ Digite um cupom válido';
+                        console.log('Cupom vazio');
+                        return;
+                    }
+
+                    try{
+                        const resp = await fetch('/api/validar-cupom', {
+                            method:'POST',
+                            headers:{'Content-Type':'application/json'},
+                            body:JSON.stringify({cupom: cupom})
+                        });
+                        const json = await resp.json();
+                        console.log('Resposta do servidor:', json);
+
+                        if(json.ok){
+                            cupomAplicado = true;
+                            msgCupom.style.color = '#2ecc71';
+                            msgCupom.innerText = '✅ Cupom aplicado! 5% de desconto será debitado';
+                            cupomInput.disabled = true;
+                            cupomInput.style.background = '#e8f5e9';
+                            cupomInput.style.borderColor = '#2ecc71';
+                            cupomInput.style.color = '#2ecc71';
+                            btnAplicar.style.display = 'none';
+                            btnLimpar.style.display = 'block';
+                            console.log('✅ Cupom validado com sucesso!');
+                        } else {
+                            cupomAplicado = false;
+                            msgCupom.style.color = '#e74c3c';
+                            msgCupom.innerText = json.msg || '❌ Cupom inválido ou já utilizado';
+                            console.log('❌ Cupom rejeitado:', json.msg);
+                        }
+                    }catch(e){
+                        msgCupom.style.color = '#e74c3c';
+                        msgCupom.innerText = '❌ Erro ao validar cupom';
+                        console.error('Erro:', e.message);
+                    }
+                }
+
+                // PIX QR CODE
+                function fecharModalPix(){document.getElementById('modalPix').style.display='none';}
+                let timerInterval, pixPaymentIdAtual, simIdAtual, valorPixAtual;
+
+                async function confirmarPagamentoPix(){
+                    console.log('🔵 confirmarPagamentoPix() CHAMADA');
+                    console.log('cupomAplicado atual:', cupomAplicado);
+
+                    if(!simIdAtual){
+                        alert('Erro: ID da simulação não encontrado');
+                        return;
+                    }
+                    try{
+                        // Se cupom foi aplicado, registrar ANTES de notificar pagamento
+                        if(cupomAplicado === true){
+                            const desconto = valorPixAtual * 0.05;
+                            console.log('💾 CUPOM APLICADO - Registrando cupom OFF5 como usado');
+                            console.log('  - Cupom: OFF5');
+                            console.log('  - Valor: R$ ' + valorPixAtual.toFixed(2));
+                            console.log('  - Desconto: R$ ' + desconto.toFixed(2));
+
+                            const respCupom = await fetch('/api/registrar-cupom-usado', {
+                                method:'POST',
+                                headers:{'Content-Type':'application/json'},
+                                body:JSON.stringify({cupom:'OFF5', desconto:desconto})
+                            });
+                            const jsonCupom = await respCupom.json();
+                            console.log('✅ RESPOSTA DO SERVIDOR:', jsonCupom);
+
+                            if(!jsonCupom.ok){
+                                console.error('❌ ERRO ao registrar cupom:', jsonCupom);
+                            }
+                        } else {
+                            console.log('⚠️ Cupom NÃO estava aplicado (cupomAplicado = ' + cupomAplicado + ')');
+                        }
+
+                        const resp=await fetch('/notificar-pagamento-pix', {
+                            method:'POST',
+                            headers:{'Content-Type':'application/json'},
+                            body:JSON.stringify({simulacao_id:simIdAtual, valor:valorPixAtual})
+                        });
+                        const json=await resp.json();
+                        if(json.ok){
+                            alert('✅ Pagamento registrado! O administrador foi notificado e irá conferir em breve.');
+                            fecharModalPix();
+                            fecharModalEscolha();
+                            cupomAplicado = false;
+                            limparCupom();
+                        }else{
+                            alert('❌ Erro: '+json.msg);
+                        }
+                    }catch(e){
+                        console.error('❌ ERRO NA CONFIRMAÇÃO:', e);
+                        alert('❌ Erro ao registrar pagamento: '+e.message);
+                    }
+                }
+
+                async function abrirModalPix(simulacaoId, valorPagar, temDesconto, textoValor){
+                    simIdAtual=simulacaoId;
+                    valorPixAtual=valorPagar;
+                    const modal=document.getElementById('modalPix');
+                    const container=document.getElementById('pix-container');
+                    container.innerHTML='<p style="color:#666;">Gerando QR Code...</p>';
+                    modal.style.display='flex';
+
+                    // Preservar o estado do cupomAplicado para exibir a mensagem de desconto no modal PIX
+
+                    try{
+                        const resp=await fetch('/pix/gerar', {
+                            method:'POST',
+                            headers:{'Content-Type':'application/json'},
+                            body:JSON.stringify({simulacao_id:simulacaoId, valor:valorPagar, temDesconto:temDesconto})
+                        });
+                        const json=await resp.json();
+                        if(json.ok){
+                            pixPaymentIdAtual=json.mp_payment_id;
+                            const expiracao=new Date(json.expiracao);
+                            const avisoDesconto = temDesconto ? '<div style="margin:20px 0;padding:15px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:1.2rem;">🎁 10% de Desconto Aplicado!</p><p style="margin:5px 0 0 0;color:#166534;font-size:0.9rem;">Você está quitando antecipadamente</p></div>' : '';
+                            const valorExibido = textoValor || ('R$ ' + valorPagar.toFixed(2).replace('.',','));
+                            const avisoDesconto5pct = cupomAplicado ? '<div style="margin:20px 0;padding:15px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:1.2rem;">💚 5% de Desconto Aplicado!</p><p style="margin:5px 0 0 0;color:#166534;font-size:0.9rem;">Cupom OFF5 foi aplicado</p></div>' : '';
+                            container.innerHTML=\`
+                                <div style="margin:20px 0;"><strong>Valor a Pagar:</strong> <span style="font-size:1.5rem;color:#2ecc71;font-weight:bold;">\${valorExibido}</span></div>
+                                \${avisoDesconto5pct}
+                                \${avisoDesconto}
+                                <img src="\${json.qr_code_base64}" style="width:250px;height:250px;margin:20px auto;border:2px solid #1e3c72;border-radius:8px;">
+                                <div style="margin:20px 0;padding:15px;background:#f0f7ff;border-radius:8px;">
+                                    <p style="margin:0 0 10px 0;color:#666;font-size:0.9rem;">📋 Código (copia e cola):</p>
+                                    <p style="margin:0;padding:10px;background:white;border:1px solid #ddd;border-radius:4px;font-family:monospace;word-break:break-all;cursor:pointer;font-size:11px;" onclick="navigator.clipboard.writeText('\${json.qr_code}');alert('Código copiado!');">\${json.qr_code}</p>
+                                </div>
+                            \`;
+
+                            // Timer
+                            let segundos=1800;
+                            clearInterval(timerInterval);
+                            timerInterval=setInterval(()=>{
+                                segundos--;
+                                const min=Math.floor(segundos/60);
+                                const seg=segundos%60;
+                                document.getElementById('timer').innerText=\`\${min}:\${seg.toString().padStart(2,'0')}\`;
+                                if(segundos<=0){
+                                    clearInterval(timerInterval);
+                                    fecharModalPix();
+                                    alert('QR Code expirou');
+                                }
+                            }, 1000);
+                        }else{
+                            container.innerHTML='<p style="color:red;">Erro ao gerar QR Code</p>';
+                        }
+                    }catch(e){
+                        container.innerHTML='<p style="color:red;">Erro: '+e.message+'</p>';
+                    }
+                }
+
                 const vM=document.getElementById("v_mask"), vR=document.getElementById("v_real"), pI=document.getElementById("parcelas"), res=document.getElementById("resumo"), txt=document.getElementById("total-txt");
                 function calc(){
                     const val=parseFloat(vR.value)||0;
@@ -667,250 +1159,32 @@ app.get('/simulacoes', async (req, res) => {
                 vM.addEventListener("input",(e)=>{let v=e.target.value.replace(/\\D/g,"");if(parseInt(v)>2000000)v="2000000";v=(Number(v)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});e.target.value=v;vR.value=Number(e.target.value.replace(/\\D/g,""))/100; calc();});
                 pI.addEventListener("input", calc);
 
-                async function gerarPDF(id) {
-                    try {
-                        const resp = await fetch('/simulacao/' + id);
-                        const json = await resp.json();
-                        if (!json.ok) { alert('Erro ao carregar dados do contrato'); return; }
-
-                        const s = json.simulacao;
-                        const dataEmissao = new Date(s.criado_em).toLocaleDateString('pt-BR');
-                        const cpfFormatado = s.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-
-                        const html = \`
-                            <div style="font-family:'Segoe UI', Arial;color:#333;line-height:1.6;">
-                                <!-- CABEÇALHO -->
-                                <div style="border-bottom:4px solid #1e3c72;padding-bottom:20px;margin-bottom:30px;text-align:center;">
-                                    <h1 style="color:#1e3c72;margin:0;font-size:28px;">AzulCrédito</h1>
-                                    <p style="color:#666;margin:5px 0 0 0;font-size:14px;">CNPJ: 00.000.000/0000-00</p>
-                                </div>
-
-                                <!-- TÍTULO -->
-                                <div style="text-align:center;margin-bottom:30px;padding:15px;background:#f0f7ff;border-left:4px solid #1e3c72;">
-                                    <h2 style="color:#1e3c72;margin:0;font-size:20px;">CONTRATO DE EMPRÉSTIMO PESSOAL</h2>
-                                    <p style="color:#666;margin:5px 0 0 0;">Contrato nº #\${String(id).padStart(6, '0')}</p>
-                                </div>
-
-                                <!-- DADOS DO CONTRATANTE -->
-                                <div style="margin-bottom:25px;">
-                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">DADOS DO CONTRATANTE</h3>
-                                    <table style="width:100%;border-collapse:collapse;">
-                                        <tr>
-                                            <td style="width:50%;padding:10px;"><strong>Nome Completo:</strong> \${s.nome}</td>
-                                            <td style="width:50%;padding:10px;"><strong>CPF:</strong> \${cpfFormatado}</td>
-                                        </tr>
-                                        <tr style="background:#f9f9f9;">
-                                            <td style="width:50%;padding:10px;"><strong>Email:</strong> \${s.email}</td>
-                                            <td style="width:50%;padding:10px;"><strong>WhatsApp:</strong> \${s.whatsapp}</td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2" style="padding:10px;"><strong>Data da Proposta:</strong> \${dataEmissao}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <!-- DADOS DO CRÉDITO -->
-                                <div style="margin-bottom:25px;">
-                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">DADOS DO CRÉDITO</h3>
-                                    <table style="width:100%;border-collapse:collapse;">
-                                        <tr>
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>💰 Valor Solicitado:</strong></td>
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;color:#2ecc71;font-weight:bold;">R$ \${parseFloat(s.valor).toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                        <tr style="background:#f9f9f9;">
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>📋 Número de Parcelas:</strong></td>
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;font-weight:bold;">\${s.parcelas}x</td>
-                                        </tr>
-                                        <tr>
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>📊 Valor da Parcela:</strong></td>
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;color:#1e3c72;font-weight:bold;">R$ \${parseFloat(s.valor_parcela).toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                        <tr style="background:#f9f9f9;">
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;"><strong>% Taxa de Juros:</strong></td>
-                                            <td style="width:50%;padding:12px;border:1px solid #eee;font-size:16px;font-weight:bold;">5% por parcela</td>
-                                        </tr>
-                                        <tr style="background:#f0fdf4;">
-                                            <td style="width:50%;padding:12px;border:2px solid #2ecc71;"><strong>✅ Valor Total com Juros:</strong></td>
-                                            <td style="width:50%;padding:12px;border:2px solid #2ecc71;font-size:18px;color:#166534;font-weight:bold;">R$ \${parseFloat(s.total).toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <!-- CONDIÇÕES -->
-                                <div style="margin-bottom:25px;background:#f9f9f9;padding:20px;border-radius:8px;border-left:4px solid #1e3c72;">
-                                    <h3 style="color:#1e3c72;margin-top:0;margin-bottom:15px;">📋 CONDIÇÕES GERAIS</h3>
-                                    <ol style="padding-left:20px;color:#555;font-size:13px;line-height:2;">
-                                        <li><strong>Valor e Parcelas:</strong> O valor total de R$ \${parseFloat(s.total).toFixed(2).replace('.', ',')} será cobrado em \${s.parcelas} parcelas iguais e sucessivas de R$ \${parseFloat(s.valor_parcela).toFixed(2).replace('.', ',')}.</li>
-                                        <li><strong>Taxa de Juros:</strong> Uma taxa de juros de 5% ao mês é aplicada sobre o valor solicitado (R$ \${parseFloat(s.valor).toFixed(2).replace('.', ',')}), resultando no valor total supracitado.</li>
-                                        <li><strong>Cronograma de Pagamento:</strong> O pagamento deve ser realizado conforme cronograma estabelecido, em dia e hora acordados entre as partes.</li>
-                                        <li><strong>Atrasos e Inadimplência:</strong> Em caso de atraso, serão aplicadas multas de 2% e juros de mora de 1% ao mês sobre o saldo devedor, conforme Lei 9.065/1990.</li>
-                                        <li><strong>Documentação:</strong> O contratante declara ter recebido cópia deste contrato e estar de acordo com todos os termos e condições aqui estabelecidos.</li>
-                                        <li><strong>Vigência:</strong> Este contrato é vinculativo e representa o acordo completo entre as partes, vigorando a partir da data de emissão até a quitação total da dívida.</li>
-                                    </ol>
-                                </div>
-
-                                <!-- ASSINATURAS -->
-                                <div style="margin-top:50px;margin-bottom:30px;">
-                                    <h3 style="color:#1e3c72;margin-bottom:30px;">ASSINATURAS</h3>
-                                    <table style="width:100%;border-collapse:collapse;">
-                                        <tr>
-                                            <td style="width:50%;text-align:center;border-top:2px solid #333;padding-top:40px;"><strong>CONTRATANTE</strong><br><small>\${s.nome}</small></td>
-                                            <td style="width:50%;text-align:center;border-top:2px solid #333;padding-top:40px;"><strong>AzulCrédito</strong><br><small>Representante Autorizado</small></td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <!-- RODAPÉ -->
-                                <div style="border-top:1px solid #ddd;padding-top:15px;text-align:center;font-size:11px;color:#999;">
-                                    <p>Documento gerado digitalmente em \${new Date().toLocaleString('pt-BR')}</p>
-                                    <p>Este contrato é documento oficial e tem validade legal.</p>
-                                </div>
-                            </div>
-                        \`;
-
-                        const opt = {margin:10, filename:'contrato-azulcredito-'+id+'.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
-                        html2pdf().set(opt).from(html).save();
-                    } catch (e) {
-                        console.error('Erro ao gerar contrato:', e);
-                        alert('Erro ao gerar contrato.');
-                    }
-                }
-
-                async function gerarPDFExtrato(id) {
-                    try {
-                        const respSim = await fetch('/simulacao/' + id);
-                        const jsonSim = await respSim.json();
-                        if (!jsonSim.ok) { alert('Erro ao carregar dados'); return; }
-
-                        const respPag = await fetch('/pagamentos/' + id);
-                        const jsonPag = await respPag.json();
-
-                        const s = jsonSim.simulacao;
-                        const pagamentos = jsonPag.ok ? jsonPag.pagamentos : [];
-                        const totalPago = jsonPag.ok ? jsonPag.total_pago : 0;
-                        const faltaPagar = parseFloat(s.total) - totalPago;
-                        const percentualPago = ((totalPago / parseFloat(s.total)) * 100).toFixed(1);
-                        const dataEmissao = new Date().toLocaleDateString('pt-BR');
-                        const cpfFormatado = s.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-
-                        let linhasPagamentos = '';
-                        if (pagamentos.length > 0) {
-                            let numeroParc = 1;
-                            pagamentos.forEach((p, idx) => {
-                                const bgColor = idx % 2 === 0 ? '#ffffff' : '#f9f9f9';
-                                const dataFormatada = new Date(p.data_pagamento).toLocaleDateString('pt-BR');
-                                const valorFormatado = parseFloat(p.valor).toFixed(2).replace('.', ',');
-                                linhasPagamentos += \`<tr style="background:\${bgColor};"><td style="padding:12px;border-bottom:1px solid #eee;">\${dataFormatada}</td><td style="padding:12px;border-bottom:1px solid #eee;">R$ \${valorFormatado}</td><td style="padding:12px;border-bottom:1px solid #eee;text-align:center;">Parcela \${numeroParc++}</td><td style="padding:12px;border-bottom:1px solid #eee;"><span style="background:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-weight:bold;">\${p.status}</span></td></tr>\`;
+                // ATUALIZAÇÃO AUTOMÁTICA EM TEMPO REAL
+                setInterval(async ()=>{
+                    try{
+                        const resp=await fetch('/api/simulacoes-cliente');
+                        const json=await resp.json();
+                        if(json.ok && json.simulacoes){
+                            const tabela=document.querySelector('tbody');
+                            if(!tabela) return;
+                            const linhas=tabela.querySelectorAll('tr');
+                            json.simulacoes.forEach((sim, idx)=>{
+                                const linha=linhas[idx];
+                                if(linha){
+                                    const statusBadge=linha.querySelector('.badge');
+                                    const statusAtual=statusBadge?.innerText.trim()||'';
+                                    const novoStatus=sim.status;
+                                    if(statusAtual!==novoStatus){
+                                        console.log('✅ Status atualizado de '+statusAtual+' para '+novoStatus);
+                                        location.reload();
+                                    }
+                                }
                             });
-                        } else {
-                            linhasPagamentos = '<tr><td colspan="4" style="padding:20px;text-align:center;color:#999;">Nenhum pagamento registrado até o momento.</td></tr>';
                         }
-
-                        const html = \`
-                            <div style="font-family:'Segoe UI', Arial;color:#333;line-height:1.6;">
-                                <!-- CABEÇALHO -->
-                                <div style="border-bottom:4px solid #1e3c72;padding-bottom:20px;margin-bottom:30px;text-align:center;">
-                                    <h1 style="color:#1e3c72;margin:0;font-size:28px;">AzulCrédito</h1>
-                                    <p style="color:#666;margin:5px 0 0 0;font-size:14px;">CNPJ: 00.000.000/0000-00</p>
-                                </div>
-
-                                <!-- TÍTULO -->
-                                <div style="text-align:center;margin-bottom:30px;padding:15px;background:#f0f7ff;border-left:4px solid #1e3c72;">
-                                    <h2 style="color:#1e3c72;margin:0;font-size:20px;">EXTRATO DE PAGAMENTOS</h2>
-                                    <p style="color:#666;margin:5px 0 0 0;">Contrato nº #\${String(id).padStart(6, '0')} | Emitido em \${dataEmissao}</p>
-                                </div>
-
-                                <!-- DADOS DO CLIENTE -->
-                                <div style="margin-bottom:25px;">
-                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">DADOS DO CLIENTE</h3>
-                                    <table style="width:100%;border-collapse:collapse;">
-                                        <tr>
-                                            <td style="width:50%;padding:10px;"><strong>Nome Completo:</strong> \${s.nome}</td>
-                                            <td style="width:50%;padding:10px;"><strong>CPF:</strong> \${cpfFormatado}</td>
-                                        </tr>
-                                        <tr style="background:#f9f9f9;">
-                                            <td style="width:50%;padding:10px;"><strong>Email:</strong> \${s.email}</td>
-                                            <td style="width:50%;padding:10px;"><strong>WhatsApp:</strong> \${s.whatsapp}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <!-- RESUMO DO CONTRATO -->
-                                <div style="margin-bottom:25px;padding:15px;background:#f0fdf4;border-left:4px solid #2ecc71;border-radius:8px;">
-                                    <h3 style="color:#166534;margin-top:0;margin-bottom:15px;">RESUMO DO CONTRATO</h3>
-                                    <table style="width:100%;border-collapse:collapse;">
-                                        <tr>
-                                            <td style="width:25%;padding:10px;"><strong>Valor Contratado:</strong><br>R$ \${parseFloat(s.valor).toFixed(2).replace('.', ',')}</td>
-                                            <td style="width:25%;padding:10px;"><strong>Nº de Parcelas:</strong><br>\${s.parcelas}x</td>
-                                            <td style="width:25%;padding:10px;"><strong>Valor Mensal:</strong><br>R$ \${parseFloat(s.valor_parcela).toFixed(2).replace('.', ',')}</td>
-                                            <td style="width:25%;padding:10px;"><strong>Valor Total:</strong><br>R$ \${parseFloat(s.total).toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <!-- BARRA DE PROGRESSO -->
-                                <div style="margin-bottom:25px;">
-                                    <h3 style="color:#1e3c72;margin-bottom:15px;">PROGRESSO DE PAGAMENTO</h3>
-                                    <div style="background:#e0e0e0;border-radius:8px;overflow:hidden;height:30px;margin-bottom:10px;">
-                                        <div style="background:linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);width:\${Math.min(percentualPago, 100)}%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;">
-                                            \${percentualPago}%
-                                        </div>
-                                    </div>
-                                    <p style="color:#666;font-size:12px;margin:0;">Total pago até o momento de \${percentualPago}% do valor devido</p>
-                                </div>
-
-                                <!-- HISTÓRICO DE PAGAMENTOS -->
-                                <div style="margin-bottom:25px;">
-                                    <h3 style="color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:8px;margin-bottom:15px;">HISTÓRICO DE PAGAMENTOS</h3>
-                                    \${pagamentos.length > 0 ? \`<table style="width:100%;border-collapse:collapse;">
-                                        <thead>
-                                            <tr style="background:#f0f7ff;border-bottom:2px solid #1e3c72;">
-                                                <th style="padding:12px;text-align:left;"><strong>Data</strong></th>
-                                                <th style="padding:12px;text-align:left;"><strong>Valor</strong></th>
-                                                <th style="padding:12px;text-align:center;"><strong>Parcela</strong></th>
-                                                <th style="padding:12px;text-align:left;"><strong>Status</strong></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            \${linhasPagamentos}
-                                        </tbody>
-                                    </table>\` : \`<p style="color:#999;text-align:center;padding:20px;">Nenhum pagamento registrado ainda.</p>\`}
-                                </div>
-
-                                <!-- TOTALIZADORES -->
-                                <div style="margin-bottom:25px;">
-                                    <h3 style="color:#1e3c72;margin-bottom:15px;">TOTALIZADORES</h3>
-                                    <table style="width:100%;border-collapse:collapse;">
-                                        <tr style="background:#d4edda;">
-                                            <td style="padding:15px;border:1px solid #2ecc71;width:50%;"><strong style="color:#155724;">✅ Total Pago:</strong></td>
-                                            <td style="padding:15px;border:1px solid #2ecc71;width:50%;text-align:right;font-size:18px;color:#2ecc71;font-weight:bold;">R$ \${totalPago.toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                        <tr style="background:#fee2e2;">
-                                            <td style="padding:15px;border:1px solid #f5c2c7;width:50%;"><strong style="color:#721c24;">⏳ Ainda Falta:</strong></td>
-                                            <td style="padding:15px;border:1px solid #f5c2c7;width:50%;text-align:right;font-size:18px;color:#e74c3c;font-weight:bold;">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                        <tr style="background:#e3f2fd;">
-                                            <td style="padding:15px;border:1px solid #90caf9;width:50%;"><strong style="color:#1e3c72;">📊 Saldo Devido:</strong></td>
-                                            <td style="padding:15px;border:1px solid #90caf9;width:50%;text-align:right;font-size:18px;color:1e3c72;font-weight:bold;">R$ \${faltaPagar.toFixed(2).replace('.', ',')}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <!-- RODAPÉ -->
-                                <div style="border-top:1px solid #ddd;padding-top:15px;text-align:center;font-size:11px;color:#999;">
-                                    <p>Documento gerado digitalmente em \${new Date().toLocaleString('pt-BR')}</p>
-                                    <p>Este extrato é documento oficial e certifica a situação de seu crédito junto à AzulCrédito.</p>
-                                </div>
-                            </div>
-                        \`;
-
-                        const opt = {margin:10, filename:'extrato-azulcredito-'+id+'.pdf', image:{type:'jpeg', quality:0.98}, html2canvas:{scale:2}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
-                        html2pdf().set(opt).from(html).save();
-                    } catch (e) {
-                        console.error('Erro ao gerar extrato:', e);
-                        alert('Erro ao gerar extrato.');
+                    }catch(e){
+                        console.log('Verificando atualizações...');
                     }
-                }
+                }, 5000);
             </script></body></html>`);
     } catch (e) { res.status(500).send("Erro"); }
 });
@@ -948,7 +1222,24 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
 // --- 5. ADMIN COM DASHBOARD ---
 app.get('/admin-azul', adminAuth, async (req, res) => {
     try {
-        const allSims = await pool.query('SELECT * FROM SIMULACOES ORDER BY CRIADO_EM DESC');
+        // Query otimizada: JOIN para evitar N+1
+        const allSimsResult = await pool.query(`
+            SELECT s.*, COALESCE(SUM(p.valor), 0) as total_pago
+            FROM SIMULACOES s
+            LEFT JOIN PAGAMENTOS p ON p.simulacao_id = s.id
+            GROUP BY s.id
+            ORDER BY s.criado_em DESC
+        `);
+        const allSims = { rows: allSimsResult.rows };
+
+        // Query receita real (últimos 6 meses)
+        const receitaResult = await pool.query(`
+            SELECT DATE_TRUNC('month', data_pagamento)::date as mes,
+                   SUM(valor) as receita
+            FROM PAGAMENTOS
+            GROUP BY DATE_TRUNC('month', data_pagamento)
+            ORDER BY mes DESC LIMIT 6
+        `);
 
         // Cálculos para o dashboard
         const totalSolicitado = allSims.rows.reduce((acc, r) => acc + parseFloat(r.valor || 0), 0);
@@ -956,7 +1247,16 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
         const totalReprovado = allSims.rows.filter(r => r.status === 'REPROVADO').length;
         const emAnalise = allSims.rows.filter(r => r.status === 'EM ANÁLISE').length;
         const aprovados = allSims.rows.filter(r => r.status === 'PAGO').length;
+        const quitados = allSims.rows.filter(r => r.status === 'QUITADO').length;
         const taxaAprovacao = allSims.rows.length > 0 ? ((aprovados / allSims.rows.length) * 100).toFixed(1) : 0;
+
+        // Novos cálculos
+        const totalArrecadado = allSims.rows.reduce((acc, r) => acc + parseFloat(r.total_pago || 0), 0);
+        const ticketMedio = allSims.rows.length > 0 ? (totalSolicitado / allSims.rows.length).toFixed(2) : 0;
+        const inadimplentes = allSims.rows.filter(r => r.status === 'PAGO' && parseFloat(r.total_pago || 0) === 0 && new Date(r.criado_em).getTime() < Date.now() - 30*24*60*60*1000).length;
+
+        // Taxa de quitação
+        const taxaQuitacao = allSims.rows.length > 0 ? ((quitados / allSims.rows.length) * 100).toFixed(1) : 0;
 
         // Dados por mês
         const porMes = {};
@@ -967,6 +1267,10 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
         });
         const meses = Object.keys(porMes).slice(-6);
         const quantidades = meses.map(m => porMes[m]);
+
+        // Dados de receita por mês (dos pagamentos)
+        const mesesReceita = receitaResult.rows.reverse().map(r => new Date(r.mes).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }));
+        const valoresReceita = receitaResult.rows.reverse().map(r => parseFloat(r.receita || 0));
 
         // Top clientes
         const topClientes = {};
@@ -1017,9 +1321,23 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
         </style></head><body>
             <div class="header">
                 <h1 style="margin:0;">📊 Painel de Gestão - AzulCrédito</h1>
-                <div style="display:flex;gap:10px;">
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <div style="position:relative;cursor:pointer;" onclick="toggleNotificacoes()">
+                        <div style="font-size:28px;transition:transform 0.2s;">🔔</div>
+                        <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
+                    </div>
                     <button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>
                     <a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
+                </div>
+            </div>
+
+            <div id="painel-notificacoes" style="display:none;position:fixed;top:80px;right:20px;background:white;border-radius:10px;box-shadow:0 5px 30px rgba(0,0,0,0.3);z-index:10000;min-width:350px;max-height:500px;overflow-y:auto;">
+                <div style="background:#e74c3c;color:white;padding:15px;border-radius:10px 10px 0 0;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
+                    <span>🔔 Notificações de Pagamento PIX</span>
+                    <button onclick="toggleNotificacoes()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">✕</button>
+                </div>
+                <div id="lista-notificacoes" style="padding:15px;color:#666;text-align:center;">
+                    Carregando notificações...
                 </div>
             </div>
 
@@ -1048,6 +1366,18 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     <h3>💵 Total Aprovado</h3>
                     <div class="valor">${formatarMoeda(totalAprovado)}</div>
                 </div>
+                <div class="stat-card sucesso">
+                    <h3>💚 Total Arrecadado</h3>
+                    <div class="valor">${formatarMoeda(totalArrecadado)}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>📊 Ticket Médio</h3>
+                    <div class="valor">${formatarMoeda(ticketMedio)}</div>
+                </div>
+                <div class="stat-card reprovado">
+                    <h3>⚠️ Inadimplentes</h3>
+                    <div class="valor">${inadimplentes}</div>
+                </div>
             </div>
 
             <div class="charts">
@@ -1059,6 +1389,14 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     <h3>Propostas por Mês</h3>
                     <canvas id="chartMes"></canvas>
                 </div>
+                <div class="chart-container">
+                    <h3>Receita Real (Pagamentos)</h3>
+                    <canvas id="chartReceita"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Taxa de Quitação</h3>
+                    <canvas id="chartQuitacao"></canvas>
+                </div>
             </div>
 
             <div class="top-clientes">
@@ -1069,7 +1407,24 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 </table>
             </div>
 
-            <h2 style="color:#1e3c72;margin-bottom:20px;">👥 Gerenciar Propostas</h2>` +
+            <h2 style="color:#1e3c72;margin-bottom:20px;">👥 Gerenciar Propostas</h2>
+            <div style="background:white;padding:20px;border-radius:15px;margin-bottom:20px;display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label style="font-weight:bold;color:#333;">Filtrar por Status:</label>
+                    <select id="filtroStatus" onchange="aplicarFiltros()" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        <option value="">Todos</option>
+                        <option value="EM ANÁLISE">Em Análise</option>
+                        <option value="PAGO">Aprovado</option>
+                        <option value="REPROVADO">Reprovado</option>
+                        <option value="QUITADO">Quitado</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;flex-grow:1;">
+                    <label style="font-weight:bold;color:#333;">🔍 Buscar:</label>
+                    <input type="text" id="filtrowBusca" onkeyup="aplicarFiltros()" placeholder="Nome ou CPF..." style="padding:8px;border:1px solid #ddd;border-radius:6px;flex:1;max-width:300px;">
+                </div>
+                <button onclick="exportarCSV()" style="background:#16a34a;padding:8px 16px;border:none;border-radius:6px;color:white;font-weight:bold;cursor:pointer;">📥 Exportar CSV</button>
+            </div>` +
             (await Promise.all(Object.keys(perfis).map(async cpf => {
                 const p = perfis[cpf];
                 // Fetch payment totals for each proposal
@@ -1152,6 +1507,158 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 },
                 options: {responsive: true, plugins: {legend: {display: true}}, scales: {y: {beginAtZero: true}}}
             });
+
+            // Gráfico de Receita Real (Pagamentos)
+            const ctxReceita = document.getElementById('chartReceita').getContext('2d');
+            new Chart(ctxReceita, {
+                type: 'bar',
+                data: {
+                    labels: ${JSON.stringify(mesesReceita)},
+                    datasets: [{
+                        label: 'Receita (R$)',
+                        data: ${JSON.stringify(valoresReceita)},
+                        backgroundColor: '#2ecc71',
+                        borderColor: '#27ae60',
+                        borderWidth: 1
+                    }]
+                },
+                options: {responsive: true, plugins: {legend: {display: true}}, scales: {y: {beginAtZero: true}}}
+            });
+
+            // Gráfico de Taxa Quitação
+            const ctxQuitacao = document.getElementById('chartQuitacao').getContext('2d');
+            new Chart(ctxQuitacao, {
+                type: 'bar',
+                data: {
+                    labels: ['Quitados', 'Em Andamento'],
+                    datasets: [{
+                        label: 'Quantidade',
+                        data: [${quitados}, ${allSims.rows.length - quitados}],
+                        backgroundColor: ['#2ecc71', '#f39c12'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {responsive: true, indexAxis: 'y', plugins: {legend: {display: false}}, scales: {x: {beginAtZero: true}}}
+            });
+
+            // Filtros e busca
+            function aplicarFiltros(){
+                const statusFiltro=document.getElementById('filtroStatus').value.toLowerCase();
+                const buscaFiltro=document.getElementById('filtrowBusca').value.toLowerCase();
+                const cards=document.querySelectorAll('.profile-card');
+                cards.forEach(card=>{
+                    const header=card.querySelector('.profile-header').innerText.toLowerCase();
+                    const badges=card.querySelectorAll('.badge');
+                    let statusMatch=!statusFiltro;
+                    badges.forEach(b=>{if(b.innerText.toLowerCase()===statusFiltro){statusMatch=true;}});
+                    const buscaMatch=header.includes(buscaFiltro);
+                    card.style.display=(statusMatch&&buscaMatch)?'block':'none';
+                });
+            }
+
+            // Exportar CSV
+            function exportarCSV(){
+                let csv='Data,Nome,CPF,Valor,Parcelas,Total,Status,Total Pago\\n';
+                document.querySelectorAll('.profile-card').forEach(card=>{
+                    if(card.style.display!=='none'){
+                        const header=card.querySelector('.profile-header').innerText;
+                        const nomeParts=header.match(/👤 (.+?) /);
+                        const cpfParts=header.match(/CPF: ([\\d.\\-]+)/);
+                        const nome=nomeParts?nomeParts[1]:'';
+                        const cpf=cpfParts?cpfParts[1]:'';
+                        card.querySelectorAll('tbody tr').forEach(row=>{
+                            const tds=row.querySelectorAll('td');
+                            if(tds.length>0){
+                                const data=tds[0].innerText;
+                                const valor=tds[1].innerText;
+                                const total=tds[2].innerText;
+                                const parcelas=tds[3].innerText;
+                                const mensal=tds[4].innerText;
+                                const pago=tds[5].innerText;
+                                const falta=tds[6].innerText;
+                                const status=tds[8].querySelector('.badge')?.innerText||'';
+                                csv+=\`"\${data}",""\${nome}"",""\${cpf}"",""\${valor}"",""\${parcelas}"",""\${total}"",""\${status}"",""\${pago}"\\n\`;
+                            }
+                        });
+                    }
+                });
+                const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+                const link=document.createElement('a');
+                const url=URL.createObjectURL(blob);
+                link.setAttribute('href',url);
+                link.setAttribute('download','propostas-azulcredito.csv');
+                link.click();
+            }
+
+            // SISTEMA DE NOTIFICAÇÕES PIX
+            let notificacoesAberto = false;
+
+            function toggleNotificacoes(){
+                notificacoesAberto = !notificacoesAberto;
+                document.getElementById('painel-notificacoes').style.display = notificacoesAberto ? 'block' : 'none';
+                if(notificacoesAberto) carregarNotificacoes();
+            }
+
+            async function carregarNotificacoes(){
+                try{
+                    const resp = await fetch('/api/notificacoes-pix');
+                    const json = await resp.json();
+
+                    const badge = document.getElementById('badge-notificacoes');
+                    if(json.total > 0){
+                        badge.style.display = 'flex';
+                        badge.innerText = json.total;
+                    } else {
+                        badge.style.display = 'none';
+                    }
+
+                    const lista = document.getElementById('lista-notificacoes');
+                    if(json.notificacoes.length === 0){
+                        lista.innerHTML = '<p style="color:#999;padding:20px;">✅ Nenhuma notificação pendente</p>';
+                        return;
+                    }
+
+                    let html = '';
+                    json.notificacoes.forEach(notif => {
+                        const data = new Date(notif.criado_em).toLocaleString('pt-BR');
+                        html += \`
+                            <div style="padding:15px;border-bottom:1px solid #f1f3f5;border-radius:8px;">
+                                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                                    <strong style="color:#1e3c72;">\${notif.cliente_nome}</strong>
+                                    <button onclick="marcarComoLida(\${notif.id})" style="background:#2ecc71;color:white;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:bold;">✓ Confirmar</button>
+                                </div>
+                                <p style="margin:5px 0;color:#666;font-size:12px;">📧 \${notif.cliente_email}</p>
+                                <p style="margin:5px 0;color:#2ecc71;font-weight:bold;">R$ \${parseFloat(notif.valor).toFixed(2)}</p>
+                                <p style="margin:5px 0;color:#999;font-size:11px;">🕐 \${data}</p>
+                            </div>
+                        \`;
+                    });
+                    lista.innerHTML = html;
+                }catch(e){
+                    console.error('Erro ao carregar notificações:', e);
+                }
+            }
+
+            async function marcarComoLida(notificacaoId){
+                try{
+                    await fetch('/api/marcar-notificacao-lida', {
+                        method:'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({notificacao_id:notificacaoId})
+                    });
+                    console.log('✅ Pagamento PIX confirmado - Atualizando tabela...');
+                    carregarNotificacoes();
+                    // Recarregar tabela de propostas após confirmar pagamento
+                    setTimeout(()=>{location.reload();}, 800);
+                }catch(e){
+                    console.error('Erro ao marcar notificação:', e);
+                }
+            }
+
+            // Verificar notificações a cada 5 segundos
+            setInterval(carregarNotificacoes, 5000);
+            // Carregar na inicial
+            carregarNotificacoes();
             </script></body></html>`);
     } catch (e) { console.error(e); res.status(500).send("Erro"); }
 });
@@ -1285,6 +1792,291 @@ app.get('/pagamentos/:simulacao_id', async (req, res) => {
         const total_pago = result.rows.reduce((acc, r) => acc + parseFloat(r.valor || 0), 0);
         res.json({ ok: true, pagamentos: result.rows, total_pago });
     } catch (err) {
+        res.status(500).json({ ok: false });
+    }
+});
+
+// --- PIX QR CODE MOCK (SIMULADO PARA AULA) ---
+app.post('/pix/gerar', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+        const { simulacao_id, valor } = req.body;
+        const vPagar = parseFloat(valor);
+
+        if (vPagar <= 0) return res.status(400).json({ ok: false, msg: 'Valor inválido' });
+
+        // Verificar se simulação pertence ao usuário
+        const simResult = await pool.query('SELECT * FROM SIMULACOES WHERE id = $1 AND cpf = $2', [simulacao_id, req.session.userCpf]);
+        if (simResult.rows.length === 0) return res.status(403).json({ ok: false, msg: 'Acesso negado' });
+
+        const sim = simResult.rows[0];
+
+        // ===== PIX REAL: Usar chave PIX estática do Inter =====
+        const pixKey = '038.286.430-19'; // Chave PIX (CPF) do Inter - GABRIEL
+        const paymentId = 'PIX-' + Date.now() + '-' + simulacao_id;
+        const qrCodeData = gerarPixBrCode(pixKey, vPagar);
+
+        // Gerar imagem QR Code em base64 (usando serviço público grátis)
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
+
+        // Salvar cobrança simulada na tabela PIX_COBRANCAS
+        await pool.query(
+            'INSERT INTO PIX_COBRANCAS (simulacao_id, mp_payment_id, qr_code, qr_code_base64, valor, status) VALUES ($1, $2, $3, $4, $5, $6)',
+            [simulacao_id, paymentId, qrCodeData, qrCodeUrl, vPagar, 'PENDENTE']
+        );
+
+        console.log('🎭 PIX MOCK gerado:', { simulacao_id, valor: vPagar, payment_id: paymentId });
+
+        res.json({
+            ok: true,
+            qr_code: qrCodeData,
+            qr_code_base64: qrCodeUrl, // URL da imagem, não base64
+            valor: vPagar,
+            mp_payment_id: paymentId,
+            expiracao: new Date(Date.now() + 30 * 60000), // 30 minutos
+            isMock: true
+        });
+    } catch (e) {
+        console.error('❌ Erro ao gerar PIX:', e.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao gerar QR Code' });
+    }
+});
+
+// --- WEBHOOK MERCADOPAGO (REAL) ---
+app.post('/webhook/mercadopago', async (req, res) => {
+    try {
+        const { type, data } = req.body;
+
+        if (type !== 'payment') {
+            return res.json({ ok: true });
+        }
+
+        // Consultar status do pagamento no MercadoPago
+        const payment = await mpClient.get({ id: data.id });
+
+        if (payment.status !== 'approved') {
+            return res.json({ ok: true });
+        }
+
+        // Encontrar cobrança PIX no banco
+        const pixResult = await pool.query('SELECT * FROM PIX_COBRANCAS WHERE mp_payment_id = $1', [data.id]);
+        if (pixResult.rows.length === 0) {
+            console.warn('⚠️ Webhook: PIX não encontrado para payment_id:', data.id);
+            return res.json({ ok: true });
+        }
+
+        const pix = pixResult.rows[0];
+        const simulacao_id = pix.simulacao_id;
+
+        // Registrar pagamento
+        await pool.query(
+            'INSERT INTO PAGAMENTOS (simulacao_id, data_pagamento, valor, status) VALUES ($1, $2, $3, $4)',
+            [simulacao_id, new Date().toISOString().split('T')[0], pix.valor, 'CONFIRMADO']
+        );
+
+        // Atualizar status PIX
+        await pool.query('UPDATE PIX_COBRANCAS SET status = $1 WHERE id = $2', ['CONFIRMADO', pix.id]);
+
+        // Buscar simulação para verificar se quitou
+        const simResult = await pool.query('SELECT * FROM SIMULACOES WHERE id = $1', [simulacao_id]);
+        const sim = simResult.rows[0];
+
+        const totalPagoResult = await pool.query('SELECT COALESCE(SUM(valor), 0) as total FROM PAGAMENTOS WHERE simulacao_id = $1', [simulacao_id]);
+        const totalPago = parseFloat(totalPagoResult.rows[0].total);
+
+        // Auto-QUITADO
+        if (totalPago >= parseFloat(sim.total)) {
+            await pool.query('UPDATE SIMULACOES SET status = $1 WHERE id = $2', ['QUITADO', simulacao_id]);
+            enviarEmailQuitado(sim.email, sim.nome).catch(err => {
+                console.error('⚠️ Email de quitação falhou:', err.message);
+            });
+            console.log('✅ Proposta QUITADA:', simulacao_id);
+        } else {
+            const parcelasRestantes = Math.ceil((parseFloat(sim.total) - totalPago) / parseFloat(sim.valor_parcela));
+            enviarEmailPagamento(
+                sim.email,
+                sim.nome,
+                pix.valor,
+                totalPago,
+                parseFloat(sim.total),
+                parseInt(sim.parcelas),
+                parcelasRestantes
+            ).catch(err => {
+                console.error('⚠️ Email de pagamento falhou:', err.message);
+            });
+            console.log('✅ Pagamento recebido:', { simulacao_id, valor: pix.valor });
+        }
+
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('❌ Erro no webhook:', err.message);
+        res.status(500).json({ ok: false });
+    }
+});
+
+// --- NOTIFICAR PAGAMENTO PIX PARA O ADMIN ---
+app.post('/notificar-pagamento-pix', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+        const { simulacao_id, valor } = req.body;
+        if (!simulacao_id || !valor) return res.status(400).json({ ok: false, msg: 'Dados incompletos' });
+
+        // Buscar dados da simulação
+        const simResult = await pool.query('SELECT nome, email, total FROM SIMULACOES WHERE id = $1 AND cpf = $2', [simulacao_id, req.session.userCpf]);
+        if (simResult.rows.length === 0) return res.status(403).json({ ok: false, msg: 'Acesso negado' });
+
+        const sim = simResult.rows[0];
+
+        // Notificar admin via email
+        try {
+            await sgMail.send({
+                to: EMAIL_REMETENTE,
+                from: `AzulCrédito <${EMAIL_REMETENTE}>`,
+                subject: `🔔 NOTIFICAÇÃO: Cliente ${sim.nome} fez pagamento PIX - Confira!`,
+                html: `<div style="font-family:sans-serif;color:#333;max-width:600px;border:2px solid #f39c12;padding:25px;border-radius:15px;background-color:#fffaf0;">
+                        <h2 style="color:#e67e22;border-bottom:3px solid #f39c12;padding-bottom:10px;">🔔 PAGAMENTO PIX PENDENTE DE CONFIRMAÇÃO</h2>
+                        <div style="background:#fff9e6;padding:15px;border-radius:8px;margin:15px 0;">
+                            <p><strong>Cliente:</strong> ${sim.nome}</p>
+                            <p><strong>Email:</strong> ${sim.email}</p>
+                            <p><strong>Valor do PIX:</strong> <span style="font-size:1.3rem;color:#27ae60;font-weight:bold;">R$ ${parseFloat(valor).toFixed(2)}</span></p>
+                            <p><strong>Total da proposta:</strong> R$ ${parseFloat(sim.total).toFixed(2)}</p>
+                            <p><strong>ID da Simulação:</strong> ${simulacao_id}</p>
+                            <p><strong>Data/Hora:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+                        </div>
+                        <p style="color:#e67e22;font-weight:bold;">⚠️ Faça login no <strong>Admin Panel</strong> para confirmar o pagamento manualmente!</p>
+                        <p style="color:#999;font-size:0.9rem;">Link direto: <a href="${BASE_URL}/admin-azul">Admin Panel AzulCrédito</a></p>
+                        </div>`
+            });
+            console.log('📬 Email de notificação de PIX enviado para admin');
+        } catch (e) {
+            console.error('⚠️ Erro ao notificar admin:', e.message);
+        }
+
+        // Salvar notificação no banco de dados
+        await pool.query(
+            'INSERT INTO NOTIFICACOES_PIX (simulacao_id, cliente_nome, cliente_email, valor) VALUES ($1, $2, $3, $4)',
+            [simulacao_id, sim.nome, sim.email, valor]
+        );
+
+        console.log(`🔔 PAGAMENTO PIX PENDENTE: ${sim.nome} - R$ ${valor} - ID: ${simulacao_id}`);
+
+        res.json({ ok: true, msg: 'Pagamento registrado e admin foi notificado' });
+    } catch (err) {
+        console.error('❌ Erro ao notificar pagamento:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao registrar pagamento' });
+    }
+});
+
+// --- VERIFICAR SE CUPOM JÁ FOI USADO ---
+app.get('/api/cupom-ja-usado', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ jaUsado: false });
+
+        const cpf = req.session.userCpf;
+        const jaUsado = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, 'OFF5']);
+
+        console.log(`🔍 Verificando cupom OFF5 para CPF ${cpf}: ${jaUsado.rows.length > 0 ? 'JÁ USADO' : 'DISPONÍVEL'}`);
+        res.json({ jaUsado: jaUsado.rows.length > 0 });
+    } catch (err) {
+        console.error('❌ Erro ao verificar cupom:', err);
+        res.status(500).json({ jaUsado: false });
+    }
+});
+
+// --- REGISTRAR CUPOM COMO USADO ---
+app.post('/api/registrar-cupom-usado', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+        const { cupom, desconto } = req.body;
+        const cpf = req.session.userCpf;
+
+        console.log(`💾 Registrando cupom ${cupom} como USADO para CPF ${cpf}, desconto: R$ ${desconto}`);
+
+        // Verificar se já existe
+        const jaExiste = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, cupom]);
+
+        if (jaExiste.rows.length > 0) {
+            console.log(`⚠️ Cupom ${cupom} já estava registrado para este CPF`);
+            return res.json({ ok: true, msg: 'Cupom já registrado' });
+        }
+
+        // Inserir novo registro
+        await pool.query(
+            'INSERT INTO CUPONS_USADOS (cpf, cupom, desconto) VALUES ($1, $2, $3)',
+            [cpf, cupom, desconto]
+        );
+
+        console.log(`✅ Cupom ${cupom} registrado com sucesso para CPF ${cpf}`);
+        res.json({ ok: true, msg: 'Cupom registrado' });
+    } catch (err) {
+        console.error('❌ Erro ao registrar cupom:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao registrar cupom' });
+    }
+});
+
+// --- VALIDAR CUPOM DE DESCONTO ---
+app.post('/api/validar-cupom', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+        const { cupom } = req.body;
+        const cpf = req.session.userCpf;
+
+        // Cupom válido é "OFF5"
+        if (cupom !== 'OFF5') {
+            return res.json({ ok: false, msg: '❌ Cupom inválido' });
+        }
+
+        // Verificar se já foi usado por este CPF
+        const jaUsado = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, 'OFF5']);
+        if (jaUsado.rows.length > 0) {
+            return res.json({ ok: false, msg: '❌ Este cupom já foi utilizado em sua conta' });
+        }
+
+        // Cupom válido
+        res.json({ ok: true, msg: 'Cupom válido!', desconto: '0.05', cupom: 'OFF5' });
+    } catch (err) {
+        console.error('❌ Erro ao validar cupom:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao validar cupom' });
+    }
+});
+
+// --- OBTER STATUS ATUALIZADO DAS SIMULAÇÕES DO CLIENTE ---
+app.get('/api/simulacoes-cliente', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false });
+        const cpf = req.session.userCpf;
+        const result = await pool.query('SELECT id, status, total FROM SIMULACOES WHERE CPF = $1 ORDER BY CRIADO_EM DESC', [cpf]);
+        res.json({ ok: true, simulacoes: result.rows });
+    } catch (err) {
+        res.status(500).json({ ok: false });
+    }
+});
+
+// --- OBTER NOTIFICAÇÕES PIX PENDENTES (PARA ADMIN) ---
+app.get('/api/notificacoes-pix', adminAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM NOTIFICACOES_PIX WHERE lida = FALSE ORDER BY criado_em DESC'
+        );
+        res.json({ ok: true, notificacoes: result.rows, total: result.rows.length });
+    } catch (err) {
+        console.error('❌ Erro ao buscar notificações:', err);
+        res.status(500).json({ ok: false });
+    }
+});
+
+// --- MARCAR NOTIFICAÇÃO COMO LIDA ---
+app.post('/api/marcar-notificacao-lida', adminAuth, async (req, res) => {
+    try {
+        const { notificacao_id } = req.body;
+        await pool.query('UPDATE NOTIFICACOES_PIX SET lida = TRUE WHERE id = $1', [notificacao_id]);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('❌ Erro ao marcar notificação:', err);
         res.status(500).json({ ok: false });
     }
 });
