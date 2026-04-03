@@ -311,6 +311,137 @@ app.get('/api/propostas/:cpf', async (req, res) => {
     }
 });
 
+// --- PERFIL DO USUÁRIO ---
+app.get('/perfil', async (req, res) => {
+    if (!req.session.usuarioLogado) return res.send("<script>location.href='/';</script>");
+    try {
+        const cpf = req.session.userCpf;
+        const result = await pool.query('SELECT nome, email, whatsapp FROM USUARIOS WHERE cpf = $1', [cpf]);
+        if (result.rows.length === 0) return res.status(404).send('Usuário não encontrado');
+
+        const user = result.rows[0];
+        res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Perfil - AzulCrédito</title><style>
+            body{font-family:"Segoe UI",sans-serif;background:#f4f7fa;margin:0;padding:0;}
+            .header{background:#1e3c72;color:white;padding:15px 30px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+            .container{max-width:600px;margin:40px auto;padding:20px;}
+            .card{background:white;padding:30px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.08);margin-bottom:30px;}
+            .card h2{margin-top:0;color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:10px;}
+            label{display:block;margin-top:15px;font-weight:bold;color:#333;margin-bottom:5px;}
+            input{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;box-sizing:border-box;}
+            input:focus{outline:none;border-color:#3a7bd5;box-shadow:0 0 0 3px rgba(58,123,213,0.1);}
+            button{width:100%;padding:12px;margin-top:20px;background:#3a7bd5;color:white;border:none;border-radius:8px;font-weight:bold;font-size:1rem;cursor:pointer;}
+            button:hover{background:#2a5fa5;}
+            .success{color:#2ecc71;font-weight:bold;margin:10px 0;}
+            .error{color:#e74c3c;font-weight:bold;margin:10px 0;}
+            .info{background:#f0f7ff;padding:15px;border-radius:8px;margin-top:15px;border-left:4px solid #3a7bd5;color:#333;}
+        </style></head><body>
+            <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL CRÉDITO</div><a href="/simulacoes" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">← VOLTAR</a></div>
+
+            <div class="container">
+                <h1 style="color:#1e3c72;text-align:center;">⚙️ Meu Perfil</h1>
+
+                <div class="card">
+                    <h2>👤 Meus Dados</h2>
+                    <div id="resultado-perfil"></div>
+                    <label>Nome</label>
+                    <input type="text" id="nome" value="${user.nome}" placeholder="Seu nome completo">
+
+                    <label>Email</label>
+                    <input type="email" id="email" value="${user.email}" placeholder="seu@email.com">
+
+                    <label>WhatsApp</label>
+                    <input type="tel" id="whatsapp" value="${user.whatsapp || ''}" placeholder="55 xx 99999-9999">
+
+                    <button onclick="atualizarPerfil()">✅ Salvar Alterações</button>
+                </div>
+
+                <div class="card">
+                    <h2>🔒 Trocar Senha</h2>
+                    <div id="resultado-senha"></div>
+                    <label>Senha Atual</label>
+                    <input type="password" id="senha-atual" placeholder="Digite sua senha atual">
+
+                    <label>Nova Senha</label>
+                    <input type="password" id="nova-senha" placeholder="Digite a nova senha">
+
+                    <label>Confirmar Nova Senha</label>
+                    <input type="password" id="confirmar-senha" placeholder="Confirme a nova senha">
+
+                    <button onclick="trocarSenha()">🔒 Trocar Senha</button>
+
+                    <div class="info">
+                        💡 <strong>Dica:</strong> Use uma senha forte com letras, números e caracteres especiais.
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                async function atualizarPerfil() {
+                    const nome = document.getElementById('nome').value.trim();
+                    const email = document.getElementById('email').value.trim();
+                    const whatsapp = document.getElementById('whatsapp').value.trim();
+
+                    if (!nome || !email) {
+                        document.getElementById('resultado-perfil').innerHTML = '<p class="error">❌ Nome e Email são obrigatórios!</p>';
+                        return;
+                    }
+
+                    const resp = await fetch('/atualizar-perfil', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nome, email, whatsapp })
+                    });
+
+                    const json = await resp.json();
+                    if (json.ok) {
+                        document.getElementById('resultado-perfil').innerHTML = '<p class="success">✅ Perfil atualizado com sucesso!</p>';
+                    } else {
+                        document.getElementById('resultado-perfil').innerHTML = '<p class="error">❌ ' + (json.msg || 'Erro ao atualizar') + '</p>';
+                    }
+                }
+
+                async function trocarSenha() {
+                    const senhaAtual = document.getElementById('senha-atual').value;
+                    const novaSenha = document.getElementById('nova-senha').value;
+                    const confirmar = document.getElementById('confirmar-senha').value;
+
+                    if (!senhaAtual || !novaSenha || !confirmar) {
+                        document.getElementById('resultado-senha').innerHTML = '<p class="error">❌ Preencha todos os campos!</p>';
+                        return;
+                    }
+
+                    if (novaSenha !== confirmar) {
+                        document.getElementById('resultado-senha').innerHTML = '<p class="error">❌ As senhas não correspondem!</p>';
+                        return;
+                    }
+
+                    if (novaSenha.length < 6) {
+                        document.getElementById('resultado-senha').innerHTML = '<p class="error">❌ A nova senha deve ter pelo menos 6 caracteres!</p>';
+                        return;
+                    }
+
+                    const resp = await fetch('/trocar-senha', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha })
+                    });
+
+                    const json = await resp.json();
+                    if (json.ok) {
+                        document.getElementById('resultado-senha').innerHTML = '<p class="success">✅ Senha alterada com sucesso! Você será redirecionado...</p>';
+                        setTimeout(() => { location.href = '/simulacoes'; }, 2000);
+                    } else {
+                        document.getElementById('resultado-senha').innerHTML = '<p class="error">❌ ' + (json.msg || 'Erro ao trocar senha') + '</p>';
+                    }
+                }
+            </script>
+        </body></html>`);
+    } catch (e) {
+        console.error('❌ Erro em /perfil:', e);
+        res.status(500).send('Erro ao carregar perfil');
+    }
+});
+
 app.get('/simulacoes', async (req, res) => {
     if (!req.session.usuarioLogado) return res.send("<script>location.href='/';</script>");
     const cpf = req.session.userCpf;
@@ -335,7 +466,7 @@ app.get('/simulacoes', async (req, res) => {
             .st-PAGO{background:#dcfce7;color:#166534;}.st-ANÁLISE{background:#fef9c3;color:#854d0e;}.st-REPROVADO{background:#fee2e2;color:#991b1b;}
             table{width:100%;border-collapse:collapse;}td, th{padding:15px 10px; border-bottom:1px solid #f1f5f9; text-align:left;}
         </style></head><body>
-            <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL CRÉDITO</div><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">SAIR</a></div>
+            <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL CRÉDITO</div><div style="display:flex;gap:10px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">SAIR</a></div></div>
             <div class="container"><h2>Olá, ${req.session.userName}! 👋</h2>
             <div class="card"><h3>💰 Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
             <label>VALOR DESEJADO (MÁX R$ 20.000)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
@@ -750,6 +881,67 @@ app.get('/pagamentos/:simulacao_id', async (req, res) => {
         res.json({ ok: true, pagamentos: result.rows, total_pago });
     } catch (err) {
         res.status(500).json({ ok: false });
+    }
+});
+
+// --- ATUALIZAR PERFIL ---
+app.post('/atualizar-perfil', async (req, res) => {
+    if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+    const { nome, email, whatsapp } = req.body;
+    if (!nome || !email) return res.status(400).json({ ok: false, msg: 'Nome e Email são obrigatórios' });
+
+    try {
+        const cpf = req.session.userCpf;
+
+        // Verificar se email já existe (para outro usuário)
+        const emailExists = await pool.query('SELECT cpf FROM USUARIOS WHERE email = $1 AND cpf != $2', [email, cpf]);
+        if (emailExists.rows.length > 0) {
+            return res.status(400).json({ ok: false, msg: 'Este email já está cadastrado' });
+        }
+
+        await pool.query(
+            'UPDATE USUARIOS SET nome = $1, email = $2, whatsapp = $3 WHERE cpf = $4',
+            [nome, email, whatsapp || null, cpf]
+        );
+
+        // Atualizar nome na sessão
+        req.session.userName = nome;
+
+        console.log('✅ Perfil atualizado:', { cpf, nome, email });
+        res.json({ ok: true, msg: 'Perfil atualizado com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro ao atualizar perfil:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao atualizar perfil' });
+    }
+});
+
+// --- TROCAR SENHA ---
+app.post('/trocar-senha', async (req, res) => {
+    if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+    const { senha_atual, nova_senha } = req.body;
+    if (!senha_atual || !nova_senha) return res.status(400).json({ ok: false, msg: 'Preencha todos os campos' });
+
+    try {
+        const cpf = req.session.userCpf;
+
+        // Verificar se a senha atual está correta
+        const result = await pool.query('SELECT senha FROM USUARIOS WHERE cpf = $1', [cpf]);
+        if (result.rows.length === 0) return res.status(401).json({ ok: false, msg: 'Usuário não encontrado' });
+
+        if (result.rows[0].senha !== senha_atual) {
+            return res.status(401).json({ ok: false, msg: 'Senha atual incorreta' });
+        }
+
+        // Atualizar senha
+        await pool.query('UPDATE USUARIOS SET senha = $1 WHERE cpf = $2', [nova_senha, cpf]);
+
+        console.log('✅ Senha alterada:', { cpf });
+        res.json({ ok: true, msg: 'Senha alterada com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro ao trocar senha:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao trocar senha' });
     }
 });
 
