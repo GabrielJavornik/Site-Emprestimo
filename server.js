@@ -2215,16 +2215,20 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             </div>` +
             (await Promise.all(Object.keys(perfis).map(async cpf => {
                 const p = perfis[cpf];
-                // Fetch payment totals for each proposal
+                // Fetch payment totals and last payment for each proposal
                 const pagamentosPromises = p.pedidos.map(ped =>
-                    pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [ped.id])
+                    Promise.all([
+                        pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1 AND status = $2', [ped.id, 'CONFIRMADO']),
+                        pool.query('SELECT * FROM PAGAMENTOS WHERE simulacao_id = $1 AND status = $2 ORDER BY data_pagamento DESC LIMIT 1', [ped.id, 'CONFIRMADO'])
+                    ])
                 );
                 const pagamentosResults = await Promise.all(pagamentosPromises);
 
-                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small></div><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
+                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small></div><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
                 p.pedidos.map((ped, idx) => {
                     const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : (ped.status === 'QUITADO' ? 'st-quitado' : 'st-analise'));
-                    const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
+                    const [pagtoResult, ultimaPagResult] = pagamentosResults[idx];
+                    const totalPago = parseFloat(pagtoResult.rows[0].total_pago || 0);
                     const parcelas = parseInt(ped.parcelas || 1);
                     const valorMensal = parseFloat(ped.total) / parcelas;
                     const totalValor = parseFloat(ped.total);
@@ -2233,7 +2237,19 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     const faltaPagar = totalValor - totalPago;
                     const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
                     const isQuitado = ped.status === 'QUITADO';
-                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}" ${isQuitado ? 'disabled' : ''}><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option><option value="QUITADO" ${ped.status==='QUITADO'?'selected':''}>Quitado</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''}>OK</button><button style="background:#27ae60;margin-left:5px;" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Pagamento</button></td></tr>`;
+
+                    // Calcular última paga e próxima vencimento
+                    const ultimaPagaDate = ultimaPagResult.rows.length > 0 ? new Date(ultimaPagResult.rows[0].data_pagamento).toLocaleDateString('pt-BR') : '-';
+                    const ultimaPagaNum = ultimaPagResult.rows.length > 0 ? parcelasPagas : '-';
+
+                    let proximaVencimentoStr = '-';
+                    if (ped.aprovado_em && parcelasRestantes > 0) {
+                        const aprovadoEm = new Date(ped.aprovado_em);
+                        const proximaVenc = new Date(aprovadoEm);
+                        proximaVenc.setDate(aprovadoEm.getDate() + ((parcelasPagas + 1) * 30));
+                        proximaVencimentoStr = proximaVenc.toLocaleDateString('pt-BR');
+                    }
+                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="font-size:0.85rem;"><strong>${ultimaPagaNum}</strong><br><small style="color:#666;">${ultimaPagaDate}</small></td><td style="font-size:0.85rem;font-weight:bold;color:#0066cc;">${proximaVencimentoStr}</td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}" ${isQuitado ? 'disabled' : ''}><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option><option value="QUITADO" ${ped.status==='QUITADO'?'selected':''}>Quitado</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''}>OK</button><button style="background:#27ae60;margin-left:5px;" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Pagamento</button></td></tr>`;
                 }).join('') + '</tbody></table></div>';
             }))).join('') +
             `<div id="modalPagamento" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
