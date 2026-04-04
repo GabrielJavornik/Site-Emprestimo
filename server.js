@@ -2017,18 +2017,9 @@ app.get('/simulacoes', async (req, res) => {
                 }
 
                 async function selecionarOpcao(opcao){
-                    // Verificar cupom no servidor
-                    try{
-                        const resp = await fetch('/api/cupom-ja-usado', {method:'GET'});
-                        const json = await resp.json();
-
-                        if(json.jaUsado){
-                            alert('❌ Este cupom já foi utilizado! Você não pode usar novamente.');
-                            return;
-                        }
-                    }catch(e){
-                        console.log('Erro ao verificar cupom');
-                    }
+                    // NOTA: Não mais verificar cupom automaticamente aqui
+                    // A verificação só acontece quando o usuário APLICA o cupom
+                    // Isso permite fazer PIX sem cupom mesmo após ter usado uma vez
 
                     opcaoSelecionada = opcao;
 
