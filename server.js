@@ -24,9 +24,8 @@ const adminAuth = (req, res, next) => {
     return res.redirect('/admin-login');
 };
 
-// Credenciais admin
-const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
+// Credenciais admin agora vêm da tabela ADMINS no banco de dados
+// (veja os endpoints /api/admin/gerenciar-admins)
 
 /// --- 2. CONFIGURAÇÃO DO EMAIL (SendGrid) ---
 const API_KEY_SENDGRID = process.env.SENDGRID_API_KEY || '';
@@ -1097,19 +1096,152 @@ app.get('/admin-login', (req, res) => {
 app.post('/admin-login', async (req, res) => {
     const { user, pass } = req.body;
 
-    if (user === ADMIN_USER && pass === ADMIN_PASS) {
-        req.session.adminLogado = true;
-        req.session.adminUser = ADMIN_USER;
-        return res.json({ ok: true, msg: 'Login realizado com sucesso!' });
-    }
+    try {
+        // Buscar admin no banco de dados
+        const result = await pool.query(
+            'SELECT id, usuario, nome, email, ativo FROM ADMINS WHERE usuario = $1 AND senha = $2 AND ativo = true',
+            [user, pass]
+        );
 
-    res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
+        if (result.rows.length > 0) {
+            const admin = result.rows[0];
+            req.session.adminLogado = true;
+            req.session.adminUser = admin.usuario;
+            req.session.adminId = admin.id;
+            req.session.adminNome = admin.nome;
+            console.log(`✅ Admin "${admin.usuario}" logado`);
+            return res.json({ ok: true, msg: 'Login realizado com sucesso!' });
+        }
+
+        res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
+    } catch (err) {
+        console.error('❌ Erro ao fazer login admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao processar login' });
+    }
 });
 
 app.get('/admin-logout', (req, res) => {
     req.session.adminLogado = false;
     req.session.adminUser = null;
     res.redirect('/admin-login');
+});
+
+// Página de gerenciar admins
+app.get('/admin-gerenciar-admins', adminAuth, (_, res) => {
+    res.sendFile(path.join(__dirname, 'admin-gerenciar.html'));
+});
+
+// --- GERENCIAR ADMINS ---
+
+// LISTAR todos os admins
+app.get('/api/admin/listar-admins', adminAuth, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, usuario, nome, email, ativo, criado_em FROM ADMINS ORDER BY criado_em DESC');
+        res.json({ ok: true, admins: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao listar admins:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar admins' });
+    }
+});
+
+// CRIAR novo admin
+app.post('/api/admin/criar-admin', adminAuth, async (req, res) => {
+    try {
+        const { usuario, senha, nome, email } = req.body;
+
+        if (!usuario || !senha) {
+            return res.status(400).json({ ok: false, msg: 'Usuário e senha obrigatórios' });
+        }
+
+        const result = await pool.query(
+            'INSERT INTO ADMINS (usuario, senha, nome, email, ativo) VALUES ($1, $2, $3, $4, true) RETURNING id, usuario, nome, email',
+            [usuario, senha, nome || null, email || null]
+        );
+
+        console.log(`✅ Admin "${usuario}" criado`);
+        res.json({ ok: true, msg: 'Admin criado com sucesso', admin: result.rows[0] });
+    } catch (err) {
+        if (err.code === '23505') { // Duplicate key
+            return res.status(400).json({ ok: false, msg: 'Este usuário já existe' });
+        }
+        console.error('❌ Erro ao criar admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao criar admin' });
+    }
+});
+
+// EDITAR admin
+app.post('/api/admin/editar-admin/:id', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nome, email, ativo } = req.body;
+
+        const result = await pool.query(
+            'UPDATE ADMINS SET nome = $1, email = $2, ativo = $3, atualizado_em = CURRENT_TIMESTAMP WHERE id = $4 RETURNING id, usuario, nome, email, ativo',
+            [nome || null, email || null, ativo !== false, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Admin não encontrado' });
+        }
+
+        console.log(`✅ Admin "${result.rows[0].usuario}" atualizado`);
+        res.json({ ok: true, msg: 'Admin atualizado com sucesso', admin: result.rows[0] });
+    } catch (err) {
+        console.error('❌ Erro ao editar admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao editar admin' });
+    }
+});
+
+// ALTERAR SENHA do admin
+app.post('/api/admin/alterar-senha-admin/:id', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nova_senha } = req.body;
+
+        if (!nova_senha) {
+            return res.status(400).json({ ok: false, msg: 'Nova senha obrigatória' });
+        }
+
+        const result = await pool.query(
+            'UPDATE ADMINS SET senha = $1, atualizado_em = CURRENT_TIMESTAMP WHERE id = $2 RETURNING usuario',
+            [nova_senha, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Admin não encontrado' });
+        }
+
+        console.log(`✅ Senha de "${result.rows[0].usuario}" alterada`);
+        res.json({ ok: true, msg: 'Senha alterada com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro ao alterar senha:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao alterar senha' });
+    }
+});
+
+// DELETAR admin
+app.post('/api/admin/deletar-admin/:id', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const admin = await pool.query('SELECT usuario FROM ADMINS WHERE id = $1', [id]);
+        if (admin.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Admin não encontrado' });
+        }
+
+        // Não permitir deletar se for o último admin
+        const count = await pool.query('SELECT COUNT(*) FROM ADMINS WHERE ativo = true');
+        if (parseInt(count.rows[0].count) <= 1) {
+            return res.status(400).json({ ok: false, msg: 'Não é possível deletar o único admin ativo' });
+        }
+
+        await pool.query('DELETE FROM ADMINS WHERE id = $1', [id]);
+        console.log(`✅ Admin "${admin.rows[0].usuario}" deletado`);
+        res.json({ ok: true, msg: 'Admin deletado com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro ao deletar admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao deletar admin' });
+    }
 });
 
 // Verificar status de crédito por CPF (GRATUITO)

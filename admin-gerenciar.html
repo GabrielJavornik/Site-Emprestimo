@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Admins - AzulCrédito</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7fa; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: #1e3c72;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 1.8rem; }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: #3a7bd5; color: white; }
+        .btn-primary:hover { background: #2a5ba5; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-success:hover { background: #229954; }
+        .form-group {
+            margin-bottom: 15px;
+            display: grid;
+            gap: 5px;
+        }
+        label { font-weight: bold; color: #333; }
+        input, textarea { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
+        input:focus { outline: none; border-color: #3a7bd5; box-shadow: 0 0 5px rgba(58, 123, 213, 0.3); }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: min(500px, 90%);
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h2 { margin: 0; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .admin-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3a7bd5;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            align-items: center;
+        }
+        .admin-info h3 { color: #1e3c72; margin-bottom: 5px; }
+        .admin-info p { color: #666; font-size: 0.9rem; margin: 3px 0; }
+        .admin-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 0.8rem; font-weight: bold; }
+        .badge-active { background: #d4edda; color: #155724; }
+        .badge-inactive { background: #f8d7da; color: #721c24; }
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3a7bd5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>👥 Gerenciar Admins</h1>
+                <p style="margin-top: 5px; opacity: 0.9;">Adicionar, editar e remover contas de administrador</p>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalCriar()">+ Novo Admin</button>
+        </div>
+
+        <div id="alertas"></div>
+
+        <div id="adminsContainer">
+            <div style="text-align: center; padding: 40px;">
+                <div class="spinner"></div>
+                <p style="margin-top: 20px; color: #666;">Carregando admins...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Criar Admin -->
+    <div class="modal" id="modalCriar">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Novo Admin</h2>
+                <button class="close-btn" onclick="fecharModal('modalCriar')">×</button>
+            </div>
+            <form onsubmit="criarAdmin(event)">
+                <div class="form-group">
+                    <label>Usuário (login)</label>
+                    <input type="text" id="novoUsuario" required placeholder="ex: admin2">
+                </div>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="novaSenha" required placeholder="Senha segura">
+                </div>
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="novoNome" placeholder="opcional">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="novoEmail" placeholder="opcional">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">Criar Admin</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Editar Admin -->
+    <div class="modal" id="modalEditar">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar Admin</h2>
+                <button class="close-btn" onclick="fecharModal('modalEditar')">×</button>
+            </div>
+            <form onsubmit="editarAdmin(event)">
+                <div class="form-group">
+                    <label>Usuário</label>
+                    <input type="text" id="editUsuario" disabled style="background: #f0f0f0;">
+                </div>
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="editNome">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="editEmail">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; gap: 10px; align-items: center;">
+                        <input type="checkbox" id="editAtivo">
+                        <span>Ativo</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">Atualizar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Alterar Senha -->
+    <div class="modal" id="modalSenha">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Alterar Senha</h2>
+                <button class="close-btn" onclick="fecharModal('modalSenha')">×</button>
+            </div>
+            <form onsubmit="alterarSenha(event)">
+                <div class="form-group">
+                    <label>Usuário</label>
+                    <input type="text" id="senhaUsuario" disabled style="background: #f0f0f0;">
+                </div>
+                <div class="form-group">
+                    <label>Nova Senha</label>
+                    <input type="password" id="novaSenhaInput" required placeholder="Digite a nova senha">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">Atualizar Senha</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let adminIdAtual = null;
+
+        async function carregarAdmins() {
+            try {
+                const resp = await fetch('/api/admin/listar-admins');
+                const json = await resp.json();
+
+                if (!json.ok) {
+                    mostrarAlerta('Erro ao carregar admins', 'error');
+                    return;
+                }
+
+                const container = document.getElementById('adminsContainer');
+                if (json.admins.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Nenhum admin cadastrado</p>';
+                    return;
+                }
+
+                container.innerHTML = json.admins.map(admin => `
+                    <div class="admin-card">
+                        <div class="admin-info">
+                            <h3>${admin.nome || admin.usuario}</h3>
+                            <p><strong>Usuário:</strong> ${admin.usuario}</p>
+                            ${admin.email ? `<p><strong>Email:</strong> ${admin.email}</p>` : ''}
+                            <p style="margin-top: 10px;">
+                                <span class="badge ${admin.ativo ? 'badge-active' : 'badge-inactive'}">
+                                    ${admin.ativo ? '✓ Ativo' : '✗ Inativo'}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="admin-actions">
+                            <button class="btn btn-primary" onclick="abrirModalEditar(${admin.id}, '${admin.usuario}', '${admin.nome || ''}', '${admin.email || ''}', ${admin.ativo})">✏️ Editar</button>
+                            <button class="btn btn-success" onclick="abrirModalSenha(${admin.id}, '${admin.usuario}')">🔐 Senha</button>
+                            <button class="btn btn-danger" onclick="deletarAdmin(${admin.id}, '${admin.usuario}')">🗑️ Deletar</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Erro:', err);
+                mostrarAlerta('Erro ao carregar admins: ' + err.message, 'error');
+            }
+        }
+
+        function abrirModal(id) { document.getElementById(id).classList.add('active'); }
+        function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
+        function abrirModalCriar() { abrirModal('modalCriar'); }
+        function abrirModalEditar(id, user, nome, email, ativo) {
+            adminIdAtual = id;
+            document.getElementById('editUsuario').value = user;
+            document.getElementById('editNome').value = nome;
+            document.getElementById('editEmail').value = email;
+            document.getElementById('editAtivo').checked = ativo;
+            abrirModal('modalEditar');
+        }
+        function abrirModalSenha(id, user) {
+            adminIdAtual = id;
+            document.getElementById('senhaUsuario').value = user;
+            document.getElementById('novaSenhaInput').value = '';
+            abrirModal('modalSenha');
+        }
+
+        async function criarAdmin(e) {
+            e.preventDefault();
+            const usuario = document.getElementById('novoUsuario').value;
+            const senha = document.getElementById('novaSenha').value;
+            const nome = document.getElementById('novoNome').value;
+            const email = document.getElementById('novoEmail').value;
+
+            try {
+                const resp = await fetch('/api/admin/criar-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, senha, nome, email })
+                });
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarAlerta(`✅ Admin "${usuario}" criado com sucesso!`, 'success');
+                    fecharModal('modalCriar');
+                    document.querySelector('#modalCriar form').reset();
+                    carregarAdmins();
+                } else {
+                    mostrarAlerta('❌ ' + json.msg, 'error');
+                }
+            } catch (err) {
+                mostrarAlerta('❌ Erro: ' + err.message, 'error');
+            }
+        }
+
+        async function editarAdmin(e) {
+            e.preventDefault();
+            const nome = document.getElementById('editNome').value;
+            const email = document.getElementById('editEmail').value;
+            const ativo = document.getElementById('editAtivo').checked;
+
+            try {
+                const resp = await fetch(`/api/admin/editar-admin/${adminIdAtual}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, email, ativo })
+                });
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarAlerta('✅ Admin atualizado!', 'success');
+                    fecharModal('modalEditar');
+                    carregarAdmins();
+                } else {
+                    mostrarAlerta('❌ ' + json.msg, 'error');
+                }
+            } catch (err) {
+                mostrarAlerta('❌ Erro: ' + err.message, 'error');
+            }
+        }
+
+        async function alterarSenha(e) {
+            e.preventDefault();
+            const nova_senha = document.getElementById('novaSenhaInput').value;
+
+            try {
+                const resp = await fetch(`/api/admin/alterar-senha-admin/${adminIdAtual}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nova_senha })
+                });
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarAlerta('✅ Senha alterada!', 'success');
+                    fecharModal('modalSenha');
+                } else {
+                    mostrarAlerta('❌ ' + json.msg, 'error');
+                }
+            } catch (err) {
+                mostrarAlerta('❌ Erro: ' + err.message, 'error');
+            }
+        }
+
+        async function deletarAdmin(id, usuario) {
+            if (!confirm(`Tem certeza que quer deletar o admin "${usuario}"?`)) return;
+
+            try {
+                const resp = await fetch(`/api/admin/deletar-admin/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarAlerta('✅ Admin deletado!', 'success');
+                    carregarAdmins();
+                } else {
+                    mostrarAlerta('❌ ' + json.msg, 'error');
+                }
+            } catch (err) {
+                mostrarAlerta('❌ Erro: ' + err.message, 'error');
+            }
+        }
+
+        function mostrarAlerta(msg, tipo) {
+            const alertas = document.getElementById('alertas');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${tipo}`;
+            alertDiv.textContent = msg;
+            alertas.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        // Carregar admins ao abrir página
+        carregarAdmins();
+    </script>
+</body>
+</html>

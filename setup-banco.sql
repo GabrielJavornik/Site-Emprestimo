@@ -1,3 +1,15 @@
+DROP TABLE IF EXISTS ADMINS CASCADE;
+CREATE TABLE ADMINS (
+    id SERIAL PRIMARY KEY,
+    usuario VARCHAR(50) UNIQUE NOT NULL,
+    senha VARCHAR(255) NOT NULL,
+    nome VARCHAR(150),
+    email VARCHAR(150),
+    ativo BOOLEAN DEFAULT TRUE,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 DROP TABLE IF EXISTS USUARIOS CASCADE;
 CREATE TABLE USUARIOS (
     id SERIAL PRIMARY KEY,
@@ -44,6 +56,11 @@ CREATE INDEX idx_usuarios_email ON USUARIOS(email);
 CREATE INDEX idx_simulacoes_cpf ON SIMULACOES(cpf);
 CREATE INDEX idx_simulacoes_status ON SIMULACOES(status);
 CREATE INDEX idx_pagamentos_simulacao_id ON PAGAMENTOS(simulacao_id);
+
+INSERT INTO ADMINS (usuario, senha, nome, email, ativo)
+VALUES ('admin', 'Azul2026', 'Administrador', 'admin@example.com', true)
+ON CONFLICT (usuario) DO NOTHING;
+
 INSERT INTO USUARIOS (
         nome,
         cpf,

@@ -48,7 +48,8 @@
       "Bash(rm -f server.log server_debug.log)",
       "Bash(rm -f test-email.js test-sendgrid-com*.js)",
       "Bash(rm -f server-console.js server-sendgrid.js)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(node criar-tabela-admins.js)"
     ],
     "additionalDirectories": [
       "\\tmp",
