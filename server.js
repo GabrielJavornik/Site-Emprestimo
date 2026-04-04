@@ -501,10 +501,14 @@ pool.query(`
     ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS conta_tipo VARCHAR(20)
 `).catch(err => console.error('⚠️ Erro ao adicionar coluna conta_tipo:', err.message));
 
-// Adicionar coluna bloqueado para bloquear cliente
+// Adicionar colunas de bloqueio granular
 pool.query(`
-    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS bloqueado BOOLEAN DEFAULT FALSE
-`).catch(err => console.error('⚠️ Erro ao adicionar coluna bloqueado:', err.message));
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS bloqueado_login BOOLEAN DEFAULT FALSE
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna bloqueado_login:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS bloqueado_emprestimo BOOLEAN DEFAULT FALSE
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna bloqueado_emprestimo:', err.message));
 
 // Tabela para controlar lembretes enviados
 pool.query(`
@@ -1236,8 +1240,8 @@ app.post('/login', async (req, res) => {
         if (!result.rows[0].email_verificado) {
             return res.status(403).json({ ok: false, msg: 'Email não confirmado. Verifique sua caixa de entrada!' });
         }
-        if (result.rows[0].bloqueado === true) {
-            console.log(`❌ Tentativa de login de cliente bloqueado: ${result.rows[0].cpf}`);
+        if (result.rows[0].bloqueado_login === true) {
+            console.log(`❌ Tentativa de login de cliente com acesso bloqueado: ${result.rows[0].cpf}`);
             return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada. Entre em contato com o suporte.' });
         }
         req.session.usuarioLogado = true; req.session.userCpf = result.rows[0].cpf; req.session.userName = result.rows[0].nome;
@@ -1608,9 +1612,10 @@ app.get('/simulacoes', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM SIMULACOES WHERE CPF = $1 ORDER BY CRIADO_EM DESC', [cpf]);
 
-        // Buscar também bloqueado e check de renegociação
-        const usuarioResult = await pool.query('SELECT bloqueado FROM USUARIOS WHERE cpf = $1', [cpf]);
-        const bloqueado = usuarioResult.rows.length > 0 ? usuarioResult.rows[0].bloqueado : false;
+        // Buscar também status de bloqueio e check de renegociação
+        const usuarioResult = await pool.query('SELECT bloqueado_login, bloqueado_emprestimo FROM USUARIOS WHERE cpf = $1', [cpf]);
+        const bloqueado_login = usuarioResult.rows.length > 0 ? usuarioResult.rows[0].bloqueado_login : false;
+        const bloqueado_emprestimo = usuarioResult.rows.length > 0 ? usuarioResult.rows[0].bloqueado_emprestimo : false;
 
         // Fetch total paid and penalties for each simulation
         const pagamentosPromises = result.rows.map(r =>
@@ -2209,12 +2214,12 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
         const { valor, parcelas } = req.body;
         const vPedido = parseFloat(valor);
         const p = parseInt(parcelas);
-        const user = await pool.query('SELECT nome, email, whatsapp, bloqueado FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
+        const user = await pool.query('SELECT nome, email, whatsapp, bloqueado_login, bloqueado_emprestimo FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
 
-        // Verificar se cliente está bloqueado
-        if (user.rows.length > 0 && user.rows[0].bloqueado === true) {
-            console.log(`❌ Cliente bloqueado tentou enviar proposta: ${req.session.userCpf}`);
-            return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada. Não é possível enviar novas propostas.' });
+        // Verificar se cliente está bloqueado para empréstimos
+        if (user.rows.length > 0 && user.rows[0].bloqueado_emprestimo === true) {
+            console.log(`❌ Cliente com empréstimos bloqueados tentou enviar proposta: ${req.session.userCpf}`);
+            return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada para solicitações de empréstimo. Entre em contato com o suporte.' });
         }
 
         // Obter taxa de juros dinâmica
@@ -2471,7 +2476,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
         const perfis = {};
         allSims.rows.forEach(r => {
-            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, bloqueado: r.bloqueado, pedidos: [] };
+            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, bloqueado_login: r.bloqueado_login, bloqueado_emprestimo: r.bloqueado_emprestimo, pedidos: [] };
             perfis[r.cpf].pedidos.push(r);
         });
 
@@ -2682,9 +2687,15 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
                 const endereco = p.cidade ? `${p.cidade}, ${p.estado}` : '-';
                 const banco = p.banco_nome ? `${p.banco_nome.split('(')[0].trim()} ****${p.conta ? p.conta.slice(-4) : ''}` : '-';
-                const badgeBloqueado = p.bloqueado ? '<span style="background:#e74c3c;color:white;padding:4px 10px;border-radius:50px;font-size:0.7rem;font-weight:bold;margin-left:10px;">🚫 BLOQUEADO</span>' : '';
-                const btnBloqueio = `<button onclick="toggleBloqueio('${cpf}', ${p.bloqueado})" style="background:${p.bloqueado ? '#2ecc71' : '#e74c3c'};color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;margin-left:10px;">${p.bloqueado ? '🔓 Desbloquear' : '🔒 Bloquear'}</button>`;
-                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeBloqueado}</div><div style="display:flex;gap:10px;align-items:center;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a>${btnBloqueio}</div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto 1fr;gap:20px;"><div><strong>📍</strong> ${endereco}</div><div><strong>🏦</strong> ${banco}</div></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
+                const badgeLogin = p.bloqueado_login ? '<span style="background:#e74c3c;color:white;padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:bold;margin-left:5px;">🚫 ACESSO</span>' : '';
+                const badgeEmprestimo = p.bloqueado_emprestimo ? '<span style="background:#f39c12;color:white;padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:bold;margin-left:5px;">🚫 EMPRÉS.</span>' : '';
+                const btnsControle = `<div style="display:flex;gap:5px;">
+                    <button onclick="bloquearCliente('${cpf}', 'login', true)" style="background:#e74c3c;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Bloquear acesso">🔐 Bloquear Acesso</button>
+                    <button onclick="desbloquearCliente('${cpf}', 'login', false)" style="background:#2ecc71;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Desbloquear acesso">🔓 Liberar Acesso</button>
+                    <button onclick="bloquearCliente('${cpf}', 'emprestimo', true)" style="background:#f39c12;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Bloquear empréstimos">🚫 Bloquear Emprés.</button>
+                    <button onclick="desbloquearCliente('${cpf}', 'emprestimo', false)" style="background:#3498db;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Desbloquear empréstimos">✅ Liberar Emprés.</button>
+                </div>`;
+                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeLogin}${badgeEmprestimo}</div><div style="display:flex;gap:5px;flex-wrap:wrap;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto 1fr;gap:20px;"><div><strong>📍</strong> ${endereco}</div><div><strong>🏦</strong> ${banco}</div></div><div style="padding:10px 15px;border-bottom:1px solid #eee;display:flex;gap:5px;flex-wrap:wrap;">${btnsControle}</div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
                 p.pedidos.map((ped, idx) => {
                     const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : (ped.status === 'QUITADO' ? 'st-quitado' : 'st-analise'));
                     const [pagtoResult, ultimaPagResult] = pagamentosResults[idx];
@@ -2805,23 +2816,49 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 options: {responsive: true, indexAxis: 'y', plugins: {legend: {display: false}}, scales: {x: {beginAtZero: true}}}
             });
 
-            // Bloquear/Desbloquear Cliente
-            async function toggleBloqueio(cpf, bloqueado){
-                if(!confirm(bloqueado ? 'Desbloquear cliente?' : 'Bloquear cliente?')) return;
+            // Bloquear Cliente (acesso ou empréstimo)
+            async function bloquearCliente(cpf, tipo, bloqueado){
+                const tipoNome = tipo === 'login' ? 'acesso a conta' : 'solicitacoes de emprestimo';
+                if(!confirm('Bloquear ' + tipoNome + ' do cliente?')) return;
                 try{
                     const resp = await fetch('/api/admin/bloquear-cliente', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({cpf, bloqueado: !bloqueado})
+                        body: JSON.stringify({cpf, tipo, bloqueado})
                     });
                     const data = await resp.json();
                     if(data.ok){
-                        console.log('✅ Cliente '+(bloqueado ? 'desbloqueado' : 'bloqueado'));
+                        console.log('✅ '+data.msg);
                         location.reload();
+                    } else {
+                        alert('❌ Erro: '+data.msg);
                     }
                 }catch(e){
                     console.error('❌ Erro:', e);
-                    alert('❌ Erro ao bloquear/desbloquear cliente');
+                    alert('❌ Erro ao bloquear cliente');
+                }
+            }
+
+            // Desbloquear Cliente (acesso ou emprestimo)
+            async function desbloquearCliente(cpf, tipo, bloqueado){
+                const tipoNome = tipo === 'login' ? 'acesso a conta' : 'solicitacoes de emprestimo';
+                if(!confirm('Desbloquear ' + tipoNome + ' do cliente?')) return;
+                try{
+                    const resp = await fetch('/api/admin/bloquear-cliente', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({cpf, tipo, bloqueado})
+                    });
+                    const data = await resp.json();
+                    if(data.ok){
+                        console.log('✅ '+data.msg);
+                        location.reload();
+                    } else {
+                        alert('❌ Erro: '+data.msg);
+                    }
+                }catch(e){
+                    console.error('❌ Erro:', e);
+                    alert('❌ Erro ao desbloquear cliente');
                 }
             }
 
@@ -3751,17 +3788,30 @@ app.post('/api/admin/config/taxa-juros', adminAuth, async (req, res) => {
 // --- BLOQUEAR/DESBLOQUEAR CLIENTE (ADMIN) ---
 app.post('/api/admin/bloquear-cliente', adminAuth, async (req, res) => {
     try {
-        const { cpf, bloqueado } = req.body;
+        const { cpf, tipo, bloqueado } = req.body;
 
-        if (!cpf) return res.status(400).json({ ok: false, msg: 'CPF não fornecido' });
+        if (!cpf || !tipo) return res.status(400).json({ ok: false, msg: 'CPF e tipo de bloqueio não fornecidos' });
+
+        let coluna = '';
+        let mensagem = '';
+
+        if (tipo === 'login') {
+            coluna = 'bloqueado_login';
+            mensagem = bloqueado ? 'acesso à conta bloqueado' : 'acesso à conta desbloqueado';
+        } else if (tipo === 'emprestimo') {
+            coluna = 'bloqueado_emprestimo';
+            mensagem = bloqueado ? 'solicitações de empréstimo bloqueadas' : 'solicitações de empréstimo desbloqueadas';
+        } else {
+            return res.status(400).json({ ok: false, msg: 'Tipo de bloqueio inválido (login ou emprestimo)' });
+        }
 
         await pool.query(
-            'UPDATE USUARIOS SET bloqueado = $1 WHERE cpf = $2',
+            `UPDATE USUARIOS SET ${coluna} = $1 WHERE cpf = $2`,
             [bloqueado === true, cpf]
         );
 
-        console.log(`✅ Cliente ${cpf} ${bloqueado ? 'bloqueado' : 'desbloqueado'}`);
-        res.json({ ok: true, msg: bloqueado ? 'Cliente bloqueado com sucesso' : 'Cliente desbloqueado com sucesso' });
+        console.log(`✅ Cliente ${cpf}: ${mensagem}`);
+        res.json({ ok: true, msg: `✅ ${mensagem.charAt(0).toUpperCase() + mensagem.slice(1)}!` });
     } catch (err) {
         console.error('❌ Erro ao bloquear cliente:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao bloquear cliente' });
