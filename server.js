@@ -18,7 +18,8 @@ const BASE_URL = process.env.BASE_URL || 'http://192.168.0.17:8080';
 // --- 1. SEGURANÇA ADMIN ---
 // Middleware customizado para autenticação de admin com sessão
 const adminAuth = (req, res, next) => {
-    if (req.session.adminLogado && req.session.adminUser === 'admin') {
+    // Verificar se existe sessão de admin logado (qualquer usuário admin)
+    if (req.session.adminLogado && req.session.adminUser) {
         return next();
     }
     return res.redirect('/admin-login');
@@ -1133,6 +1134,17 @@ app.get('/admin-logout', (req, res) => {
     req.session.adminLogado = false;
     req.session.adminUser = null;
     res.redirect('/admin-login');
+});
+
+// DEBUG: Verificar sessão
+app.get('/debug-sessao', (req, res) => {
+    res.json({
+        adminLogado: req.session.adminLogado,
+        adminUser: req.session.adminUser,
+        adminId: req.session.adminId,
+        adminNome: req.session.adminNome,
+        sessionID: req.sessionID
+    });
 });
 
 // Página de gerenciar admins
