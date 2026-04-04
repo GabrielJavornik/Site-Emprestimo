@@ -4884,7 +4884,7 @@ setTimeout(async () => {
     }
 }, 3000);
 
-// --- ENDPOINT DE DEBUG: Resetar cupom para teste ---
+// --- ENDPOINT DE DEBUG: Resetar cupom para teste (POST) ---
 app.post('/api/resetar-cupom', async (req, res) => {
     try {
         if (!req.session.usuarioLogado) {
@@ -4902,6 +4902,27 @@ app.post('/api/resetar-cupom', async (req, res) => {
     } catch (err) {
         console.error('❌ Erro ao resetar cupom:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao resetar cupom' });
+    }
+});
+
+// --- ENDPOINT DE DEBUG: Resetar cupom via GET (fácil teste) ---
+app.get('/debug/resetar-cupom', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) {
+            return res.status(401).send('❌ Não autenticado. Faça login primeiro.');
+        }
+
+        const cpf = req.session.userCpf;
+        console.log(`🔄 GET - Resetando cupom OFF5 para CPF ${cpf}`);
+
+        // Deletar todos os registros de cupom para este CPF
+        const result = await pool.query('DELETE FROM CUPONS_USADOS WHERE cpf = $1', [cpf]);
+
+        console.log(`✅ Todos os cupons resetados. Deletados: ${result.rowCount}`);
+        res.send(`✅ Cupom resetado com sucesso! ${result.rowCount} registros deletados. <br><a href="/">Voltar</a>`);
+    } catch (err) {
+        console.error('❌ Erro:', err);
+        res.status(500).send('❌ Erro ao resetar cupom: ' + err.message);
     }
 });
 
