@@ -3117,6 +3117,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
                     </div>
                     <button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>
+                    <a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>
                     <a href="/admin-logout" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
                 </div>
             </div>
@@ -5032,6 +5033,385 @@ app.post('/api/debug-pix', async (req, res) => {
     } catch (e) {
         console.error('❌ [DEBUG PIX] Erro:', e.message);
         res.status(500).json({ ok: false, msg: 'Erro ao testar PIX: ' + e.message });
+    }
+});
+
+// ===== PÁGINA DE GERENCIAR ADMINS =====
+app.get('/admin-gerenciar', adminAuth, (req, res) => {
+    res.send(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Admins - AzulCrédito</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { background: white; padding: 30px; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .header h1 { color: #1e3c72; margin-bottom: 10px; }
+        .header p { color: #666; font-size: 0.95rem; }
+        .btn-novo { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        .btn-novo:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(46,204,113,0.3); }
+        .admins-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .admin-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .admin-card h3 { color: #1e3c72; margin-bottom: 10px; font-size: 1.2rem; }
+        .admin-card p { color: #666; font-size: 0.9rem; margin-bottom: 15px; }
+        .admin-card .data { color: #999; font-size: 0.8rem; margin-bottom: 15px; }
+        .admin-card .buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: all 0.3s; }
+        .btn-editar { background: #3498db; color: white; }
+        .btn-editar:hover { background: #2980b9; transform: translateY(-2px); }
+        .btn-senha { background: #f39c12; color: white; }
+        .btn-senha:hover { background: #e67e22; transform: translateY(-2px); }
+        .btn-deletar { background: #e74c3c; color: white; }
+        .btn-deletar:hover { background: #c0392b; transform: translateY(-2px); }
+        .btn-voltar { background: #95a5a6; color: white; }
+        .btn-voltar:hover { background: #7f8c8d; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: min(500px, 95%); }
+        .modal-content h2 { color: #1e3c72; margin-bottom: 20px; }
+        .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; }
+        .modal-content input:focus { outline: none; border-color: #1e3c72; }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-buttons button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-confirmar { background: #2ecc71; color: white; }
+        .btn-confirmar:hover { background: #27ae60; }
+        .btn-cancelar { background: #bdc3c7; color: white; }
+        .btn-cancelar:hover { background: #95a5a6; }
+
+        .msg { padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
+        .msg.sucesso { background: #dcfce7; color: #166534; border: 1px solid #2ecc71; }
+        .msg.erro { background: #fee2e2; color: #991b1b; border: 1px solid #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👨‍💼 Gerenciar Admins</h1>
+            <p>Crie, edite e delete contas de administrador</p>
+            <button class="btn-novo" onclick="abrirModalCriar()">➕ Novo Admin</button>
+            <a href="/admin-azul" style="text-decoration: none;"><button class="btn-voltar" style="margin-left: 10px;">← Voltar ao Dashboard</button></a>
+            <div class="msg" id="msg"></div>
+        </div>
+
+        <div class="admins-grid" id="admins-container">
+            <p style="color: white; text-align: center; width: 100%;">Carregando admins...</p>
+        </div>
+    </div>
+
+    <!-- Modal Criar -->
+    <div class="modal" id="modalCriar">
+        <div class="modal-content">
+            <h2>Criar Novo Admin</h2>
+            <input type="text" id="criarUser" placeholder="Nome de usuário" minlength="3">
+            <input type="password" id="criarSenha" placeholder="Senha (mínimo 6 caracteres)" minlength="6">
+            <div class="modal-buttons">
+                <button class="btn-confirmar" onclick="confirmarCriar()">Criar</button>
+                <button class="btn-cancelar" onclick="fecharModal('modalCriar')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar -->
+    <div class="modal" id="modalEditar">
+        <div class="modal-content">
+            <h2>Editar Admin</h2>
+            <input type="text" id="editarUser" placeholder="Novo nome de usuário" minlength="3">
+            <div class="modal-buttons">
+                <button class="btn-confirmar" onclick="confirmarEditar()">Salvar</button>
+                <button class="btn-cancelar" onclick="fecharModal('modalEditar')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Senha -->
+    <div class="modal" id="modalSenha">
+        <div class="modal-content">
+            <h2>Alterar Senha</h2>
+            <input type="password" id="novaSenha" placeholder="Nova senha (mínimo 6 caracteres)" minlength="6">
+            <div class="modal-buttons">
+                <button class="btn-confirmar" onclick="confirmarSenha()">Alterar</button>
+                <button class="btn-cancelar" onclick="fecharModal('modalSenha')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let adminAtual = null;
+
+        function fecharModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function abrirModalCriar() {
+            document.getElementById('criarUser').value = '';
+            document.getElementById('criarSenha').value = '';
+            document.getElementById('modalCriar').style.display = 'flex';
+        }
+
+        function abrirModalEditar(id, usuario) {
+            adminAtual = id;
+            document.getElementById('editarUser').value = usuario;
+            document.getElementById('modalEditar').style.display = 'flex';
+        }
+
+        function abrirModalSenha(id) {
+            adminAtual = id;
+            document.getElementById('novaSenha').value = '';
+            document.getElementById('modalSenha').style.display = 'flex';
+        }
+
+        async function confirmarCriar() {
+            const usuario = document.getElementById('criarUser').value.trim();
+            const senha = document.getElementById('criarSenha').value.trim();
+
+            if (!usuario || !senha) {
+                mostrarMensagem('❌ Preencha todos os campos!', 'erro');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/admin/criar-admin', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({usuario, senha})
+                });
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarMensagem('✅ Admin criado com sucesso!', 'sucesso');
+                    fecharModal('modalCriar');
+                    carregarAdmins();
+                } else {
+                    mostrarMensagem('❌ ' + json.msg, 'erro');
+                }
+            } catch (e) {
+                mostrarMensagem('❌ Erro ao criar admin', 'erro');
+            }
+        }
+
+        async function confirmarEditar() {
+            const usuario = document.getElementById('editarUser').value.trim();
+
+            if (!usuario) {
+                mostrarMensagem('❌ Digite um novo nome de usuário!', 'erro');
+                return;
+            }
+
+            try {
+                const resp = await fetch(\`/api/admin/editar-admin/\${adminAtual}\`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({usuario})
+                });
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarMensagem('✅ Admin atualizado com sucesso!', 'sucesso');
+                    fecharModal('modalEditar');
+                    carregarAdmins();
+                } else {
+                    mostrarMensagem('❌ ' + json.msg, 'erro');
+                }
+            } catch (e) {
+                mostrarMensagem('❌ Erro ao editar admin', 'erro');
+            }
+        }
+
+        async function confirmarSenha() {
+            const novaSenha = document.getElementById('novaSenha').value.trim();
+
+            if (!novaSenha) {
+                mostrarMensagem('❌ Digite uma nova senha!', 'erro');
+                return;
+            }
+
+            try {
+                const resp = await fetch(\`/api/admin/alterar-senha/\${adminAtual}\`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({novaSenha})
+                });
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarMensagem('✅ Senha alterada com sucesso!', 'sucesso');
+                    fecharModal('modalSenha');
+                    carregarAdmins();
+                } else {
+                    mostrarMensagem('❌ ' + json.msg, 'erro');
+                }
+            } catch (e) {
+                mostrarMensagem('❌ Erro ao alterar senha', 'erro');
+            }
+        }
+
+        async function deletarAdmin(id, usuario) {
+            if (!confirm(\`Tem certeza que quer deletar o admin '\${usuario}'?\`)) return;
+
+            try {
+                const resp = await fetch(\`/api/admin/deletar-admin/\${id}\`, {method: 'POST'});
+                const json = await resp.json();
+
+                if (json.ok) {
+                    mostrarMensagem('✅ Admin deletado com sucesso!', 'sucesso');
+                    carregarAdmins();
+                } else {
+                    mostrarMensagem('❌ ' + json.msg, 'erro');
+                }
+            } catch (e) {
+                mostrarMensagem('❌ Erro ao deletar admin', 'erro');
+            }
+        }
+
+        function mostrarMensagem(msg, tipo) {
+            const msgDiv = document.getElementById('msg');
+            msgDiv.textContent = msg;
+            msgDiv.className = 'msg ' + tipo;
+            msgDiv.style.display = 'block';
+            setTimeout(() => msgDiv.style.display = 'none', 4000);
+        }
+
+        async function carregarAdmins() {
+            try {
+                const resp = await fetch('/api/admin/listar-admins');
+                const json = await resp.json();
+
+                if (json.ok && json.admins.length > 0) {
+                    const container = document.getElementById('admins-container');
+                    container.innerHTML = json.admins.map(admin => \`
+                        <div class="admin-card">
+                            <h3>👤 \${admin.usuario}</h3>
+                            <div class="data">ID: \${admin.id}</div>
+                            <div class="data">Criado em: \${new Date(admin.criado_em).toLocaleDateString('pt-BR')}</div>
+                            <div class="buttons">
+                                <button class="btn btn-editar" onclick="abrirModalEditar(\${admin.id}, '\${admin.usuario}')">✏️ Editar</button>
+                                <button class="btn btn-senha" onclick="abrirModalSenha(\${admin.id})">🔐 Senha</button>
+                                <button class="btn btn-deletar" onclick="deletarAdmin(\${admin.id}, '\${admin.usuario}')">🗑️ Deletar</button>
+                            </div>
+                        </div>
+                    \`).join('');
+                } else {
+                    document.getElementById('admins-container').innerHTML = '<p style="color: white; text-align: center; width: 100%;">Nenhum admin encontrado</p>';
+                }
+            } catch (e) {
+                document.getElementById('admins-container').innerHTML = '<p style="color: white; text-align: center; width: 100%;">Erro ao carregar admins</p>';
+            }
+        }
+
+        carregarAdmins();
+    </script>
+</body>
+</html>
+    `);
+});
+
+// ===== ENDPOINTS PARA GERENCIAR ADMINS =====
+
+// Listar todos os admins
+app.get('/api/admin/listar-admins', adminAuth, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, usuario, criado_em FROM ADMINS ORDER BY criado_em DESC');
+        res.json({ ok: true, admins: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao listar admins:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar admins' });
+    }
+});
+
+// Criar novo admin
+app.post('/api/admin/criar-admin', adminAuth, async (req, res) => {
+    try {
+        const { usuario, senha } = req.body;
+
+        if (!usuario || !senha || usuario.length < 3 || senha.length < 6) {
+            return res.status(400).json({ ok: false, msg: 'Usuário e senha devem ter no mínimo 3 e 6 caracteres' });
+        }
+
+        // Verificar se usuário já existe
+        const existe = await pool.query('SELECT id FROM ADMINS WHERE usuario = $1', [usuario]);
+        if (existe.rows.length > 0) {
+            return res.status(400).json({ ok: false, msg: 'Este usuário já existe' });
+        }
+
+        // Inserir novo admin
+        const result = await pool.query(
+            'INSERT INTO ADMINS (usuario, senha, criado_em) VALUES ($1, $2, NOW()) RETURNING id, usuario, criado_em',
+            [usuario, senha]
+        );
+
+        console.log(`✅ Novo admin criado: ${usuario}`);
+        res.json({ ok: true, msg: 'Admin criado com sucesso!', admin: result.rows[0] });
+    } catch (err) {
+        console.error('❌ Erro ao criar admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao criar admin' });
+    }
+});
+
+// Editar admin
+app.post('/api/admin/editar-admin/:id', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { usuario } = req.body;
+
+        if (!usuario || usuario.length < 3) {
+            return res.status(400).json({ ok: false, msg: 'Usuário deve ter no mínimo 3 caracteres' });
+        }
+
+        // Verificar se novo usuário já existe (mas não seja o mesmo)
+        const existe = await pool.query('SELECT id FROM ADMINS WHERE usuario = $1 AND id != $2', [usuario, id]);
+        if (existe.rows.length > 0) {
+            return res.status(400).json({ ok: false, msg: 'Este usuário já existe' });
+        }
+
+        // Atualizar
+        await pool.query('UPDATE ADMINS SET usuario = $1 WHERE id = $2', [usuario, id]);
+        console.log(`✅ Admin ${id} atualizado para: ${usuario}`);
+        res.json({ ok: true, msg: 'Admin atualizado com sucesso!' });
+    } catch (err) {
+        console.error('❌ Erro ao editar admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao editar admin' });
+    }
+});
+
+// Alterar senha do admin
+app.post('/api/admin/alterar-senha/:id', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { novaSenha } = req.body;
+
+        if (!novaSenha || novaSenha.length < 6) {
+            return res.status(400).json({ ok: false, msg: 'Senha deve ter no mínimo 6 caracteres' });
+        }
+
+        await pool.query('UPDATE ADMINS SET senha = $1 WHERE id = $2', [novaSenha, id]);
+        console.log(`✅ Senha do admin ${id} alterada`);
+        res.json({ ok: true, msg: 'Senha alterada com sucesso!' });
+    } catch (err) {
+        console.error('❌ Erro ao alterar senha:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao alterar senha' });
+    }
+});
+
+// Deletar admin (não deletar o admin logado)
+app.post('/api/admin/deletar-admin/:id', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (id == req.session.adminId) {
+            return res.status(400).json({ ok: false, msg: 'Você não pode deletar sua própria conta!' });
+        }
+
+        await pool.query('DELETE FROM ADMINS WHERE id = $1', [id]);
+        console.log(`✅ Admin ${id} deletado`);
+        res.json({ ok: true, msg: 'Admin deletado com sucesso!' });
+    } catch (err) {
+        console.error('❌ Erro ao deletar admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao deletar admin' });
     }
 });
 
