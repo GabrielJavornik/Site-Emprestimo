@@ -208,7 +208,7 @@
 
         async function carregarAdmins() {
             try {
-                const resp = await fetch('/api/admin/listar-admins');
+                const resp = await fetch('/api/admin/listar-admins', { credentials: 'include' });
                 const json = await resp.json();
 
                 if (!json.ok) {
@@ -276,6 +276,7 @@
                 const resp = await fetch('/api/admin/criar-admin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ usuario, senha, nome, email })
                 });
                 const json = await resp.json();
@@ -303,6 +304,7 @@
                 const resp = await fetch(`/api/admin/editar-admin/${adminIdAtual}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ nome, email, ativo })
                 });
                 const json = await resp.json();
@@ -327,6 +329,7 @@
                 const resp = await fetch(`/api/admin/alterar-senha-admin/${adminIdAtual}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ nova_senha })
                 });
                 const json = await resp.json();
@@ -348,7 +351,8 @@
             try {
                 const resp = await fetch(`/api/admin/deletar-admin/${id}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
                 });
                 const json = await resp.json();
 

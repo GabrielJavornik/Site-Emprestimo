@@ -49,7 +49,9 @@
       "Bash(rm -f test-email.js test-sendgrid-com*.js)",
       "Bash(rm -f server-console.js server-sendgrid.js)",
       "Bash(git push:*)",
-      "Bash(node criar-tabela-admins.js)"
+      "Bash(node criar-tabela-admins.js)",
+      "Bash(curl -s http://localhost:8080/api/admin/listar-admins)",
+      "Bash(git commit -m 'Fix: Adicionar credentials ao fetch para enviar cookies de sessão:*)"
     ],
     "additionalDirectories": [
       "\\tmp",
