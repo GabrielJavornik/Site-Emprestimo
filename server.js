@@ -1811,7 +1811,7 @@ app.get('/simulacoes', async (req, res) => {
             <div class="container"><h2>Olá, ${req.session.userName}! 👋</h2>
             <div class="card" id="score-card" style="display:none;"><h3>⭐ Meu Score de Crédito</h3><div id="score-loading">Carregando...</div></div>
             <div class="card"><h3>💰 Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
-            <label>VALOR DESEJADO (MÁX R$ 20.000)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
+            <label>VALOR DESEJADO (MÁX <span id="max-limite">R$ 20.000</span>)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
             <label>PARCELAS (MÁX 24)</label><input type="number" id="parcelas" name="parcelas" placeholder="Ex: 12" min="1" max="24" required>
             <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#1e3c72; font-weight:bold;">R$ 0,00</span><br><small id="taxa-texto">*Incluso taxa de 5% por parcela</small></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:15px;"><div><label>FOTO ID</label><input type="file" name="doc_id" required></div><div><label>RENDA</label><input type="file" name="doc_renda" required></div></div>
@@ -2339,7 +2339,8 @@ app.get('/simulacoes', async (req, res) => {
                         res.style.display="block";
                     }else{res.style.display="none";}
                 }
-                vM.addEventListener("input",(e)=>{let v=e.target.value.replace(/\\D/g,"");if(parseInt(v)>2000000)v="2000000";v=(Number(v)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});e.target.value=v;vR.value=Number(e.target.value.replace(/\\D/g,""))/100; calc();});
+                let limiteMaximo = 2000000; // Padrão: R$ 20.000 em centavos
+                vM.addEventListener("input",(e)=>{let v=e.target.value.replace(/\\D/g,"");if(parseInt(v)>limiteMaximo)v=limiteMaximo.toString();v=(Number(v)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});e.target.value=v;vR.value=Number(e.target.value.replace(/\\D/g,""))/100; calc();});
                 pI.addEventListener("input", calc);
 
                 // ATUALIZAÇÃO AUTOMÁTICA EM TEMPO REAL
@@ -2398,6 +2399,14 @@ app.get('/simulacoes', async (req, res) => {
                             </div>
                         \`;
                         cardScore.style.display = 'block';
+
+                        // Atualizar o limite máximo no formulário
+                        const maxLimiteSpan = document.getElementById('max-limite');
+                        if (maxLimiteSpan) {
+                            maxLimiteSpan.textContent = 'R$ ' + json.limite.toLocaleString('pt-BR');
+                        }
+                        // Atualizar o limite máximo para validação de input
+                        limiteMaximo = json.limite * 100; // converter para centavos
                     } catch (e) {
                         console.error('❌ Erro ao carregar score:', e);
                     }
