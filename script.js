@@ -218,7 +218,7 @@ if (formLogin) {
             const json = await resp.json();
 
             if (json.ok) {
-                msg.style.color = "#2ecc71";
+                msg.style.color = "#04ff6c";
                 msg.innerText = `✅ Bem-vindo! Redirecionando...`;
                 setTimeout(() => { window.location.href = '/simulacoes'; }, 1500);
             } else {

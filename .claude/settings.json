@@ -47,7 +47,8 @@
       "Bash(/tmp/test_100_percent.sh)",
       "Bash(rm -f server.log server_debug.log)",
       "Bash(rm -f test-email.js test-sendgrid-com*.js)",
-      "Bash(rm -f server-console.js server-sendgrid.js)"
+      "Bash(rm -f server-console.js server-sendgrid.js)",
+      "Bash(git push:*)"
     ],
     "additionalDirectories": [
       "\\tmp",

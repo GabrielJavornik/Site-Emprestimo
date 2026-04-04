@@ -25,12 +25,12 @@ const adminAuth = (req, res, next) => {
 };
 
 // Credenciais admin
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'Azul2026';
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
 
 /// --- 2. CONFIGURAÇÃO DO EMAIL (SendGrid) ---
-const API_KEY_SENDGRID = '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';
-const EMAIL_REMETENTE = '093278@aluno.uricer.edu.br';
+const API_KEY_SENDGRID = process.env.SENDGRID_API_KEY || '';
+const EMAIL_REMETENTE = process.env.EMAIL_REMETENTE || 'noreply@example.com';
 
 sgMail.setApiKey(API_KEY_SENDGRID);
 console.log('✅ SendGrid CONFIGURADO - Remetente:', EMAIL_REMETENTE);
