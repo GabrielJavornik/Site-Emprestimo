@@ -5,7 +5,7 @@ const path = require('path');
 const { Pool } = require('pg');
 const multer = require('multer');
 const session = require('express-session');
-const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 const fs = require('fs');
 const { MercadoPagoConfig, Payment } = require('mercadopago');
 const cron = require('node-cron');
@@ -28,12 +28,26 @@ const adminAuth = (req, res, next) => {
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'Azul2026';
 
-/// --- 2. CONFIGURAÇÃO DO EMAIL (SendGrid) ---
-const API_KEY_SENDGRID = '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';
-const EMAIL_REMETENTE = '093278@aluno.uricer.edu.br';
+/// --- 2. CONFIGURAÇÃO DO EMAIL (Gmail/Nodemailer) ---
+const GMAIL_USER = process.env.GMAIL_USER || '093278@aluno.uricer.edu.br';
+const GMAIL_PASS = process.env.GMAIL_PASS || '';
+const EMAIL_REMETENTE = GMAIL_USER;
 
-sgMail.setApiKey(API_KEY_SENDGRID);
-console.log('✅ SendGrid CONFIGURADO - Remetente:', EMAIL_REMETENTE);
+// Criar transporter do Nodemailer para Gmail
+const sgMail = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: GMAIL_USER,
+        pass: GMAIL_PASS
+    }
+});
+
+// Wrapper para compatibilidade com código existente
+sgMail.send = async (mailOptions) => {
+    return await sgMail.sendMail(mailOptions);
+};
+
+console.log('✅ Gmail CONFIGURADO - Remetente:', EMAIL_REMETENTE);
 
 // --- 3. CONFIGURAÇÃO DO MERCADOPAGO (PIX) ---
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || 'TEST-1234567890abcdefghijk'; // Substituir com token real
