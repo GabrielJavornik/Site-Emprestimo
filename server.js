@@ -2043,14 +2043,15 @@ app.get('/simulacoes', async (req, res) => {
 
                 const vM=document.getElementById("v_mask"), vR=document.getElementById("v_real"), pI=document.getElementById("parcelas"), res=document.getElementById("resumo"), txt=document.getElementById("total-txt"), taxaTexto=document.getElementById("taxa-texto");
 
-                // Carregar taxa de juros ao carregar página
-                fetch('/api/config/taxa-juros').then(r=>r.json()).then(d=>{
+                // Carregar taxa de juros ao carregar página (sem cache)
+                fetch('/api/config/taxa-juros?t='+Date.now()).then(r=>r.json()).then(d=>{
                     if(d.ok){
                         taxaJuros=d.taxa;
                         if(taxaTexto) taxaTexto.innerText='*Incluso taxa de '+(taxaJuros*100).toFixed(1)+'% por parcela';
                         calc();
+                        console.log('✅ Taxa de juros carregada:',d.taxa*100+'%');
                     }
-                }).catch(e=>console.log('Taxa padrão 5%'));
+                }).catch(e=>console.log('⚠️ Usando taxa padrão 5%'));
 
                 function calc(){
                     const val=parseFloat(vR.value)||0;
