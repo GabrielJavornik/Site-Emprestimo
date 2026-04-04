@@ -501,6 +501,11 @@ pool.query(`
     ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS conta_tipo VARCHAR(20)
 `).catch(err => console.error('⚠️ Erro ao adicionar coluna conta_tipo:', err.message));
 
+// Adicionar coluna bloqueado para bloquear cliente
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS bloqueado BOOLEAN DEFAULT FALSE
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna bloqueado:', err.message));
+
 // Tabela para controlar lembretes enviados
 pool.query(`
     CREATE TABLE IF NOT EXISTS LEMBRETES_ENVIADOS (
@@ -536,6 +541,21 @@ pool.query(`
 
 pool.query(`CREATE INDEX IF NOT EXISTS idx_multas_simulacao ON MULTAS(simulacao_id)`)
     .catch(() => {});
+
+// Tabela para renegociação de dívidas
+pool.query(`
+    CREATE TABLE IF NOT EXISTS RENEGOCIACOES (
+        id SERIAL PRIMARY KEY,
+        simulacao_id INT NOT NULL,
+        cpf VARCHAR(11) NOT NULL,
+        status VARCHAR(20) DEFAULT 'PENDENTE',
+        novo_prazo INT NOT NULL,
+        motivo TEXT,
+        respondido_em TIMESTAMP,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (simulacao_id) REFERENCES SIMULACOES(id) ON DELETE CASCADE
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela RENEGOCIACOES:', err.message));
 
 const soNumeros = (str) => String(str || '').replace(/\D/g, '');
 const formatarMoeda = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -1215,6 +1235,10 @@ app.post('/login', async (req, res) => {
     if (result.rows.length > 0) {
         if (!result.rows[0].email_verificado) {
             return res.status(403).json({ ok: false, msg: 'Email não confirmado. Verifique sua caixa de entrada!' });
+        }
+        if (result.rows[0].bloqueado === true) {
+            console.log(`❌ Tentativa de login de cliente bloqueado: ${result.rows[0].cpf}`);
+            return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada. Entre em contato com o suporte.' });
         }
         req.session.usuarioLogado = true; req.session.userCpf = result.rows[0].cpf; req.session.userName = result.rows[0].nome;
         res.json({ ok: true });
@@ -2108,7 +2132,13 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
         const { valor, parcelas } = req.body;
         const vPedido = parseFloat(valor);
         const p = parseInt(parcelas);
-        const user = await pool.query('SELECT nome, email, whatsapp FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
+        const user = await pool.query('SELECT nome, email, whatsapp, bloqueado FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
+
+        // Verificar se cliente está bloqueado
+        if (user.rows.length > 0 && user.rows[0].bloqueado === true) {
+            console.log(`❌ Cliente bloqueado tentou enviar proposta: ${req.session.userCpf}`);
+            return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada. Não é possível enviar novas propostas.' });
+        }
 
         // Obter taxa de juros dinâmica
         const taxaResult = await pool.query('SELECT valor FROM CONFIGURACOES WHERE chave = $1', ['TAXA_JUROS']);
@@ -3552,6 +3582,143 @@ app.post('/api/admin/config/taxa-juros', adminAuth, async (req, res) => {
     } catch (err) {
         console.error('❌ Erro ao alterar taxa de juros:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao alterar taxa' });
+    }
+});
+
+// --- BLOQUEAR/DESBLOQUEAR CLIENTE (ADMIN) ---
+app.post('/api/admin/bloquear-cliente', adminAuth, async (req, res) => {
+    try {
+        const { cpf, bloqueado } = req.body;
+
+        if (!cpf) return res.status(400).json({ ok: false, msg: 'CPF não fornecido' });
+
+        await pool.query(
+            'UPDATE USUARIOS SET bloqueado = $1 WHERE cpf = $2',
+            [bloqueado === true, cpf]
+        );
+
+        console.log(`✅ Cliente ${cpf} ${bloqueado ? 'bloqueado' : 'desbloqueado'}`);
+        res.json({ ok: true, msg: bloqueado ? 'Cliente bloqueado com sucesso' : 'Cliente desbloqueado com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro ao bloquear cliente:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao bloquear cliente' });
+    }
+});
+
+// --- SOLICITAR RENEGOCIAÇÃO DE DÍVIDA (CLIENTE) ---
+app.post('/solicitar-renegociacao', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+        const { simulacao_id, novo_prazo, motivo } = req.body;
+        const cpf = req.session.userCpf;
+
+        if (!simulacao_id || !novo_prazo) {
+            return res.status(400).json({ ok: false, msg: 'Simulação e novo prazo são obrigatórios' });
+        }
+
+        // Verificar se simulação pertence ao cliente
+        const simResult = await pool.query('SELECT id, cpf, parcelas, status FROM SIMULACOES WHERE id = $1 AND cpf = $2', [simulacao_id, cpf]);
+        if (simResult.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Simulação não encontrada' });
+        }
+
+        const sim = simResult.rows[0];
+
+        // Verificar se status é PAGO (ativo)
+        if (sim.status !== 'PAGO') {
+            return res.status(400).json({ ok: false, msg: 'Apenas empréstimos aprovados podem ser renegociados' });
+        }
+
+        // Verificar se novo prazo é válido
+        const novoPrazoNum = parseInt(novo_prazo);
+        if (novoPrazoNum <= sim.parcelas) {
+            return res.status(400).json({ ok: false, msg: 'Novo prazo deve ser maior que o prazo atual' });
+        }
+
+        // Verificar se existe multa ativa
+        const multaResult = await pool.query('SELECT COUNT(*) as qtd FROM MULTAS WHERE simulacao_id = $1 AND status = $2', [simulacao_id, 'ATIVA']);
+        if (parseInt(multaResult.rows[0].qtd) === 0) {
+            return res.status(400).json({ ok: false, msg: 'Renegociação disponível apenas para empréstimos com atraso' });
+        }
+
+        // Verificar se já existe renegociação pendente
+        const pendResult = await pool.query('SELECT COUNT(*) as qtd FROM RENEGOCIACOES WHERE simulacao_id = $1 AND status = $2', [simulacao_id, 'PENDENTE']);
+        if (parseInt(pendResult.rows[0].qtd) > 0) {
+            return res.status(400).json({ ok: false, msg: 'Já existe uma renegociação pendente para este empréstimo' });
+        }
+
+        // Criar renegociação
+        await pool.query(
+            'INSERT INTO RENEGOCIACOES (simulacao_id, cpf, novo_prazo, motivo) VALUES ($1, $2, $3, $4)',
+            [simulacao_id, cpf, novoPrazoNum, motivo || null]
+        );
+
+        console.log(`📝 Renegociação solicitada: Simulação ${simulacao_id}, CPF ${cpf}, novo prazo: ${novoPrazoNum}x`);
+        res.json({ ok: true, msg: '✅ Solicitação de renegociação enviada! Aguarde aprovação do administrador.' });
+    } catch (err) {
+        console.error('❌ Erro ao solicitar renegociação:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao solicitar renegociação' });
+    }
+});
+
+// --- RESPONDER RENEGOCIAÇÃO (ADMIN) ---
+app.post('/api/admin/responder-renegociacao', adminAuth, async (req, res) => {
+    try {
+        const { renegociacao_id, aprovar } = req.body;
+
+        if (!renegociacao_id) return res.status(400).json({ ok: false, msg: 'ID da renegociação não fornecido' });
+
+        // Buscar renegociação
+        const renResult = await pool.query('SELECT * FROM RENEGOCIACOES WHERE id = $1', [renegociacao_id]);
+        if (renResult.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Renegociação não encontrada' });
+        }
+
+        const ren = renResult.rows[0];
+
+        // Buscar simulação
+        const simResult = await pool.query('SELECT id, total, valor_parcela, parcelas FROM SIMULACOES WHERE id = $1', [ren.simulacao_id]);
+        if (simResult.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Simulação não encontrada' });
+        }
+
+        const sim = simResult.rows[0];
+
+        if (aprovar === true) {
+            // Buscar quanto já foi pago
+            const pagtoResult = await pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1', [ren.simulacao_id]);
+            const totalPago = parseFloat(pagtoResult.rows[0].total_pago || 0);
+            const saldoRestante = sim.total - totalPago;
+            const novaParcela = (saldoRestante / ren.novo_prazo).toFixed(2);
+
+            // Atualizar SIMULACOES com novo prazo e parcela
+            await pool.query(
+                'UPDATE SIMULACOES SET parcelas = $1, valor_parcela = $2 WHERE id = $3',
+                [ren.novo_prazo, novaParcela, ren.simulacao_id]
+            );
+
+            // Atualizar renegociação como aprovada
+            await pool.query(
+                'UPDATE RENEGOCIACOES SET status = $1, respondido_em = NOW() WHERE id = $2',
+                ['APROVADA', renegociacao_id]
+            );
+
+            console.log(`✅ Renegociação aprovada: Simulação ${ren.simulacao_id}, novo prazo ${ren.novo_prazo}x, nova parcela R$ ${novaParcela}`);
+            res.json({ ok: true, msg: '✅ Renegociação aprovada! Parcelas atualizadas.' });
+        } else {
+            // Rejeitar renegociação
+            await pool.query(
+                'UPDATE RENEGOCIACOES SET status = $1, respondido_em = NOW() WHERE id = $2',
+                ['REJEITADA', renegociacao_id]
+            );
+
+            console.log(`❌ Renegociação rejeitada: Simulação ${ren.simulacao_id}`);
+            res.json({ ok: true, msg: '❌ Renegociação rejeitada.' });
+        }
+    } catch (err) {
+        console.error('❌ Erro ao responder renegociação:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao responder renegociação' });
     }
 });
 
