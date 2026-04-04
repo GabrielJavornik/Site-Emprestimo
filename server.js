@@ -1608,6 +1608,10 @@ app.get('/simulacoes', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM SIMULACOES WHERE CPF = $1 ORDER BY CRIADO_EM DESC', [cpf]);
 
+        // Buscar também bloqueado e check de renegociação
+        const usuarioResult = await pool.query('SELECT bloqueado FROM USUARIOS WHERE cpf = $1', [cpf]);
+        const bloqueado = usuarioResult.rows.length > 0 ? usuarioResult.rows[0].bloqueado : false;
+
         // Fetch total paid and penalties for each simulation
         const pagamentosPromises = result.rows.map(r =>
             pool.query('SELECT COALESCE(SUM(valor), 0) as total_pago FROM PAGAMENTOS WHERE simulacao_id = $1 AND status = $2', [r.id, 'CONFIRMADO'])
@@ -1615,9 +1619,13 @@ app.get('/simulacoes', async (req, res) => {
         const multasPromises = result.rows.map(r =>
             pool.query('SELECT COUNT(*) as qtd FROM MULTAS WHERE simulacao_id = $1 AND status = $2', [r.id, 'ATIVA'])
         );
-        const [pagamentosResults, multasResults] = await Promise.all([
+        const renegPromises = result.rows.map(r =>
+            pool.query('SELECT status FROM RENEGOCIACOES WHERE simulacao_id = $1 ORDER BY criado_em DESC LIMIT 1', [r.id])
+        );
+        const [pagamentosResults, multasResults, renegResults] = await Promise.all([
             Promise.all(pagamentosPromises),
-            Promise.all(multasPromises)
+            Promise.all(multasPromises),
+            Promise.all(renegPromises)
         ]);
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Painel AzulCrédito</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script><style>
             body{font-family:"Segoe UI",sans-serif;background:#f4f7fa;margin:0;padding:0;}
@@ -1644,6 +1652,7 @@ app.get('/simulacoes', async (req, res) => {
             ${result.rows.map((r, idx) => {
                 const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
                 const temMultaAtiva = parseInt(multasResults[idx].rows[0].qtd || 0) > 0;
+                const renegStatus = renegResults[idx].rows.length > 0 ? renegResults[idx].rows[0].status : null;
                 const parcelas = parseInt(r.parcelas || 1);
                 const totalValor = parseFloat(r.total);
                 const valorMensal = totalValor / parcelas;
@@ -1653,7 +1662,8 @@ app.get('/simulacoes', async (req, res) => {
                 const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
                 const alertaMulta = temMultaAtiva ? `<div style="background:#fee2e2;color:#991b1b;padding:8px 12px;border-radius:8px;font-size:0.85rem;font-weight:bold;margin-bottom:8px;border-left:3px solid #dc2626;">⚠️ Parcela(s) atrasada(s)!</div>` : '';
                 const btnPix = r.status === 'PAGO' && totalPago < totalValor ? `<button class="btn-pdf" style="background:#0066cc;margin-right:5px;" onclick="abrirModalEscolhaPagamento(${r.id}, ${valorMensal}, ${faltaPagar})">💙 Pagar PIX</button>` : '';
-                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td>${alertaMulta}${btnPix}<button class="btn-pdf" style="background:#27ae60;" onclick="verHistorico(${r.id})">📊 Histórico</button></td></tr>`;
+                const btnRenegociar = r.status === 'PAGO' && temMultaAtiva && !renegStatus ? `<button class="btn-pdf" style="background:#ff9800;margin-right:5px;" onclick="abrirModalRenegociar(${r.id}, ${parcelas}, ${faltaPagar})">📝 Renegociar</button>` : (renegStatus ? `<span style="background:#e3f2fd;color:#1e40af;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:bold;">${renegStatus === 'PENDENTE' ? '⏳ Pendente' : renegStatus === 'APROVADA' ? '✅ Aprovada' : '❌ Rejeitada'}</span>` : '');
+                return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td>${alertaMulta}${btnPix}${btnRenegociar}<button class="btn-pdf" style="background:#27ae60;" onclick="verHistorico(${r.id})">📊 Histórico</button></td></tr>`;
             }).join('')}
             </tbody></table></div></div>
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
@@ -1698,6 +1708,24 @@ app.get('/simulacoes', async (req, res) => {
                         </div>
                         <p id="msg-cupom" style="margin:12px 0 0 0;font-size:0.95rem;color:#666;font-weight:bold;min-height:20px;"></p>
                     </div>
+                </div>
+            </div>
+
+            <div id="modalRenegociar" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10001;justify-content:center;align-items:center;overflow-y:auto;">
+                <div style="background:white;padding:30px;border-radius:15px;width:min(500px,90%);margin:30px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;color:#ff9800;">📝 Solicitar Renegociação</h3>
+                        <button onclick="fecharModalRenegociar()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">✕</button>
+                    </div>
+                    <div id="reneg-resultado" style="margin-bottom:15px;"></div>
+                    <div style="background:#fff3e0;padding:12px;border-radius:8px;margin-bottom:15px;border-left:3px solid #ff9800;font-size:0.9rem;color:#e65100;">
+                        <strong>ℹ️ Informação:</strong> Você pode aumentar o prazo para reduzir as parcelas mensais.
+                    </div>
+                    <label style="font-weight:bold;color:#333;display:block;margin-bottom:5px;">Novo Prazo (parcelas)</label>
+                    <input type="number" id="reneg-novo-prazo" placeholder="Ex: 15" min="1" max="60" style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;margin-bottom:15px;box-sizing:border-box;">
+                    <label style="font-weight:bold;color:#333;display:block;margin-bottom:5px;">Motivo (opcional)</label>
+                    <textarea id="reneg-motivo" placeholder="Explique brevemente o motivo da solicitação..." style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;margin-bottom:15px;box-sizing:border-box;height:100px;font-family:inherit;"></textarea>
+                    <button onclick="enviarSolicitacaoRenegociacao()" style="width:100%;padding:12px;background:#ff9800;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:1rem;">📤 Enviar Solicitação</button>
                 </div>
             </div>
 
@@ -1947,6 +1975,55 @@ app.get('/simulacoes', async (req, res) => {
                         msgCupom.style.color = '#e74c3c';
                         msgCupom.innerText = '❌ Erro ao validar cupom';
                         console.error('Erro:', e.message);
+                    }
+                }
+
+                // RENEGOCIAÇÃO
+                let reneg_simId;
+                function abrirModalRenegociar(simulacaoId, parcelasAtual, saldoDevido){
+                    reneg_simId = simulacaoId;
+                    document.getElementById('reneg-novo-prazo').value = '';
+                    document.getElementById('reneg-motivo').value = '';
+                    document.getElementById('reneg-resultado').innerHTML = '';
+                    const novoPrazoMin = parcelasAtual + 1;
+                    document.getElementById('reneg-novo-prazo').min = novoPrazoMin;
+                    document.getElementById('modalRenegociar').style.display = 'flex';
+                    console.log('Modal de renegociação aberto:', {simulacaoId, parcelasAtual, saldoDevido});
+                }
+                function fecharModalRenegociar(){
+                    document.getElementById('modalRenegociar').style.display = 'none';
+                }
+                async function enviarSolicitacaoRenegociacao(){
+                    const novoPrazo = parseInt(document.getElementById('reneg-novo-prazo').value);
+                    const motivo = document.getElementById('reneg-motivo').value;
+                    const resultado = document.getElementById('reneg-resultado');
+
+                    if(!novoPrazo || novoPrazo < 1){
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;">❌ Novo prazo é obrigatório!</p>';
+                        return;
+                    }
+
+                    try{
+                        const resp = await fetch('/solicitar-renegociacao', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({simulacao_id: reneg_simId, novo_prazo: novoPrazo, motivo: motivo || null})
+                        });
+                        const json = await resp.json();
+
+                        if(json.ok){
+                            resultado.innerHTML = '<p style="color:#2ecc71;font-weight:bold;">✅ Solicitação enviada com sucesso!</p>';
+                            console.log('✅ Renegociação solicitada:', {simulacaoId: reneg_simId, novoPrazo});
+                            setTimeout(() => {
+                                fecharModalRenegociar();
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;">❌ ' + json.msg + '</p>';
+                        }
+                    } catch(e){
+                        console.error('❌ Erro ao solicitar renegociação:', e);
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;">❌ Erro ao enviar solicitação</p>';
                     }
                 }
 
@@ -2394,9 +2471,19 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
         const perfis = {};
         allSims.rows.forEach(r => {
-            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, pedidos: [] };
+            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, bloqueado: r.bloqueado, pedidos: [] };
             perfis[r.cpf].pedidos.push(r);
         });
+
+        // Buscar renegociações pendentes
+        const renegPendResult = await pool.query(`
+            SELECT r.*, s.total, s.parcelas
+            FROM RENEGOCIACOES r
+            JOIN SIMULACOES s ON r.simulacao_id = s.id
+            WHERE r.status = 'PENDENTE'
+            ORDER BY r.criado_em DESC
+        `);
+        const renegociacoesPendentes = renegPendResult.rows;
 
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Admin AzulCrédito</title><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>
             body{font-family:"Segoe UI",sans-serif;background:#f0f4f8;padding:20px;}
@@ -2531,6 +2618,14 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 </div>
             </div>
 
+            <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #ff9800;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-top:0;color:#ff9800;">📝 Renegociações Pendentes</h3>
+                ${renegociacoesPendentes.length === 0
+                    ? '<p style="color:#666;">Nenhuma renegociação pendente</p>'
+                    : '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#fff3e0;"><th style="padding:12px;text-align:left;border-bottom:2px solid #ffe0b2;">Cliente</th><th style="padding:12px;text-align:left;border-bottom:2px solid #ffe0b2;">CPF</th><th style="padding:12px;text-align:center;border-bottom:2px solid #ffe0b2;">Empréstimo</th><th style="padding:12px;text-align:center;border-bottom:2px solid #ffe0b2;">Prazo Atual</th><th style="padding:12px;text-align:center;border-bottom:2px solid #ffe0b2;">Novo Prazo</th><th style="padding:12px;text-align:left;border-bottom:2px solid #ffe0b2;">Motivo</th><th style="padding:12px;text-align:center;border-bottom:2px solid #ffe0b2;">Ação</th></tr></thead><tbody>' + renegociacoesPendentes.map(r => '<tr style="border-bottom:1px solid #ffe0b2;"><td style="padding:12px;"><strong>'+r.nome+'</strong></td><td style="padding:12px;font-family:monospace;font-size:0.9rem;">'+r.cpf+'</td><td style="padding:12px;text-align:center;">R$ '+r.total.toFixed(2).replace(".",",")+'</td><td style="padding:12px;text-align:center;font-weight:bold;">'+r.parcelas+'x</td><td style="padding:12px;text-align:center;font-weight:bold;color:#ff9800;">'+r.novo_prazo+'x</td><td style="padding:12px;font-size:0.9rem;max-width:200px;"><small>'+(r.motivo || '-')+'</small></td><td style="padding:12px;text-align:center;"><button onclick="apenasAprovarRenegociacao('+r.id+','+r.simulacao_id+')" style="background:#2ecc71;color:white;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;margin-right:5px;">✅ Aprovar</button><button onclick="apenasRejeitarRenegociacao('+r.id+')" style="background:#e74c3c;color:white;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">❌ Rejeitar</button></td></tr>').join('') + '</tbody></table>'
+                }
+            </div>
+
             <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #dc2626;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
                 <h3 style="margin-top:0;color:#dc2626;">⚠️ Clientes Inadimplentes</h3>
                 ${inadimplentesDetalhe.length === 0
@@ -2587,7 +2682,9 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
                 const endereco = p.cidade ? `${p.cidade}, ${p.estado}` : '-';
                 const banco = p.banco_nome ? `${p.banco_nome.split('(')[0].trim()} ****${p.conta ? p.conta.slice(-4) : ''}` : '-';
-                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small></div><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto 1fr;gap:20px;"><div><strong>📍</strong> ${endereco}</div><div><strong>🏦</strong> ${banco}</div></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
+                const badgeBloqueado = p.bloqueado ? '<span style="background:#e74c3c;color:white;padding:4px 10px;border-radius:50px;font-size:0.7rem;font-weight:bold;margin-left:10px;">🚫 BLOQUEADO</span>' : '';
+                const btnBloqueio = `<button onclick="toggleBloqueio('${cpf}', ${p.bloqueado})" style="background:${p.bloqueado ? '#2ecc71' : '#e74c3c'};color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;margin-left:10px;">${p.bloqueado ? '🔓 Desbloquear' : '🔒 Bloquear'}</button>`;
+                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeBloqueado}</div><div style="display:flex;gap:10px;align-items:center;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a>${btnBloqueio}</div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto 1fr;gap:20px;"><div><strong>📍</strong> ${endereco}</div><div><strong>🏦</strong> ${banco}</div></div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
                 p.pedidos.map((ped, idx) => {
                     const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : (ped.status === 'QUITADO' ? 'st-quitado' : 'st-analise'));
                     const [pagtoResult, ultimaPagResult] = pagamentosResults[idx];
@@ -2707,6 +2804,72 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 },
                 options: {responsive: true, indexAxis: 'y', plugins: {legend: {display: false}}, scales: {x: {beginAtZero: true}}}
             });
+
+            // Bloquear/Desbloquear Cliente
+            async function toggleBloqueio(cpf, bloqueado){
+                if(!confirm(bloqueado ? 'Desbloquear cliente?' : 'Bloquear cliente?')) return;
+                try{
+                    const resp = await fetch('/api/admin/bloquear-cliente', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({cpf, bloqueado: !bloqueado})
+                    });
+                    const data = await resp.json();
+                    if(data.ok){
+                        console.log('✅ Cliente '+(bloqueado ? 'desbloqueado' : 'bloqueado'));
+                        location.reload();
+                    }
+                }catch(e){
+                    console.error('❌ Erro:', e);
+                    alert('❌ Erro ao bloquear/desbloquear cliente');
+                }
+            }
+
+            // Aprovar Renegociação
+            async function apenasAprovarRenegociacao(renegId, simId){
+                if(!confirm('Aprovar esta renegociação?')) return;
+                try{
+                    const resp = await fetch('/api/admin/responder-renegociacao', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({renegociacao_id: renegId, aprovar: true})
+                    });
+                    const data = await resp.json();
+                    if(data.ok){
+                        console.log('✅ Renegociação aprovada');
+                        alert('✅ Renegociação aprovada! Parcelas atualizadas.');
+                        location.reload();
+                    } else {
+                        alert('❌ Erro: ' + data.msg);
+                    }
+                }catch(e){
+                    console.error('❌ Erro:', e);
+                    alert('❌ Erro ao aprovar renegociação');
+                }
+            }
+
+            // Rejeitar Renegociação
+            async function apenasRejeitarRenegociacao(renegId){
+                if(!confirm('Rejeitar esta renegociação?')) return;
+                try{
+                    const resp = await fetch('/api/admin/responder-renegociacao', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({renegociacao_id: renegId, aprovar: false})
+                    });
+                    const data = await resp.json();
+                    if(data.ok){
+                        console.log('❌ Renegociação rejeitada');
+                        alert('❌ Renegociação rejeitada.');
+                        location.reload();
+                    } else {
+                        alert('❌ Erro: ' + data.msg);
+                    }
+                }catch(e){
+                    console.error('❌ Erro:', e);
+                    alert('❌ Erro ao rejeitar renegociação');
+                }
+            }
 
             // Filtros e busca avançada
             function aplicarFiltros(){
