@@ -1170,6 +1170,54 @@ app.get('/verificar-cpf/:cpf', (req, res) => {
     }
 });
 
+// --- REENVIAR EMAIL DE CONFIRMAÇÃO ---
+app.post('/api/reenviar-email-confirmacao', async (req, res) => {
+    try {
+        const cpfLimpo = soNumeros(req.body.cpf);
+
+        // Buscar usuário
+        const userResult = await pool.query('SELECT id, cpf, email, nome, email_verificado FROM USUARIOS WHERE cpf = $1', [cpfLimpo]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ ok: false, msg: '❌ CPF não encontrado no sistema' });
+        }
+
+        const usuario = userResult.rows[0];
+
+        // Se já verificado, avisar
+        if (usuario.email_verificado) {
+            return res.status(400).json({ ok: false, msg: '✅ Seu email já foi verificado! Você pode fazer login normalmente.' });
+        }
+
+        // Gerar novo token
+        const novoToken = require('crypto').randomBytes(32).toString('hex');
+
+        // Atualizar token no banco
+        await pool.query('UPDATE USUARIOS SET token_email = $1 WHERE cpf = $2', [novoToken, cpfLimpo]);
+
+        // Enviar email com novo token
+        const linkConfirmacao = `${process.env.BASE_URL || 'http://localhost:8080'}/confirmar-email/${novoToken}`;
+        await sgMail.send({
+            to: usuario.email,
+            from: `AzulCrédito <${EMAIL_REMETENTE}>`,
+            subject: '✅ Confirme seu email - AzulCrédito',
+            html: `<div style="font-family:sans-serif;color:#333;max-width:500px;border:1px solid #eee;padding:25px;border-radius:15px;background-color:#fcfdfe;">
+                    <h2 style="color:#1e3c72;">Bem-vindo novamente, ${usuario.nome}! 👋</h2>
+                    <p>Você solicitou um novo link de confirmação de email.</p>
+                    <p>Clique no botão abaixo para confirmar seu email:</p>
+                    <a href="${linkConfirmacao}" style="background:#1e3c72;color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">CONFIRMAR EMAIL</a>
+                    <p style="font-size:0.9rem;color:#666;">Ou copie este link: ${linkConfirmacao}</p>
+                    <p style="font-size:0.85rem;color:#999;">Este link expira em 24 horas.</p></div>`
+        }).catch(e => console.error('❌ Erro ao reenviar email:', e.message));
+
+        console.log(`✅ Email de confirmação reenviado para ${usuario.email}`);
+        res.json({ ok: true, msg: '✅ Email de confirmação reenviado! Verifique sua caixa de entrada.' });
+    } catch (err) {
+        console.error('❌ Erro ao reenviar email:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao reenviar email' });
+    }
+});
+
 app.post('/solicitar-reset-senha', async (req, res) => {
     try {
         const cpfLimpo = soNumeros(req.body.cpf);
