@@ -428,6 +428,24 @@ pool.query(`
     )
 `).catch(err => console.error('⚠️ Erro ao criar tabela PAGAMENTOS_VISTOS:', err.message));
 
+// Criar tabela de configurações do sistema
+pool.query(`
+    CREATE TABLE IF NOT EXISTS CONFIGURACOES (
+        id SERIAL PRIMARY KEY,
+        chave VARCHAR(100) UNIQUE NOT NULL,
+        valor VARCHAR(500) NOT NULL,
+        descricao TEXT,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela CONFIGURACOES:', err.message));
+
+// Inserir taxa de juros padrão se não existir
+pool.query(`
+    INSERT INTO CONFIGURACOES (chave, valor, descricao)
+    VALUES ('TAXA_JUROS', '0.05', 'Taxa de juros por parcela (ex: 0.05 = 5%)')
+    ON CONFLICT (chave) DO NOTHING
+`).catch(err => console.error('⚠️ Erro ao inserir taxa de juros padrão:', err.message));
+
 // Adicionar coluna aprovado_em à tabela SIMULACOES se não existir
 pool.query(`
     ALTER TABLE SIMULACOES ADD COLUMN IF NOT EXISTS aprovado_em TIMESTAMP
@@ -1206,8 +1224,13 @@ app.post('/login', async (req, res) => {
 app.post('/simular', async (req, res) => {
     try {
         const { nome, cpf, valor, parcelas } = req.body;
-        const vTotal = valor + (valor * 0.05 * parcelas);
-        res.json({ ok: true, nome, cpf, valor, parcelas, vTotal });
+
+        // Obter taxa de juros dinâmica
+        const taxaResult = await pool.query('SELECT valor FROM CONFIGURACOES WHERE chave = $1', ['TAXA_JUROS']);
+        const taxa = taxaResult.rows.length > 0 ? parseFloat(taxaResult.rows[0].valor) : 0.05;
+
+        const vTotal = valor + (valor * taxa * parcelas);
+        res.json({ ok: true, nome, cpf, valor, parcelas, vTotal, taxa });
     } catch (err) {
         res.status(500).json({ ok: false });
     }
@@ -1590,7 +1613,7 @@ app.get('/simulacoes', async (req, res) => {
             <div class="card"><h3>💰 Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
             <label>VALOR DESEJADO (MÁX R$ 20.000)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
             <label>PARCELAS (MÁX 24)</label><input type="number" id="parcelas" name="parcelas" placeholder="Ex: 12" min="1" max="24" required>
-            <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#1e3c72; font-weight:bold;">R$ 0,00</span><br><small>*Incluso taxa de 5% por parcela</small></div>
+            <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#1e3c72; font-weight:bold;">R$ 0,00</span><br><small id="taxa-texto">*Incluso taxa de 5% por parcela</small></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:15px;"><div><label>FOTO ID</label><input type="file" name="doc_id" required></div><div><label>RENDA</label><input type="file" name="doc_renda" required></div></div>
             <button type="submit" class="btn-blue">SOLICITAR CRÉDITO</button></form></div>
             <div class="card"><h3>📋 Meu Histórico</h3><table><thead><tr><th>DATA</th><th>VALOR</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
@@ -2016,18 +2039,30 @@ app.get('/simulacoes', async (req, res) => {
                     }
                 }
 
-                const vM=document.getElementById("v_mask"), vR=document.getElementById("v_real"), pI=document.getElementById("parcelas"), res=document.getElementById("resumo"), txt=document.getElementById("total-txt");
+                let taxaJuros = 0.05; // Valor padrão
+
+                const vM=document.getElementById("v_mask"), vR=document.getElementById("v_real"), pI=document.getElementById("parcelas"), res=document.getElementById("resumo"), txt=document.getElementById("total-txt"), taxaTexto=document.getElementById("taxa-texto");
+
+                // Carregar taxa de juros ao carregar página
+                fetch('/api/config/taxa-juros').then(r=>r.json()).then(d=>{
+                    if(d.ok){
+                        taxaJuros=d.taxa;
+                        if(taxaTexto) taxaTexto.innerText='*Incluso taxa de '+(taxaJuros*100).toFixed(1)+'% por parcela';
+                        calc();
+                    }
+                }).catch(e=>console.log('Taxa padrão 5%'));
+
                 function calc(){
                     const val=parseFloat(vR.value)||0;
                     const par=parseInt(pI.value)||0;
                     if(val>0 && par>0){
-                        const tot=val+(val*0.05*par);
+                        const tot=val+(val*taxaJuros*par);
                         const valorParcela=tot/par;
                         txt.innerHTML=\`<div style="margin-bottom:15px;"><strong>📊 Resumo da Simulação</strong></div>
                         <div style="margin-bottom:10px;padding:10px;background:#fff9e6;border-radius:8px;">
                             <div style="margin:8px 0;"><strong>Você pediu:</strong> R$ \${val.toFixed(2).replace('.',',')}</div>
                             <div style="margin:8px 0;"><strong>Parcelas:</strong> \${par}x</div>
-                            <div style="margin:8px 0;"><strong>Taxa:</strong> 5% por parcela</div>
+                            <div style="margin:8px 0;"><strong>Taxa:</strong> \${(taxaJuros*100).toFixed(1)}% por parcela</div>
                             <div style="margin:8px 0;border-top:1px solid #ddd;padding-top:10px;"><strong>Valor de cada parcela:</strong> <span style="font-size:1.1rem;color:#1e3c72;font-weight:bold;">R$ \${valorParcela.toFixed(2).replace('.',',')}</span></div>
                             <div style="margin:8px 0;border-top:1px solid #ddd;padding-top:10px;"><strong>Total a pagar:</strong> <span style="font-size:1.3rem;color:#2ecc71;font-weight:bold;">R$ \${tot.toFixed(2).replace('.',',')}</span></div>
                         </div>\`;
@@ -2073,7 +2108,12 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
         const vPedido = parseFloat(valor);
         const p = parseInt(parcelas);
         const user = await pool.query('SELECT nome, email, whatsapp FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
-        const vTotal = vPedido + (vPedido * 0.05 * p);
+
+        // Obter taxa de juros dinâmica
+        const taxaResult = await pool.query('SELECT valor FROM CONFIGURACOES WHERE chave = $1', ['TAXA_JUROS']);
+        const taxa = taxaResult.rows.length > 0 ? parseFloat(taxaResult.rows[0].valor) : 0.05;
+
+        const vTotal = vPedido + (vPedido * taxa * p);
 
         console.log('💾 Salvando proposta:', { nome: user.rows[0].nome, email: user.rows[0].email, valor: vPedido });
 
@@ -2444,6 +2484,22 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 </table>
             </div>
 
+            <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #27ae60;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-top:0;color:#27ae60;">⚙️ Configurações - Taxa de Juros</h3>
+                <div id="resultado-taxa" style="margin-bottom:15px;"></div>
+                <div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:250px;">
+                        <label style="display:block;font-weight:bold;color:#333;margin-bottom:8px;">Taxa de Juros por Parcela</label>
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <input type="number" id="taxa-juros-input" placeholder="0.05" min="0" max="1" step="0.01" style="padding:10px;border:2px solid #ddd;border-radius:6px;flex:1;font-size:1rem;">
+                            <span style="font-weight:bold;color:#666;min-width:50px;" id="taxa-porcentagem">5%</span>
+                        </div>
+                        <small style="color:#666;display:block;margin-top:5px;">*Digite em decimal (ex: 0.05 = 5%, 0.10 = 10%)</small>
+                    </div>
+                    <button onclick="alterarTaxaJuros()" style="background:#27ae60;padding:10px 30px;height:fit-content;margin-top:20px;font-weight:bold;">✅ Salvar Taxa</button>
+                </div>
+            </div>
+
             <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #dc2626;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
                 <h3 style="margin-top:0;color:#dc2626;">⚠️ Clientes Inadimplentes</h3>
                 ${inadimplentesDetalhe.length === 0
@@ -2697,6 +2753,67 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 link.setAttribute('download','propostas-azulcredito.csv');
                 link.click();
             }
+
+            // Carregar taxa de juros atual
+            async function carregarTaxaJuros(){
+                try{
+                    const resp=await fetch('/api/config/taxa-juros');
+                    const data=await resp.json();
+                    if(data.ok){
+                        const taxa=data.taxa;
+                        document.getElementById('taxa-juros-input').value=taxa.toFixed(2);
+                        document.getElementById('taxa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
+                    }
+                }catch(err){
+                    console.error('Erro ao carregar taxa de juros:',err);
+                }
+            }
+
+            // Alterar taxa de juros
+            async function alterarTaxaJuros(){
+                const input=document.getElementById('taxa-juros-input');
+                const taxa=parseFloat(input.value);
+                const resultado=document.getElementById('resultado-taxa');
+
+                if(isNaN(taxa) || taxa<0 || taxa>1){
+                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Taxa deve estar entre 0 e 1</p>';
+                    return;
+                }
+
+                try{
+                    const resp=await fetch('/api/admin/config/taxa-juros',{
+                        method:'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({taxa:taxa})
+                    });
+                    const data=await resp.json();
+
+                    if(data.ok){
+                        document.getElementById('taxa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
+                        resultado.innerHTML='<p style="color:#27ae60;font-weight:bold;">✅ Taxa alterada com sucesso!</p>';
+                        setTimeout(()=>{resultado.innerHTML=''},3000);
+                        console.log('✅ Taxa de juros alterada para:',(taxa*100)+'%');
+                    }else{
+                        resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ '+data.msg+'</p>';
+                    }
+                }catch(err){
+                    console.error('Erro:',err);
+                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Erro ao alterar taxa</p>';
+                }
+            }
+
+            // Event listener para atualizar porcentagem em tempo real
+            document.addEventListener('input',(e)=>{
+                if(e.target.id==='taxa-juros-input'){
+                    const taxa=parseFloat(e.target.value)||0;
+                    document.getElementById('taxa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
+                }
+            });
+
+            // Carregar taxa ao abrir página
+            window.addEventListener('load',()=>{
+                carregarTaxaJuros();
+            });
 
             // Exportar PDF
             function exportarPDF(){
@@ -3399,6 +3516,41 @@ app.post('/api/validar-cupom', async (req, res) => {
     } catch (err) {
         console.error('❌ Erro ao validar cupom:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao validar cupom' });
+    }
+});
+
+// --- OBTER TAXA DE JUROS ---
+app.get('/api/config/taxa-juros', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT valor FROM CONFIGURACOES WHERE chave = $1', ['TAXA_JUROS']);
+        const taxaJuros = result.rows.length > 0 ? parseFloat(result.rows[0].valor) : 0.05;
+        res.json({ ok: true, taxa: taxaJuros });
+    } catch (err) {
+        console.error('❌ Erro ao obter taxa de juros:', err);
+        res.status(500).json({ ok: false, taxa: 0.05 });
+    }
+});
+
+// --- ALTERAR TAXA DE JUROS (ADMIN) ---
+app.post('/api/admin/config/taxa-juros', adminAuth, async (req, res) => {
+    try {
+        const { taxa } = req.body;
+        const taxaNum = parseFloat(taxa);
+
+        if (isNaN(taxaNum) || taxaNum < 0 || taxaNum > 1) {
+            return res.status(400).json({ ok: false, msg: 'Taxa deve estar entre 0 e 1 (0 a 100%)' });
+        }
+
+        await pool.query(
+            'UPDATE CONFIGURACOES SET valor = $1, atualizado_em = CURRENT_TIMESTAMP WHERE chave = $2',
+            [taxaNum.toString(), 'TAXA_JUROS']
+        );
+
+        console.log('✅ Taxa de juros alterada para:', (taxaNum * 100) + '%');
+        res.json({ ok: true, msg: 'Taxa de juros alterada com sucesso', taxa: taxaNum });
+    } catch (err) {
+        console.error('❌ Erro ao alterar taxa de juros:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao alterar taxa' });
     }
 });
 
