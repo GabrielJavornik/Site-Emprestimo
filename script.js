@@ -4,6 +4,81 @@ const cpfInput = document.getElementById('cpf');
 const erroCpf = document.getElementById('erro-cpf');
 
 /**
+ * 0. NOTIFICAÇÃO DE CADASTRO
+ */
+
+function exibirNotificacaoCadastroSucesso() {
+    // Criar elemento de notificação se não existir
+    let notif = document.getElementById('notif-cadastro');
+    if (!notif) {
+        notif = document.createElement('div');
+        notif.id = 'notif-cadastro';
+        notif.style.cssText = `
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            padding: 25px 30px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 99999;
+            animation: slideInCadastro 0.5s ease;
+            max-width: 400px;
+            font-family: 'Segoe UI', sans-serif;
+        `;
+        document.body.appendChild(notif);
+    }
+
+    notif.innerHTML = `
+        <div style="display: flex; gap: 15px; align-items: flex-start;">
+            <div style="font-size: 32px; min-width: 40px; text-align: center;">✅</div>
+            <div>
+                <h4 style="margin: 0 0 5px 0; font-size: 18px; color: white;">Conta Criada com Sucesso!</h4>
+                <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.95);">Verifique seu email para confirmar sua conta</p>
+            </div>
+        </div>
+    `;
+
+    notif.style.display = 'block';
+    notif.style.animation = 'slideInCadastro 0.5s ease';
+
+    setTimeout(() => {
+        notif.style.animation = 'slideOutCadastro 0.5s ease';
+        setTimeout(() => notif.style.display = 'none', 500);
+    }, 4000);
+}
+
+// Adicionar animações CSS
+if (!document.getElementById('style-notif-cadastro')) {
+    const style = document.createElement('style');
+    style.id = 'style-notif-cadastro';
+    style.textContent = `
+        @keyframes slideInCadastro {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOutCadastro {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+/**
  * 1. FUNÇÕES DE MÁSCARAS E MODAL
  */
 
@@ -283,8 +358,11 @@ if (formCad) {
 
             const json = await resp.json();
             if (json.ok) {
-                msg.style.color = "#2ecc71";
-                msg.innerText = "✅ Conta criada! Verifique seu email para confirmar.";
+                // Exibir notificação bonita
+                exibirNotificacaoCadastroSucesso();
+                // Limpar formulário
+                formCad.reset();
+                // Redirecionar para login após 3 segundos
                 setTimeout(() => switchTab('login'), 3000);
             } else {
                 msg.style.color = "#e74c3c";
