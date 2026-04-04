@@ -24,9 +24,7 @@ const adminAuth = (req, res, next) => {
     return res.redirect('/admin-login');
 };
 
-// Credenciais admin
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'Azul2026';
+// Credenciais admin agora vêm da tabela ADMINS (veja endpoints de gerenciar admins)
 
 /// --- 2. CONFIGURAÇÃO DO EMAIL (Gmail/Nodemailer) ---
 const GMAIL_USER = process.env.GMAIL_USER || '093278@aluno.uricer.edu.br';
@@ -1109,15 +1107,34 @@ app.get('/admin-login', (req, res) => {
 });
 
 app.post('/admin-login', async (req, res) => {
-    const { user, pass } = req.body;
+    try {
+        const { user, pass } = req.body;
 
-    if (user === ADMIN_USER && pass === ADMIN_PASS) {
+        // Buscar admin na tabela ADMINS
+        const adminResult = await pool.query('SELECT id, usuario, senha FROM ADMINS WHERE usuario = $1', [user]);
+
+        if (adminResult.rows.length === 0) {
+            return res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
+        }
+
+        const admin = adminResult.rows[0];
+
+        // Verificar senha
+        if (admin.senha !== pass) {
+            return res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
+        }
+
+        // Login bem-sucedido
         req.session.adminLogado = true;
-        req.session.adminUser = ADMIN_USER;
-        return res.json({ ok: true, msg: 'Login realizado com sucesso!' });
-    }
+        req.session.adminUser = admin.usuario;
+        req.session.adminId = admin.id;
 
-    res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
+        console.log(`✅ Admin ${user} (ID: ${admin.id}) fez login`);
+        res.json({ ok: true, msg: 'Login realizado com sucesso!' });
+    } catch (err) {
+        console.error('❌ Erro ao fazer login:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao fazer login' });
+    }
 });
 
 app.get('/admin-logout', (req, res) => {
