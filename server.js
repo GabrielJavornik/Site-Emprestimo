@@ -1930,7 +1930,86 @@ app.get('/simulacoes', async (req, res) => {
                 </div>
             </div>
 
+            <!-- Notificação de Sucesso/Erro -->
+            <div id="notificacao" style="position:fixed;top:30px;right:30px;padding:20px 30px;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.2);z-index:99999;animation:slideIn 0.5s ease;display:none;max-width:400px;">
+                <div style="display:flex;gap:15px;align-items:flex-start;">
+                    <div id="notif-icon" style="font-size:32px;min-width:40px;text-align:center;"></div>
+                    <div>
+                        <h4 id="notif-titulo" style="margin:0 0 5px 0;font-size:18px;color:white;"></h4>
+                        <p id="notif-msg" style="margin:0;font-size:14px;color:rgba(255,255,255,0.95);"></p>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                }
+                .notif-sucesso {
+                    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%) !important;
+                }
+                .notif-erro {
+                    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
+                }
+            </style>
+
             <script>
+                // Funções de Notificação Customizadas
+                function exibirNotificacaoSucesso(titulo, mensagem) {
+                    const notif = document.getElementById('notificacao');
+                    const icon = document.getElementById('notif-icon');
+                    const tit = document.getElementById('notif-titulo');
+                    const msg = document.getElementById('notif-msg');
+
+                    notif.className = 'notif-sucesso';
+                    icon.textContent = '✅';
+                    tit.textContent = titulo;
+                    msg.textContent = mensagem;
+                    notif.style.display = 'flex';
+                    notif.style.animation = 'slideIn 0.5s ease';
+
+                    setTimeout(() => {
+                        notif.style.animation = 'slideOut 0.5s ease';
+                        setTimeout(() => notif.style.display = 'none', 500);
+                    }, 4000);
+                }
+
+                function exibirNotificacaoErro(titulo, mensagem) {
+                    const notif = document.getElementById('notificacao');
+                    const icon = document.getElementById('notif-icon');
+                    const tit = document.getElementById('notif-titulo');
+                    const msg = document.getElementById('notif-msg');
+
+                    notif.className = 'notif-erro';
+                    icon.textContent = '❌';
+                    tit.textContent = titulo;
+                    msg.textContent = mensagem;
+                    notif.style.display = 'flex';
+                    notif.style.animation = 'slideIn 0.5s ease';
+
+                    setTimeout(() => {
+                        notif.style.animation = 'slideOut 0.5s ease';
+                        setTimeout(() => notif.style.display = 'none', 500);
+                    }, 4000);
+                }
+
                 function fecharModalPagamentos(){document.getElementById('modalPagamentos').style.display='none';}
                 async function verHistorico(id){
                     const modal=document.getElementById('modalPagamentos');
@@ -2243,13 +2322,15 @@ app.get('/simulacoes', async (req, res) => {
                         });
                         const json=await resp.json();
                         if(json.ok){
-                            alert('✅ Pagamento registrado! O administrador foi notificado e irá conferir em breve.');
-                            fecharModalPix();
-                            fecharModalEscolha();
-                            cupomAplicado = false;
-                            limparCupom();
+                            exibirNotificacaoSucesso('✅ Pagamento Registrado!', 'O administrador foi notificado e irá conferir em breve.');
+                            setTimeout(() => {
+                                fecharModalPix();
+                                fecharModalEscolha();
+                                cupomAplicado = false;
+                                limparCupom();
+                            }, 2000);
                         }else{
-                            alert('❌ Erro: '+json.msg);
+                            exibirNotificacaoErro('❌ Erro', json.msg || 'Erro ao registrar pagamento');
                         }
                     }catch(e){
                         console.error('❌ ERRO NA CONFIRMAÇÃO:', e);
