@@ -2219,7 +2219,138 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
         // Verificar se cliente está bloqueado para empréstimos
         if (user.rows.length > 0 && user.rows[0].bloqueado_emprestimo === true) {
             console.log(`❌ Cliente com empréstimos bloqueados tentou enviar proposta: ${req.session.userCpf}`);
-            return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada para solicitações de empréstimo. Entre em contato com o suporte.' });
+            const whatsapp = user.rows[0].whatsapp || '5585999999999';
+            return res.send(`<!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Conta Bloqueada - AzulCrédito</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        min-height: 100vh;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        padding: 20px;
+                    }
+                    .container {
+                        background: white;
+                        border-radius: 20px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                        padding: 60px 40px;
+                        max-width: 500px;
+                        text-align: center;
+                    }
+                    .icon {
+                        font-size: 80px;
+                        margin-bottom: 20px;
+                        animation: shake 0.5s infinite;
+                    }
+                    @keyframes shake {
+                        0%, 100% { transform: translateX(0); }
+                        25% { transform: translateX(-10px); }
+                        75% { transform: translateX(10px); }
+                    }
+                    h1 {
+                        color: #dc2626;
+                        font-size: 28px;
+                        margin-bottom: 15px;
+                        font-weight: 700;
+                    }
+                    p {
+                        color: #666;
+                        font-size: 16px;
+                        line-height: 1.6;
+                        margin-bottom: 15px;
+                    }
+                    .warning-box {
+                        background: #fee2e2;
+                        border: 2px solid #dc2626;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin: 30px 0;
+                        color: #991b1b;
+                    }
+                    .warning-box strong {
+                        display: block;
+                        margin-bottom: 8px;
+                        font-size: 14px;
+                    }
+                    .buttons {
+                        display: flex;
+                        gap: 12px;
+                        margin-top: 30px;
+                        flex-direction: column;
+                    }
+                    .btn {
+                        padding: 14px 24px;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        text-decoration: none;
+                        display: inline-block;
+                        transition: all 0.3s;
+                    }
+                    .btn-whatsapp {
+                        background: linear-gradient(135deg, #25d366 0%, #20ba5a 100%);
+                        color: white;
+                        box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+                    }
+                    .btn-whatsapp:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+                    }
+                    .btn-home {
+                        background: #f0f0f0;
+                        color: #333;
+                        border: 2px solid #ddd;
+                    }
+                    .btn-home:hover {
+                        background: #e0e0e0;
+                    }
+                    .info-text {
+                        font-size: 13px;
+                        color: #999;
+                        margin-top: 20px;
+                        line-height: 1.5;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="icon">🚫</div>
+                    <h1>Solicitações Bloqueadas</h1>
+                    <p>Sua conta foi temporariamente bloqueada para novas solicitações de empréstimo.</p>
+
+                    <div class="warning-box">
+                        <strong>⚠️ Por que isso aconteceu?</strong>
+                        Você pode estar com restrições no seu cadastro. Entre em contato com nosso suporte para mais informações.
+                    </div>
+
+                    <p style="color: #1e3c72; font-weight: bold; margin: 20px 0;">Não se preocupe! Estamos aqui para ajudar! 😊</p>
+
+                    <div class="buttons">
+                        <a href="https://wa.me/55${whatsapp.replace(/\\D/g, '')}" target="_blank" class="btn btn-whatsapp">
+                            💚 Falar com Suporte no WhatsApp
+                        </a>
+                        <a href="/simulacoes" class="btn btn-home">
+                            ← Voltar para Minhas Propostas
+                        </a>
+                    </div>
+
+                    <div class="info-text">
+                        <p>Tempo de resposta: até 24 horas</p>
+                        <p>Segunda a sexta, das 8h às 18h</p>
+                    </div>
+                </div>
+            </body>
+            </html>`);
         }
 
         // Obter taxa de juros dinâmica
