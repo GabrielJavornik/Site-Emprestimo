@@ -18,7 +18,8 @@ const BASE_URL = process.env.BASE_URL || 'http://192.168.0.17:8080';
 // --- 1. SEGURANÇA ADMIN ---
 // Middleware customizado para autenticação de admin com sessão
 const adminAuth = (req, res, next) => {
-    if (req.session.adminLogado && req.session.adminUser === 'admin') {
+    // Permitir qualquer admin logado (não apenas "admin")
+    if (req.session.adminLogado && req.session.adminUser) {
         return next();
     }
     return res.redirect('/admin-login');
