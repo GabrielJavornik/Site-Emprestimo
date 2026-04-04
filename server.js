@@ -4884,4 +4884,62 @@ setTimeout(async () => {
     }
 }, 3000);
 
+// --- ENDPOINT DE DEBUG: Resetar cupom para teste ---
+app.post('/api/resetar-cupom', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) {
+            return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+        }
+
+        const cpf = req.session.userCpf;
+        console.log(`🔄 Resetando cupom OFF5 para CPF ${cpf}`);
+
+        // Deletar o registro do cupom usado
+        const result = await pool.query('DELETE FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, 'OFF5']);
+
+        console.log(`✅ Cupom resetado. Registros deletados: ${result.rowCount}`);
+        res.json({ ok: true, msg: 'Cupom OFF5 foi resetado! Você pode usar novamente.', deletados: result.rowCount });
+    } catch (err) {
+        console.error('❌ Erro ao resetar cupom:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao resetar cupom' });
+    }
+});
+
+// --- ENDPOINT DE DEBUG: Testar PIX ---
+app.post('/api/debug-pix', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) {
+            return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+        }
+
+        console.log('🔍 [DEBUG PIX] Testando geração de PIX...');
+        console.log('   CPF:', req.session.userCpf);
+        console.log('   Session:', req.session.usuarioLogado);
+
+        const { valor } = req.body;
+        if (!valor || valor <= 0) {
+            return res.status(400).json({ ok: false, msg: 'Valor inválido' });
+        }
+
+        // Tentar gerar PIX simples
+        const pixKey = '038.286.430-19';
+        const qrCodeData = gerarPixBrCode(pixKey, valor);
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
+
+        console.log('✅ PIX gerado com sucesso');
+        console.log('   QR Code:', qrCodeData.substring(0, 50) + '...');
+
+        res.json({
+            ok: true,
+            msg: 'PIX funcionando!',
+            qr_code: qrCodeData,
+            qr_code_base64: qrCodeUrl,
+            valor: valor
+        });
+    } catch (e) {
+        console.error('❌ [DEBUG PIX] Erro:', e.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao testar PIX: ' + e.message });
+    }
+});
+
 app.listen(PORT, () => { console.log('🚀 Servidor AzulCrédito ON: http://localhost:' + PORT); });
