@@ -214,6 +214,34 @@
     </div>
   </div>
 
+  <!-- Modal para Recuperar Senha -->
+  <div id="modalRecuperarSenha" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+      <span class="close" onclick="fecharModalSenha()">&times;</span>
+
+      <div style="text-align: center; margin-bottom: 25px;">
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">🔐</div>
+        <h2 style="color: #1e3c72; margin: 0 0 10px 0;">Recuperar Senha</h2>
+        <p style="color: #666; font-size: 0.9rem; margin: 0;">Digite seu CPF para receber um link de recuperação por email</p>
+      </div>
+
+      <div class="campo">
+        <label style="color: #1e3c72; font-weight: bold;">CPF</label>
+        <input type="text" id="cpf-recuperar" placeholder="000.000.000-00" style="font-size: 1.1rem; padding: 14px;">
+      </div>
+
+      <button type="button" onclick="enviarRecuperacao()" class="btn-azul" style="margin-top: 20px;">
+        📧 Enviar Email de Recuperação
+      </button>
+
+      <div id="msg-recuperacao" style="margin-top: 15px; font-weight: bold; font-size: 0.9rem;"></div>
+
+      <button type="button" onclick="fecharModalSenha()" class="btn-azul" style="background: #999; margin-top: 10px;">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
   <script src="script.js"></script>
   
   <script>
@@ -221,37 +249,73 @@
         alert("TERMOS DE USO AZULCRÉDITO\n\n1. O usuário autoriza a análise dos dados para fins de crédito.\n2. Não solicitamos pagamentos antecipados em nenhuma hipótese.\n3. Os dados de contato (E-mail/WhatsApp) serão usados para notificações de aprovação.");
     }
 
-    async function esqueciSenha() {
-        const cpfRaw = prompt("Digite seu CPF:");
-        if (!cpfRaw) return;
+    // Abrir modal de recuperação de senha
+    function esqueciSenha() {
+        document.getElementById('modalRecuperarSenha').style.display = 'flex';
+        document.getElementById('cpf-recuperar').focus();
+        document.getElementById('msg-recuperacao').innerText = '';
+    }
 
+    // Fechar modal de recuperação
+    function fecharModalSenha() {
+        document.getElementById('modalRecuperarSenha').style.display = 'none';
+        document.getElementById('cpf-recuperar').value = '';
+        document.getElementById('msg-recuperacao').innerText = '';
+    }
+
+    // Formatar CPF enquanto digita
+    document.addEventListener('DOMContentLoaded', function() {
+        const cpfInput = document.getElementById('cpf-recuperar');
+        if (cpfInput) {
+            cpfInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 11) value = value.slice(0, 11);
+                e.target.value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+                    .replace(/\.$/, '').replace(/-$/, '');
+            });
+            cpfInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') enviarRecuperacao();
+            });
+        }
+    });
+
+    async function enviarRecuperacao() {
+        const cpfRaw = document.getElementById('cpf-recuperar').value;
         const cpf = cpfRaw.replace(/\D/g, '');
+        const msgDiv = document.getElementById('msg-recuperacao');
 
         if (cpf.length !== 11) {
-            alert("❌ CPF deve ter 11 números!");
+            msgDiv.style.color = '#e74c3c';
+            msgDiv.innerText = '❌ CPF deve ter 11 números!';
             return;
         }
 
+        msgDiv.style.color = '#f39c12';
+        msgDiv.innerText = '⏳ Enviando...';
+
         try {
-            console.log('📤 Enviando CPF:', cpf);
             const res = await fetch('/solicitar-reset-senha', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ cpf })
             });
 
-            console.log('📥 Resposta:', res.status);
             const dados = await res.json();
-            console.log('📋 Dados:', dados);
 
             if (dados.ok) {
-                alert("✅ Email enviado! Verifique inbox.");
+                msgDiv.style.color = '#2ecc71';
+                msgDiv.innerText = '✅ Email enviado com sucesso! Verifique sua caixa de entrada (e a pasta spam).';
+                setTimeout(() => {
+                    fecharModalSenha();
+                }, 3000);
             } else {
-                alert("❌ CPF não encontrado.");
+                msgDiv.style.color = '#e74c3c';
+                msgDiv.innerText = '❌ CPF não encontrado no sistema.';
             }
         } catch (e) {
             console.error('❌ Erro:', e);
-            alert("❌ Erro ao conectar.");
+            msgDiv.style.color = '#e74c3c';
+            msgDiv.innerText = '❌ Erro ao conectar com o servidor.';
         }
     }
   </script>

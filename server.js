@@ -510,6 +510,15 @@ pool.query(`
     ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS bloqueado_emprestimo BOOLEAN DEFAULT FALSE
 `).catch(err => console.error('⚠️ Erro ao adicionar coluna bloqueado_emprestimo:', err.message));
 
+// Adicionar colunas de score de crédito
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS score_credito INT DEFAULT 600
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna score_credito:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS score_atualizado_em TIMESTAMP
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna score_atualizado_em:', err.message));
+
 // Tabela para controlar lembretes enviados
 pool.query(`
     CREATE TABLE IF NOT EXISTS LEMBRETES_ENVIADOS (
@@ -563,6 +572,20 @@ pool.query(`
 
 const soNumeros = (str) => String(str || '').replace(/\D/g, '');
 const formatarMoeda = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Tiers de limite de crédito por score
+const SCORE_TIERS = [
+    { min: 300, max: 449, limite: 1000,  label: 'Restrito',   cor: '#dc2626' },
+    { min: 450, max: 549, limite: 3000,  label: 'Baixo',      cor: '#f97316' },
+    { min: 550, max: 649, limite: 7000,  label: 'Regular',    cor: '#eab308' },
+    { min: 650, max: 749, limite: 12000, label: 'Bom',        cor: '#22c55e' },
+    { min: 750, max: 849, limite: 17000, label: 'Muito Bom',  cor: '#3b82f6' },
+    { min: 850, max: 900, limite: 20000, label: 'Excelente',  cor: '#8b5cf6' },
+];
+
+function getTier(score) {
+    return SCORE_TIERS.find(t => score >= t.min && score <= t.max) || SCORE_TIERS[0];
+}
 
 // Calcular juros e multa por atraso
 function calcularJurosMulta(valorParcela, dataVencimento) {
@@ -742,6 +765,74 @@ function verificarStatusCredito(cpf) {
         return { status: 'LIMPO', descricao: 'CPF sem problemas no cadastro de negativados' };
     } else {
         return { status: 'SUJO', descricao: 'CPF com restrições - nome negativado em órgãos reguladores' };
+    }
+}
+
+// Calcular score de crédito baseado em histórico de pagamentos
+async function calcularScore(cpf) {
+    try {
+        // Buscar todas as simulações do cliente
+        const simResult = await pool.query(
+            'SELECT id, status, total FROM SIMULACOES WHERE cpf = $1',
+            [cpf]
+        );
+
+        if (simResult.rows.length === 0) {
+            // Cliente novo sem histórico, score padrão = 600
+            await pool.query(
+                'UPDATE USUARIOS SET score_credito = 600, score_atualizado_em = NOW() WHERE cpf = $1',
+                [cpf]
+            );
+            return 600;
+        }
+
+        const simIds = simResult.rows.map(r => r.id);
+
+        // Contar empréstimos quitados (+50 cada)
+        const quitadosCount = simResult.rows.filter(s => s.status === 'QUITADO').length;
+        const bonusQuitados = quitadosCount * 50;
+
+        // Buscar multas para este cliente
+        const multasResult = await pool.query(`
+            SELECT dias_atraso, status FROM MULTAS
+            WHERE simulacao_id = ANY($1)
+        `, [simIds]);
+
+        // Calcular deduções por multas
+        let deducaoMultas = 0;
+        multasResult.rows.forEach(multa => {
+            const dias = multa.dias_atraso || 0;
+            if (dias > 90) deducaoMultas -= 200;
+            else if (dias > 60) deducaoMultas -= 120;
+            else if (dias > 30) deducaoMultas -= 80;
+            else if (dias > 15) deducaoMultas -= 40;
+            else if (dias > 0) deducaoMultas -= 20;
+        });
+
+        // Contar pagamentos confirmados
+        const pagamentosResult = await pool.query(`
+            SELECT COUNT(*) as total FROM PAGAMENTOS
+            WHERE simulacao_id = ANY($1) AND status = 'CONFIRMADO'
+        `, [simIds]);
+
+        const totalPagamentos = parseInt(pagamentosResult.rows[0].total) || 0;
+        const bonusPagamentos = Math.min(totalPagamentos * 5, 250); // Máx 250 pts por pagamentos
+
+        // Calcular score final
+        const scoreBase = 600;
+        let scoreFinal = scoreBase + bonusQuitados + bonusPagamentos + deducaoMultas;
+        scoreFinal = Math.max(300, Math.min(900, scoreFinal));
+
+        // Gravar no banco
+        await pool.query(
+            'UPDATE USUARIOS SET score_credito = $1, score_atualizado_em = NOW() WHERE cpf = $2',
+            [scoreFinal, cpf]
+        );
+
+        return scoreFinal;
+    } catch (err) {
+        console.error('❌ Erro ao calcular score:', err.message);
+        return 600; // Default em caso de erro
     }
 }
 
@@ -1204,7 +1295,14 @@ app.post('/cadastro', async (req, res) => {
         }).catch(e => console.error('Erro ao enviar email de confirmação:', e.message));
 
         res.json({ ok: true, msg: 'Verifique seu email para confirmar a conta!' });
-    } catch (err) { res.status(400).json({ ok: false }); }
+    } catch (err) {
+        console.error('❌ Erro no cadastro:', err.message);
+        // Verificar se é erro de duplicata
+        if (err.code === '23505') { // Código PostgreSQL para UNIQUE violation
+            return res.status(400).json({ ok: false, msg: 'CPF ou E-mail já cadastrado.' });
+        }
+        res.status(400).json({ ok: false, msg: 'Erro ao criar conta. Tente novamente.' });
+    }
 });
 
 app.get('/confirmar-email/:token', async (req, res) => {
@@ -1235,18 +1333,40 @@ app.get('/confirmar-email/:token', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    const result = await pool.query('SELECT * FROM USUARIOS WHERE cpf = $1 AND senha = $2', [soNumeros(req.body.cpf), req.body.senha]);
-    if (result.rows.length > 0) {
-        if (!result.rows[0].email_verificado) {
-            return res.status(403).json({ ok: false, msg: 'Email não confirmado. Verifique sua caixa de entrada!' });
-        }
-        if (result.rows[0].bloqueado_login === true) {
-            console.log(`❌ Tentativa de login de cliente com acesso bloqueado: ${result.rows[0].cpf}`);
-            return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada. Entre em contato com o suporte.' });
-        }
-        req.session.usuarioLogado = true; req.session.userCpf = result.rows[0].cpf; req.session.userName = result.rows[0].nome;
-        res.json({ ok: true });
-    } else { res.status(401).json({ ok: false }); }
+    const cpfLimpo = soNumeros(req.body.cpf);
+    const senha = req.body.senha;
+
+    // Primeiro verificar se o usuário existe
+    const usuarioResult = await pool.query('SELECT * FROM USUARIOS WHERE cpf = $1', [cpfLimpo]);
+
+    if (usuarioResult.rows.length === 0) {
+        // Usuário não encontrado
+        return res.status(401).json({ ok: false, msg: '❌ Usuário ou senha incorretos.' });
+    }
+
+    const usuario = usuarioResult.rows[0];
+
+    // Verificar email
+    if (!usuario.email_verificado) {
+        return res.status(403).json({ ok: false, msg: '📧 Email não confirmado. Verifique sua caixa de entrada (ou spam)!' });
+    }
+
+    // Verificar se está bloqueado
+    if (usuario.bloqueado_login === true) {
+        console.log(`❌ Tentativa de login de cliente com acesso bloqueado: ${usuario.cpf}`);
+        return res.status(403).json({ ok: false, msg: '🚫 Sua conta foi bloqueada. Entre em contato com o suporte.' });
+    }
+
+    // Verificar senha
+    if (usuario.senha !== senha) {
+        return res.status(401).json({ ok: false, msg: '❌ Usuário ou senha incorretos.' });
+    }
+
+    // Login bem-sucedido
+    req.session.usuarioLogado = true;
+    req.session.userCpf = usuario.cpf;
+    req.session.userName = usuario.nome;
+    res.json({ ok: true });
 });
 
 app.post('/simular', async (req, res) => {
@@ -1281,7 +1401,7 @@ app.get('/perfil', async (req, res) => {
     if (!req.session.usuarioLogado) return res.send("<script>location.href='/';</script>");
     try {
         const cpf = req.session.userCpf;
-        const result = await pool.query('SELECT nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa, banco_codigo, banco_nome, agencia, conta, conta_digito, conta_tipo FROM USUARIOS WHERE cpf = $1', [cpf]);
+        const result = await pool.query('SELECT nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa, banco_codigo, banco_nome, agencia, conta, conta_digito, conta_tipo, score_credito FROM USUARIOS WHERE cpf = $1', [cpf]);
         if (result.rows.length === 0) return res.status(404).send('Usuário não encontrado');
 
         const user = result.rows[0];
@@ -1304,6 +1424,11 @@ app.get('/perfil', async (req, res) => {
 
             <div class="container">
                 <h1 style="color:#1e3c72;text-align:center;">⚙️ Meu Perfil</h1>
+
+                <div class="card" id="score-card-perfil" style="display:none;background:linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);border-left:5px solid #8b5cf6;">
+                    <h2 style="color:#8b5cf6;border-bottom-color:#8b5cf6;">⭐ Meu Score de Crédito</h2>
+                    <div id="score-content-perfil" style="text-align:center;margin:20px 0;">Carregando...</div>
+                </div>
 
                 <div class="card">
                     <h2>👤 Meus Dados</h2>
@@ -1598,6 +1723,43 @@ app.get('/perfil', async (req, res) => {
                         document.getElementById('resultado-senha').innerHTML = '<p class="error">❌ ' + (json.msg || 'Erro ao trocar senha') + '</p>';
                     }
                 }
+
+                // Carregar score na página de perfil
+                async function carregarScorePerfil() {
+                    try {
+                        const resp = await fetch('/api/meu-score');
+                        const json = await resp.json();
+                        if (!json.ok) return;
+
+                        const pct = ((json.score - 300) / 600 * 100).toFixed(1);
+                        const card = document.getElementById('score-card-perfil');
+                        const content = document.getElementById('score-content-perfil');
+
+                        content.innerHTML = \`
+                            <div style="display:flex;justify-content:space-around;align-items:center;margin-top:10px;gap:20px;flex-wrap:wrap;">
+                                <div style="text-align:center;">
+                                    <div style="font-size:2.5rem;font-weight:bold;color:\${json.cor};">\${json.score}</div>
+                                    <div style="background:\${json.cor};color:white;padding:6px 16px;border-radius:50px;font-weight:bold;display:inline-block;margin-top:8px;font-size:0.9rem;">\${json.label}</div>
+                                </div>
+                                <div style="flex:1;min-width:250px;">
+                                    <p style="margin:0 0 8px 0;color:#333;font-weight:bold;">Progresso do Score</p>
+                                    <div style="background:#e5e7eb;border-radius:999px;height:20px;margin-bottom:8px;overflow:hidden;">
+                                        <div style="background:\${json.cor};width:\${pct}%;height:100%;border-radius:999px;transition:width 1s;"></div>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:#666;margin-bottom:12px;">
+                                        <span>Mínimo (300)</span><span>Base (600)</span><span>Máximo (900)</span>
+                                    </div>
+                                    <p style="margin:10px 0 0 0;color:#555;font-size:0.95rem;"><strong>Limite disponível para empréstimos:</strong></p>
+                                    <p style="margin:4px 0;font-size:1.2rem;font-weight:bold;color:\${json.cor};">R$ \${json.limite.toLocaleString('pt-BR')}</p>
+                                </div>
+                            </div>
+                        \`;
+                        card.style.display = 'block';
+                    } catch (e) {
+                        console.error('❌ Erro ao carregar score:', e);
+                    }
+                }
+                carregarScorePerfil();
             </script>
         </body></html>`);
     } catch (e) {
@@ -1647,6 +1809,7 @@ app.get('/simulacoes', async (req, res) => {
         </style></head><body>
             <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL CRÉDITO</div><div style="display:flex;gap:10px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">SAIR</a></div></div>
             <div class="container"><h2>Olá, ${req.session.userName}! 👋</h2>
+            <div class="card" id="score-card" style="display:none;"><h3>⭐ Meu Score de Crédito</h3><div id="score-loading">Carregando...</div></div>
             <div class="card"><h3>💰 Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
             <label>VALOR DESEJADO (MÁX R$ 20.000)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
             <label>PARCELAS (MÁX 24)</label><input type="number" id="parcelas" name="parcelas" placeholder="Ex: 12" min="1" max="24" required>
@@ -2205,6 +2368,41 @@ app.get('/simulacoes', async (req, res) => {
                         console.log('Verificando atualizações...');
                     }
                 }, 5000);
+
+                // CARREGAR SCORE DO CLIENTE
+                async function carregarScore() {
+                    try {
+                        const resp = await fetch('/api/meu-score');
+                        const json = await resp.json();
+                        if (!json.ok) return;
+
+                        const pct = ((json.score - 300) / 600 * 100).toFixed(1);
+                        const cardScore = document.getElementById('score-card');
+                        const loading = document.getElementById('score-loading');
+
+                        loading.innerHTML = \`
+                            <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+                                <div style="text-align:center;">
+                                    <div style="font-size:3rem;font-weight:bold;color:\${json.cor};">\${json.score}</div>
+                                    <span style="background:\${json.cor};color:white;padding:4px 14px;border-radius:50px;font-size:0.9rem;font-weight:bold;display:inline-block;margin-top:8px;">\${json.label}</span>
+                                </div>
+                                <div style="flex:1;min-width:200px;">
+                                    <div style="background:#e5e7eb;border-radius:999px;height:16px;margin-bottom:8px;overflow:hidden;">
+                                        <div style="background:\${json.cor};width:\${pct}%;height:100%;border-radius:999px;transition:width 1s;"></div>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#666;margin-bottom:12px;">
+                                        <span>300</span><span>600</span><span>900</span>
+                                    </div>
+                                    <p style="margin:0;color:#555;font-size:0.95rem;"><strong>Limite disponível:</strong> <span style="color:\${json.cor};font-weight:bold;font-size:1.1rem;">R$ \${json.limite.toLocaleString('pt-BR')}</span></p>
+                                </div>
+                            </div>
+                        \`;
+                        cardScore.style.display = 'block';
+                    } catch (e) {
+                        console.error('❌ Erro ao carregar score:', e);
+                    }
+                }
+                carregarScore();
             </script></body></html>`);
     } catch (e) { res.status(500).send("Erro"); }
 });
@@ -2214,7 +2412,7 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
         const { valor, parcelas } = req.body;
         const vPedido = parseFloat(valor);
         const p = parseInt(parcelas);
-        const user = await pool.query('SELECT nome, email, whatsapp, bloqueado_login, bloqueado_emprestimo FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
+        const user = await pool.query('SELECT nome, email, whatsapp, bloqueado_login, bloqueado_emprestimo, score_credito FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
 
         // Verificar se cliente está bloqueado para empréstimos
         if (user.rows.length > 0 && user.rows[0].bloqueado_emprestimo === true) {
@@ -2348,6 +2546,172 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
                         <p>Tempo de resposta: até 24 horas</p>
                         <p>Segunda a sexta, das 8h às 18h</p>
                     </div>
+                </div>
+            </body>
+            </html>`);
+        }
+
+        // Verificar limite de crédito baseado no score
+        const score = user.rows.length > 0 ? (user.rows[0].score_credito || 600) : 600;
+        const tier = getTier(score);
+
+        if (vPedido > tier.limite) {
+            console.log(`❌ Cliente tentou solicitar acima do limite permitido: ${req.session.userCpf} pediu R$${vPedido}, limite R$${tier.limite}`);
+            return res.send(`<!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Limite Excedido - AzulCrédito</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        min-height: 100vh;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        padding: 20px;
+                    }
+                    .container {
+                        background: white;
+                        border-radius: 20px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                        padding: 60px 40px;
+                        max-width: 500px;
+                        text-align: center;
+                    }
+                    .icon {
+                        font-size: 80px;
+                        margin-bottom: 20px;
+                    }
+                    h1 {
+                        color: #dc2626;
+                        font-size: 28px;
+                        margin-bottom: 15px;
+                        font-weight: 700;
+                    }
+                    p {
+                        color: #666;
+                        font-size: 16px;
+                        line-height: 1.6;
+                        margin-bottom: 15px;
+                    }
+                    .info-box {
+                        background: #f0f9ff;
+                        border: 2px solid #3b82f6;
+                        border-radius: 12px;
+                        padding: 25px;
+                        margin: 30px 0;
+                        text-align: left;
+                    }
+                    .info-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 12px;
+                        font-size: 15px;
+                    }
+                    .info-row strong {
+                        color: #1e3c72;
+                    }
+                    .score-badge {
+                        display: inline-block;
+                        background: ${tier.cor};
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 50px;
+                        font-weight: bold;
+                        font-size: 14px;
+                        margin: 10px 0;
+                    }
+                    .btn {
+                        display: inline-block;
+                        padding: 14px 32px;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        text-decoration: none;
+                        transition: all 0.3s;
+                        margin-top: 20px;
+                    }
+                    .btn-primary {
+                        background: #3b82f6;
+                        color: white;
+                    }
+                    .btn-primary:hover {
+                        background: #2563eb;
+                        transform: translateY(-2px);
+                    }
+                    .tips {
+                        background: #f9fafb;
+                        border-left: 4px solid #22c55e;
+                        padding: 20px;
+                        border-radius: 8px;
+                        text-align: left;
+                        margin-top: 30px;
+                    }
+                    .tips h3 {
+                        color: #22c55e;
+                        font-size: 14px;
+                        margin-bottom: 10px;
+                    }
+                    .tips ul {
+                        list-style: none;
+                        padding: 0;
+                    }
+                    .tips li {
+                        color: #666;
+                        font-size: 14px;
+                        margin: 6px 0;
+                        padding-left: 20px;
+                        position: relative;
+                    }
+                    .tips li:before {
+                        content: "✓";
+                        position: absolute;
+                        left: 0;
+                        color: #22c55e;
+                        font-weight: bold;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="icon">⚠️</div>
+                    <h1>Limite de Crédito Excedido</h1>
+                    <p>Você solicitou um valor superior ao seu limite disponível.</p>
+
+                    <div class="info-box">
+                        <div class="info-row">
+                            <strong>Seu Score:</strong>
+                            <span class="score-badge">${score} - ${tier.label}</span>
+                        </div>
+                        <div class="info-row">
+                            <strong>Limite Disponível:</strong>
+                            <span style="color: #3b82f6; font-weight: bold;">R$ ${tier.limite.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div class="info-row">
+                            <strong>Você Solicitou:</strong>
+                            <span style="color: #dc2626; font-weight: bold;">R$ ${vPedido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+
+                    <p style="color: #1e3c72; font-weight: bold;">Como aumentar seu limite? 🚀</p>
+
+                    <div class="tips">
+                        <h3>DICAS PARA MELHORAR SEU SCORE:</h3>
+                        <ul>
+                            <li>Pague todas as parcelas em dia</li>
+                            <li>Complete seus empréstimos com sucesso</li>
+                            <li>Mantenha um bom histórico de pagamentos</li>
+                            <li>Seu score aumenta automaticamente com cada pagamento em dia</li>
+                        </ul>
+                    </div>
+
+                    <a href="/simulacoes" class="btn btn-primary">← Voltar e Ajustar Valor</a>
                 </div>
             </body>
             </html>`);
@@ -2523,7 +2887,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
     try {
         // Query otimizada: JOIN para evitar N+1
         const allSimsResult = await pool.query(`
-            SELECT s.*, u.cidade, u.estado, u.banco_nome, u.banco_codigo, u.agencia, u.conta, u.conta_digito, u.conta_tipo,
+            SELECT s.*, u.cidade, u.estado, u.banco_nome, u.banco_codigo, u.agencia, u.conta, u.conta_digito, u.conta_tipo, u.score_credito,
                    COALESCE(pag.total_pago, 0) as total_pago
             FROM SIMULACOES s
             LEFT JOIN USUARIOS u ON u.cpf = s.cpf
@@ -2607,7 +2971,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
         const perfis = {};
         allSims.rows.forEach(r => {
-            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, bloqueado_login: r.bloqueado_login, bloqueado_emprestimo: r.bloqueado_emprestimo, pedidos: [] };
+            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, bloqueado_login: r.bloqueado_login, bloqueado_emprestimo: r.bloqueado_emprestimo, score_credito: r.score_credito, pedidos: [] };
             perfis[r.cpf].pedidos.push(r);
         });
 
@@ -2762,6 +3126,11 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 }
             </div>
 
+            <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #8b5cf6;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-top:0;color:#8b5cf6;">⭐ Ranking de Score de Crédito</h3>
+                <div id="ranking-scores-container" style="margin-top:15px;">Carregando...</div>
+            </div>
+
             <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #dc2626;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
                 <h3 style="margin-top:0;color:#dc2626;">⚠️ Clientes Inadimplentes</h3>
                 ${inadimplentesDetalhe.length === 0
@@ -2820,13 +3189,16 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 const banco = p.banco_nome ? `${p.banco_nome.split('(')[0].trim()} ****${p.conta ? p.conta.slice(-4) : ''}` : '-';
                 const badgeLogin = p.bloqueado_login ? '<span style="background:#e74c3c;color:white;padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:bold;margin-left:5px;">🚫 ACESSO</span>' : '';
                 const badgeEmprestimo = p.bloqueado_emprestimo ? '<span style="background:#f39c12;color:white;padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:bold;margin-left:5px;">🚫 EMPRÉS.</span>' : '';
+                const score = p.score_credito || 600;
+                const tier = getTier(score);
+                const badgeScore = `<span style="background:${tier.cor};color:white;padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:bold;margin-left:5px;">⭐ ${score}</span>`;
                 const btnsControle = `<div style="display:flex;gap:5px;">
                     <button onclick="bloquearCliente('${cpf}', 'login', true)" style="background:#e74c3c;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Bloquear acesso">🔐 Bloquear Acesso</button>
                     <button onclick="desbloquearCliente('${cpf}', 'login', false)" style="background:#2ecc71;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Desbloquear acesso">🔓 Liberar Acesso</button>
                     <button onclick="bloquearCliente('${cpf}', 'emprestimo', true)" style="background:#f39c12;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Bloquear empréstimos">🚫 Bloquear Emprés.</button>
                     <button onclick="desbloquearCliente('${cpf}', 'emprestimo', false)" style="background:#3498db;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Desbloquear empréstimos">✅ Liberar Emprés.</button>
                 </div>`;
-                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeLogin}${badgeEmprestimo}</div><div style="display:flex;gap:5px;flex-wrap:wrap;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto 1fr;gap:20px;"><div><strong>📍</strong> ${endereco}</div><div><strong>🏦</strong> ${banco}</div></div><div style="padding:10px 15px;border-bottom:1px solid #eee;display:flex;gap:5px;flex-wrap:wrap;">${btnsControle}</div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
+                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeScore}${badgeLogin}${badgeEmprestimo}</div><div style="display:flex;gap:5px;flex-wrap:wrap;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto 1fr;gap:20px;"><div><strong>📍</strong> ${endereco}</div><div><strong>🏦</strong> ${banco}</div></div><div style="padding:10px 15px;border-bottom:1px solid #eee;display:flex;gap:5px;flex-wrap:wrap;">${btnsControle}</div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
                 p.pedidos.map((ped, idx) => {
                     const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : (ped.status === 'QUITADO' ? 'st-quitado' : 'st-analise'));
                     const [pagtoResult, ultimaPagResult] = pagamentosResults[idx];
@@ -3278,10 +3650,52 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 }
             }
 
+            // Score Tiers (client-side)
+            const SCORE_TIERS_CLIENT = [
+                { min: 300, max: 449, limite: 1000,  label: 'Restrito',   cor: '#dc2626' },
+                { min: 450, max: 549, limite: 3000,  label: 'Baixo',      cor: '#f97316' },
+                { min: 550, max: 649, limite: 7000,  label: 'Regular',    cor: '#eab308' },
+                { min: 650, max: 749, limite: 12000, label: 'Bom',        cor: '#22c55e' },
+                { min: 750, max: 849, limite: 17000, label: 'Muito Bom',  cor: '#3b82f6' },
+                { min: 850, max: 900, limite: 20000, label: 'Excelente',  cor: '#8b5cf6' },
+            ];
+            function getTierClient(score) {
+                return SCORE_TIERS_CLIENT.find(t => score >= t.min && score <= t.max) || SCORE_TIERS_CLIENT[0];
+            }
+
+            // Carregar ranking de scores
+            async function carregarRankingScores() {
+                try {
+                    const resp = await fetch('/api/admin/scores');
+                    const json = await resp.json();
+                    if (!json.ok) {
+                        document.getElementById('ranking-scores-container').innerHTML = '<p style="color:#e74c3c;">Erro ao carregar scores</p>';
+                        return;
+                    }
+
+                    const clientes = json.clientes.slice(0, 10); // Top 10
+                    let html = '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f3e8ff;"><th style="padding:12px;text-align:left;border-bottom:2px solid #ddd8f5;">Cliente</th><th style="padding:12px;text-align:left;border-bottom:2px solid #ddd8f5;">CPF</th><th style="padding:12px;text-align:center;border-bottom:2px solid #ddd8f5;">Score</th><th style="padding:12px;text-align:right;border-bottom:2px solid #ddd8f5;">Limite</th><th style="padding:12px;text-align:center;border-bottom:2px solid #ddd8f5;">Quitados</th><th style="padding:12px;text-align:center;border-bottom:2px solid #ddd8f5;">Multas Ativas</th></tr></thead><tbody>';
+
+                    clientes.forEach(c => {
+                        const score = c.score_credito || 600;
+                        const tier = getTierClient(score);
+                        html += '<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px;"><strong>' + c.nome + '</strong></td><td style="padding:12px;font-family:monospace;font-size:0.9rem;">' + c.cpf + '</td><td style="padding:12px;text-align:center;"><span style="background:' + tier.cor + ';color:white;padding:4px 12px;border-radius:50px;font-weight:bold;">' + score + '</span></td><td style="padding:12px;text-align:right;font-weight:bold;color:' + tier.cor + ';">R$ ' + tier.limite.toLocaleString('pt-BR') + '</td><td style="padding:12px;text-align:center;color:#2ecc71;font-weight:bold;">' + (c.emprestimos_quitados || 0) + '</td><td style="padding:12px;text-align:center;"><span style="background:#fee2e2;color:#991b1b;padding:4px 8px;border-radius:4px;font-weight:bold;">' + (c.multas_ativas || 0) + '</span></td></tr>';
+                    });
+
+                    html += '</tbody></table>';
+                    document.getElementById('ranking-scores-container').innerHTML = html;
+                } catch (e) {
+                    console.error('❌ Erro ao carregar ranking:', e);
+                    document.getElementById('ranking-scores-container').innerHTML = '<p style="color:#e74c3c;">Erro ao carregar ranking</p>';
+                }
+            }
+
             // Verificar notificações a cada 5 segundos
             setInterval(carregarNotificacoes, 5000);
             // Carregar na inicial
             carregarNotificacoes();
+            // Carregar ranking de scores
+            carregarRankingScores();
             </script></body></html>`);
     } catch (e) { console.error(e); res.status(500).send("Erro"); }
 });
@@ -3290,7 +3704,7 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
     const { id, status } = req.body;
     try {
         console.log('📋 Atualizando status da simulação:', { id, status });
-        const cli = await pool.query('SELECT nome, email FROM SIMULACOES WHERE ID = $1', [id]);
+        const cli = await pool.query('SELECT nome, email, cpf FROM SIMULACOES WHERE ID = $1', [id]);
 
         // Se status é 'PAGO', salvar data de aprovação para cálculo de vencimentos
         if (status === 'PAGO') {
@@ -3324,6 +3738,14 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
         } else {
             console.warn('⚠️ Usuário sem email cadastrado');
         }
+
+        // Recalcular score se status mudou para PAGO ou QUITADO
+        if ((status === 'PAGO' || status === 'QUITADO') && cli.rows.length > 0) {
+            calcularScore(cli.rows[0].cpf).catch(err => {
+                console.error('⚠️ Erro ao recalcular score após atualização de status:', err.message);
+            });
+        }
+
         res.json({ ok: true });
     } catch (err) {
         console.error('❌ Erro em /atualizar-status:', err);
@@ -3343,7 +3765,7 @@ app.post('/registrar-pagamento', adminAuth, async (req, res) => {
         }
 
         // Buscar dados da simulação para validar
-        const simResult = await pool.query('SELECT nome, email, total, parcelas FROM SIMULACOES WHERE id = $1', [simulacao_id]);
+        const simResult = await pool.query('SELECT nome, email, total, parcelas, cpf FROM SIMULACOES WHERE id = $1', [simulacao_id]);
         if (simResult.rows.length === 0) {
             return res.status(404).json({ ok: false, msg: 'Simulação não encontrada' });
         }
@@ -3397,6 +3819,11 @@ app.post('/registrar-pagamento', adminAuth, async (req, res) => {
                 console.error('⚠️ Email de pagamento falhou, mas pagamento foi registrado:', err.message);
             });
         }
+
+        // Recalcular score do cliente após pagamento
+        calcularScore(sim.cpf).catch(err => {
+            console.error('⚠️ Erro ao recalcular score após pagamento:', err.message);
+        });
 
         res.json({ ok: true });
     } catch (err) {
@@ -3916,6 +4343,85 @@ app.post('/api/admin/config/taxa-juros', adminAuth, async (req, res) => {
     }
 });
 
+// --- OBTER MEU SCORE (CLIENTE) ---
+app.get('/api/meu-score', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false });
+
+        const cpf = req.session.userCpf;
+        const result = await pool.query(
+            'SELECT score_credito, score_atualizado_em FROM USUARIOS WHERE cpf = $1',
+            [cpf]
+        );
+
+        if (!result.rows.length) return res.status(404).json({ ok: false });
+
+        const score = result.rows[0].score_credito || 600;
+        const tier = getTier(score);
+
+        res.json({
+            ok: true,
+            score,
+            limite: tier.limite,
+            label: tier.label,
+            cor: tier.cor,
+            atualizado_em: result.rows[0].score_atualizado_em
+        });
+    } catch (err) {
+        console.error('❌ Erro ao obter score:', err);
+        res.status(500).json({ ok: false });
+    }
+});
+
+// --- LISTAR SCORES DE TODOS OS CLIENTES (ADMIN) ---
+app.get('/api/admin/scores', adminAuth, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                u.cpf,
+                u.nome,
+                u.email,
+                u.score_credito,
+                u.score_atualizado_em,
+                COALESCE(SUM(CASE WHEN s.status = 'QUITADO' THEN 1 ELSE 0 END), 0) as emprestimos_quitados,
+                COALESCE(SUM(CASE WHEN m.status = 'ATIVA' THEN 1 ELSE 0 END), 0) as multas_ativas
+            FROM USUARIOS u
+            LEFT JOIN SIMULACOES s ON s.cpf = u.cpf
+            LEFT JOIN MULTAS m ON m.simulacao_id = s.id
+            GROUP BY u.cpf, u.nome, u.email, u.score_credito, u.score_atualizado_em
+            ORDER BY u.score_credito DESC
+        `);
+
+        res.json({ ok: true, clientes: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao obter scores:', err);
+        res.status(500).json({ ok: false, msg: err.message });
+    }
+});
+
+// --- RECALCULAR SCORE MANUALMENTE (ADMIN) ---
+app.post('/api/admin/recalcular-score', adminAuth, async (req, res) => {
+    try {
+        const { cpf } = req.body;
+
+        if (!cpf) return res.status(400).json({ ok: false, msg: 'CPF obrigatório' });
+
+        const score = await calcularScore(cpf);
+        const tier = getTier(score);
+
+        res.json({
+            ok: true,
+            score,
+            limite: tier.limite,
+            label: tier.label,
+            msg: 'Score recalculado com sucesso'
+        });
+    } catch (err) {
+        console.error('❌ Erro ao recalcular score:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao recalcular score' });
+    }
+});
+
 // --- BLOQUEAR/DESBLOQUEAR CLIENTE (ADMIN) ---
 app.post('/api/admin/bloquear-cliente', adminAuth, async (req, res) => {
     try {
@@ -4311,6 +4817,22 @@ cron.schedule('0 9 * * *', () => {
     verificarMultas().catch(err => console.error('❌ [CRON-MULTAS] Erro:', err));
 });
 
+// Executar recalcular scores todos os dias às 10:00 (após multas)
+cron.schedule('0 10 * * *', async () => {
+    console.log('⏰ [CRON-SCORES] Recalculando scores de crédito...');
+    try {
+        const result = await pool.query('SELECT DISTINCT cpf FROM USUARIOS WHERE cpf IS NOT NULL ORDER BY cpf');
+        let processados = 0;
+        for (const user of result.rows) {
+            await calcularScore(user.cpf).catch(() => {});
+            processados++;
+        }
+        console.log(`✅ [CRON-SCORES] ${processados} scores recalculados`);
+    } catch (err) {
+        console.error('❌ [CRON-SCORES] Erro:', err.message);
+    }
+});
+
 // Executar verificação uma vez na inicialização (para testes)
 setTimeout(() => {
     console.log('⏰ [STARTUP] Executando verificação inicial de vencimentos...');
@@ -4322,5 +4844,21 @@ setTimeout(() => {
     console.log('⏰ [STARTUP-MULTAS] Executando verificação inicial de multas...');
     verificarMultas().catch(err => console.error('❌ [STARTUP-MULTAS] Erro:', err));
 }, 2500);
+
+// Bootstrap: Recalcular scores de todos os clientes na inicialização
+setTimeout(async () => {
+    console.log('⏰ [STARTUP-SCORES] Inicializando scores de todos os clientes...');
+    try {
+        const result = await pool.query('SELECT DISTINCT cpf FROM USUARIOS WHERE cpf IS NOT NULL ORDER BY cpf');
+        let processados = 0;
+        for (const user of result.rows) {
+            await calcularScore(user.cpf).catch(() => {});
+            processados++;
+        }
+        console.log(`✅ [STARTUP-SCORES] ${processados} scores inicializados`);
+    } catch (err) {
+        console.error('❌ [STARTUP-SCORES] Erro:', err.message);
+    }
+}, 3000);
 
 app.listen(PORT, () => { console.log('🚀 Servidor AzulCrédito ON: http://localhost:' + PORT); });

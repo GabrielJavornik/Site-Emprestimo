@@ -18,10 +18,17 @@
       "Bash(tee server.log)",
       "Bash(tee server_debug.log)",
       "Bash(npm install:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(chmod +x \"c:\\\\Users\\\\gabri\\\\Desktop\\\\test_credit_score.sh\")",
+      "Bash(bash \"c:\\\\Users\\\\gabri\\\\Desktop\\\\test_credit_score.sh\")",
+      "Bash(node \"c:\\\\Users\\\\gabri\\\\Desktop\\\\verify_schema.js\")",
+      "Bash(node ../verify_schema.js)",
+      "Bash(curl -s http://localhost:3000/api/admin/scores)",
+      "Bash(git commit -m ':*)"
     ],
     "additionalDirectories": [
-      "\\tmp"
+      "\\tmp",
+      "c:\\Users\\gabri\\Desktop"
     ]
   }
 }

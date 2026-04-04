@@ -223,8 +223,9 @@ if (formLogin) {
                 setTimeout(() => { window.location.href = '/simulacoes'; }, 1500);
             } else {
                 msg.style.color = "#e74c3c";
-                if (json.msg === 'Email não confirmado. Verifique sua caixa de entrada!') {
-                    msg.innerText = "⚠️ " + json.msg;
+                // Mostrar a mensagem exata do servidor
+                if (json.msg) {
+                    msg.innerText = json.msg;
                 } else {
                     msg.innerText = "❌ Usuário ou senha incorretos.";
                 }
@@ -287,7 +288,7 @@ if (formCad) {
                 setTimeout(() => switchTab('login'), 3000);
             } else {
                 msg.style.color = "#e74c3c";
-                msg.innerText = "❌ Erro: CPF ou E-mail já cadastrado.";
+                msg.innerText = "❌ Erro: " + (json.msg || "CPF ou E-mail já cadastrado.");
             }
         } catch (err) {
             msg.style.color = "#e74c3c";
