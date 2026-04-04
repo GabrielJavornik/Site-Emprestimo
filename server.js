@@ -1110,7 +1110,16 @@ app.post('/admin-login', async (req, res) => {
             req.session.adminId = admin.id;
             req.session.adminNome = admin.nome;
             console.log(`✅ Admin "${admin.usuario}" logado`);
-            return res.json({ ok: true, msg: 'Login realizado com sucesso!' });
+
+            // Salvar sessão antes de responder
+            req.session.save((err) => {
+                if (err) {
+                    console.error('❌ Erro ao salvar sessão:', err);
+                    return res.status(500).json({ ok: false, msg: 'Erro ao processar login' });
+                }
+                res.json({ ok: true, msg: 'Login realizado com sucesso!' });
+            });
+            return;
         }
 
         res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
