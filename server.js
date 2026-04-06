@@ -157,16 +157,30 @@ const superadminAuth = (req, res, next) => {
     <div class="container">
         <div class="icon">🔒</div>
         <h1>Acesso Restrito</h1>
-        <p>Apenas administradores SUPERADMIN podem acessar essa área.</p>
+        <p><strong>Você não tem permissão para acessar essa área.</strong></p>
 
         <div class="warning">
-            ⚠️ Essa ação foi registrada no histórico de auditoria
+            ⚠️ <strong>Atenção:</strong> Esta tentativa de acesso foi registrada no histórico de auditoria para fins de segurança.
+        </div>
+
+        <div style="background:#eef2f7;border-left:4px solid #3498db;padding:15px;border-radius:8px;margin-bottom:20px;text-align:left;color:#333;">
+            <strong>Recurso Acessado:</strong><br>
+            Painel de Gerencimento de Administradores (SUPERADMIN ONLY)
         </div>
 
         <div class="role-info">
             <strong>Seu Perfil:</strong>
             <span>${user}</span>
-            <small style="color: #999; display: block; margin-top: 5px;">Role: ${role}</small>
+            <small style="color: #999; display: block; margin-top: 5px;"><strong>Nível de Acesso:</strong> ${role === 'superadmin' ? '⭐ SUPERADMIN' : '👤 ADMIN REGULAR'}</small>
+        </div>
+
+        <div style="background:#e8f4f8;padding:15px;border-radius:8px;margin-bottom:20px;text-align:left;border-left:4px solid #3498db;color:#333;font-size:14px;">
+            <strong>Informações:</strong>
+            <ul style="margin:10px 0 0 20px;">
+                <li>Apenas SUPERADMIN pode gerenciar contas de admin</li>
+                <li>Se você deveria ter acesso, contate o administrador</li>
+                <li>Use o Dashboard para suas outras funções</li>
+            </ul>
         </div>
 
         <div class="buttons">
