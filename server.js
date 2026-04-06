@@ -5270,20 +5270,76 @@ app.get('/admin-gerenciar', superadminAuth, (req, res) => {
         .msg { padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
         .msg.sucesso { background: #dcfce7; color: #166534; border: 1px solid #2ecc71; }
         .msg.erro { background: #fee2e2; color: #991b1b; border: 1px solid #e74c3c; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
+        .tab-btn { background: none; border: none; padding: 12px 20px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .tab-btn.active { color: #1e3c72; border-bottom-color: #1e3c72; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Auditoria */
+        .audit-filters { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .audit-filters input, .audit-filters select { padding: 10px; border: 2px solid #ddd; border-radius: 8px; }
+        .audit-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .audit-table th { background: #1e3c72; color: white; padding: 15px; text-align: left; font-weight: bold; }
+        .audit-table td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+        .audit-table tbody tr:hover { background: #f5f5f5; }
+        .audit-acao { font-weight: bold; color: #1e3c72; }
+        .audit-data { color: #999; font-size: 0.9rem; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>👨‍💼 Gerenciar Admins</h1>
-            <p>Crie, edite e delete contas de administrador</p>
-            <button class="btn-novo" onclick="abrirModalCriar()">➕ Novo Admin</button>
-            <a href="/admin-azul" style="text-decoration: none;"><button class="btn-voltar" style="margin-left: 10px;">← Voltar ao Dashboard</button></a>
+            <h1>👨‍💼 Gerenciar Admins & Auditoria</h1>
+            <p>Gerencie contas de administrador e visualize histórico de ações</p>
+            <a href="/admin-azul" style="text-decoration: none;"><button class="btn-voltar">← Voltar ao Dashboard</button></a>
             <div class="msg" id="msg"></div>
         </div>
 
-        <div class="admins-grid" id="admins-container">
-            <p style="color: white; text-align: center; width: 100%;">Carregando admins...</p>
+        <!-- Tabs -->
+        <div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="mudarTab('admins')">👥 Gerenciar Admins</button>
+                <button class="tab-btn" onclick="mudarTab('auditoria')">📋 Histórico de Auditoria</button>
+            </div>
+
+            <!-- Tab: Admins -->
+            <div class="tab-content active" id="tab-admins">
+                <button class="btn-novo" onclick="abrirModalCriar()">➕ Novo Admin</button>
+                <div class="admins-grid" id="admins-container">
+                    <p style="color: #666; text-align: center; width: 100%;">Carregando admins...</p>
+                </div>
+            </div>
+
+            <!-- Tab: Auditoria -->
+            <div class="tab-content" id="tab-auditoria">
+                <div class="audit-filters">
+                    <input type="text" id="auditFiltro" placeholder="🔍 Filtrar por nome, CPF, admin..." style="flex: 1; min-width: 200px;">
+                    <select id="auditDias" style="min-width: 150px;">
+                        <option value="7">Últimos 7 dias</option>
+                        <option value="30">Últimos 30 dias</option>
+                        <option value="90">Últimos 90 dias</option>
+                        <option value="365">Último ano</option>
+                    </select>
+                    <button class="btn-confirmar" onclick="carregarAuditoria()">Carregar</button>
+                </div>
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Data/Hora</th>
+                            <th>Admin</th>
+                            <th>Ação</th>
+                            <th>Descrição</th>
+                            <th>Cliente</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-container">
+                        <tr><td colspan="5" style="text-align: center; color: #999;">Clique em "Carregar" para ver o histórico</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -5326,6 +5382,16 @@ app.get('/admin-gerenciar', superadminAuth, (req, res) => {
 
     <script>
         let adminAtual = null;
+
+        function mudarTab(tab) {
+            // Ocultar todos os conteúdos
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            // Mostrar abas selecionada
+            document.getElementById('tab-' + tab).classList.add('active');
+            event.target.classList.add('active');
+        }
 
         function fecharModal(id) {
             document.getElementById(id).style.display = 'none';
@@ -5488,6 +5554,41 @@ app.get('/admin-gerenciar', superadminAuth, (req, res) => {
         }
 
         carregarAdmins();
+
+        async function carregarAuditoria() {
+            try {
+                const filtro = document.getElementById('auditFiltro').value;
+                const dias = document.getElementById('auditDias').value;
+
+                const url = new URL('/api/admin/auditoria', window.location.origin);
+                url.searchParams.append('dias', dias);
+                if (filtro) url.searchParams.append('filtro', filtro);
+
+                const resp = await fetch(url);
+                const json = await resp.json();
+
+                if (json.ok && json.logs.length > 0) {
+                    const tbody = document.getElementById('audit-container');
+                    tbody.innerHTML = json.logs.map(log => {
+                        const data = new Date(log.criado_em).toLocaleString('pt-BR');
+                        return \`
+                            <tr>
+                                <td class="audit-data">\${data}</td>
+                                <td><strong>\${log.admin_nome || 'N/A'}</strong></td>
+                                <td class="audit-acao">\${log.acao || 'N/A'}</td>
+                                <td>\${log.descricao || 'N/A'}</td>
+                                <td>\${log.cliente_nome ? log.cliente_nome + ' (' + log.cliente_cpf + ')' : 'N/A'}</td>
+                            </tr>
+                        \`;
+                    }).join('');
+                } else {
+                    document.getElementById('audit-container').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Nenhum registro encontrado</td></tr>';
+                }
+            } catch (e) {
+                console.error('Erro ao carregar auditoria:', e);
+                document.getElementById('audit-container').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #e74c3c;">Erro ao carregar auditoria</td></tr>';
+            }
+        }
     </script>
 </body>
 </html>
