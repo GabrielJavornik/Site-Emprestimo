@@ -36,10 +36,7 @@ const superadminAuth = (req, res, next) => {
     }
 
     if (!isLogged) {
-        console.warn(`⚠️ Acesso negado (não autenticado) para ${req.path}`);
         return res.redirect('/admin-login');
-    } else {
-        console.warn(`⚠️ Acesso negado para ${user} (role=${role}) para ${req.path}`);
     }
 
     // Se for requisição JSON API, retornar JSON
