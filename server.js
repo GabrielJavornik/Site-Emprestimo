@@ -27,9 +27,20 @@ const adminAuth = (req, res, next) => {
 
 // Middleware para verificar se é SUPERADMIN
 const superadminAuth = (req, res, next) => {
-    if (req.session.adminLogado && req.session.adminRole === 'superadmin') {
+    const isLogged = req.session?.adminLogado;
+    const role = req.session?.adminRole;
+    const user = req.session?.adminUser;
+
+    if (isLogged && role === 'superadmin') {
         return next();
     }
+
+    if (!isLogged) {
+        console.warn(`⚠️ Acesso negado (não autenticado) para ${req.path}`);
+    } else {
+        console.warn(`⚠️ Acesso negado para ${user} (role=${role}) para ${req.path}`);
+    }
+
     return res.status(403).json({ ok: false, msg: 'Acesso restrito a superadmin apenas' });
 };
 
@@ -1155,7 +1166,8 @@ app.post('/admin-login', async (req, res) => {
         req.session.adminId = admin.id;
         req.session.adminRole = admin.role || 'admin';
 
-        console.log(`✅ Admin ${user} (ID: ${admin.id}, Role: ${admin.role}) fez login`);
+        console.log(`✅ Admin ${user} (ID: ${admin.id}, Role: ${admin.role || 'admin'}) fez login`);
+        console.log(`   Session AdminRole: ${req.session.adminRole}`);
         res.json({ ok: true, msg: 'Login realizado com sucesso!' });
     } catch (err) {
         console.error('❌ Erro ao fazer login:', err);
@@ -5755,16 +5767,17 @@ app.get('/api/admin/auditoria', superadminAuth, async (req, res) => {
         const { filtro, dias } = req.query;
         const diasAtras = parseInt(dias) || 7; // Padrão: últimos 7 dias
 
+        // Construir query com string segura (parametrizada)
         let query = `
             SELECT id, admin_nome, acao, descricao, simulacao_id, cliente_cpf, cliente_nome, valor_envolvido, criado_em
             FROM AUDITORIA
-            WHERE criado_em >= NOW() - INTERVAL '${diasAtras} days'
+            WHERE criado_em >= NOW() - INTERVAL '1 day' * $1
         `;
-        let params = [];
+        let params = [diasAtras];
 
         // Se filtrar por CPF do cliente
         if (filtro) {
-            query += ` AND (cliente_cpf LIKE $1 OR cliente_nome ILIKE $1 OR admin_nome ILIKE $1)`;
+            query += ` AND (cliente_cpf ILIKE $2 OR cliente_nome ILIKE $2 OR admin_nome ILIKE $2)`;
             params.push(`%${filtro}%`);
         }
 
@@ -5773,8 +5786,8 @@ app.get('/api/admin/auditoria', superadminAuth, async (req, res) => {
         const result = await pool.query(query, params);
         res.json({ ok: true, logs: result.rows });
     } catch (err) {
-        console.error('❌ Erro ao listar auditoria:', err);
-        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria' });
+        console.error('❌ Erro ao listar auditoria:', err.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria: ' + err.message });
     }
 });
 
@@ -5788,12 +5801,12 @@ app.get('/api/admin/auditoria-admin/:adminId', superadminAuth, async (req, res) 
             WHERE admin_id = $1
             ORDER BY criado_em DESC
             LIMIT 500
-        `, [adminId]);
+        `, [parseInt(adminId)]);
 
         res.json({ ok: true, logs: result.rows });
     } catch (err) {
-        console.error('❌ Erro ao listar auditoria de admin:', err);
-        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria' });
+        console.error('❌ Erro ao listar auditoria de admin:', err.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria: ' + err.message });
     }
 });
 
@@ -5811,23 +5824,54 @@ app.get('/api/admin/auditoria-cliente/:cpf', superadminAuth, async (req, res) =>
 
         res.json({ ok: true, logs: result.rows });
     } catch (err) {
-        console.error('❌ Erro ao listar auditoria de cliente:', err);
-        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria' });
+        console.error('❌ Erro ao listar auditoria de cliente:', err.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria: ' + err.message });
     }
 });
 
 // Executar migrações do banco antes de iniciar
 (async () => {
     try {
-        // Garantir que coluna 'role' existe na tabela ADMINS
+        // 1. Garantir que tabela AUDITORIA existe
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS AUDITORIA (
+                id SERIAL PRIMARY KEY,
+                admin_id INT NOT NULL,
+                admin_nome VARCHAR(50),
+                acao VARCHAR(100) NOT NULL,
+                descricao TEXT,
+                simulacao_id INT,
+                cliente_cpf VARCHAR(11),
+                cliente_nome VARCHAR(150),
+                valor_envolvido DECIMAL(10, 2),
+                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (admin_id) REFERENCES ADMINS(id) ON DELETE CASCADE
+            );
+        `);
+
+        // 2. Garantir que índices existem
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_auditoria_admin_id ON AUDITORIA(admin_id);
+            CREATE INDEX IF NOT EXISTS idx_auditoria_simulacao_id ON AUDITORIA(simulacao_id);
+            CREATE INDEX IF NOT EXISTS idx_auditoria_criado_em ON AUDITORIA(criado_em);
+        `).catch(() => {}); // Ignorar erros de índices que já existem
+
+        // 3. Garantir que coluna 'role' existe na tabela ADMINS
         await pool.query(`
             ALTER TABLE ADMINS ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'admin'
         `);
 
-        // Atualizar qualquer admin existente que não tenha role (especialmente o 'admin' padrão)
-        await pool.query(`
-            UPDATE ADMINS SET role = 'superadmin' WHERE usuario = 'admin' AND role IS NULL
+        // 4. Atualizar admin padrão para superadmin
+        const updateResult = await pool.query(`
+            UPDATE ADMINS SET role = 'superadmin' WHERE usuario = 'admin'
         `);
+        console.log(`✅ [MIGRATION] Admin padrão atualizado para superadmin (${updateResult.rowCount} linha(s))`);
+
+        // 5. Verificar o estado
+        const checkResult = await pool.query('SELECT usuario, role FROM ADMINS WHERE usuario = \'admin\'');
+        if (checkResult.rows.length > 0) {
+            console.log(`✅ [MIGRATION] Verificação: admin user tem role = '${checkResult.rows[0].role}'`);
+        }
 
         console.log('✅ [MIGRATION] Schema atualizado com sucesso');
     } catch (err) {
