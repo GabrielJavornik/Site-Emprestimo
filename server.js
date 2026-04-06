@@ -3451,7 +3451,10 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         </div>
                         <small style="color:#666;display:block;margin-top:5px;">*Digite em decimal (ex: 0.05 = 5%, 0.10 = 10%)</small>
                     </div>
-                    <button onclick="alterarTaxaJuros()" style="background:#27ae60;padding:10px 30px;height:fit-content;margin-top:20px;font-weight:bold;">✅ Salvar Taxa</button>
+                    <button onclick="alterarTaxaJuros()" style="background:#27ae60;padding:10px 30px;height:fit-content;margin-top:20px;font-weight:bold;cursor:pointer;">✅ Salvar Taxa</button>
+                </div>
+                <div id="aviso-permissao-taxa" style="margin-top:15px;padding:12px;background:#fee2e2;border-left:4px solid #e74c3c;border-radius:6px;color:#991b1b;display:none;">
+                    🔒 <strong>Acesso restrito</strong> - Apenas superadmin pode alterar a taxa de juros. Essa ação foi registrada na auditoria.
                 </div>
             </div>
 
@@ -3845,9 +3848,11 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 const input=document.getElementById('taxa-juros-input');
                 const taxa=parseFloat(input.value);
                 const resultado=document.getElementById('resultado-taxa');
+                const avisoPermissao=document.getElementById('aviso-permissao-taxa');
 
                 if(isNaN(taxa) || taxa<0 || taxa>1){
                     resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Taxa deve estar entre 0 e 1</p>';
+                    avisoPermissao.style.display='none';
                     return;
                 }
 
@@ -3862,14 +3867,22 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     if(data.ok){
                         document.getElementById('taxa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
                         resultado.innerHTML='<p style="color:#27ae60;font-weight:bold;">✅ Taxa alterada com sucesso!</p>';
+                        avisoPermissao.style.display='none';
                         setTimeout(()=>{resultado.innerHTML=''},3000);
                         console.log('✅ Taxa de juros alterada para:',(taxa*100)+'%');
                     }else{
-                        resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ '+data.msg+'</p>';
+                        if(data.msg.includes('superadmin') || data.msg.includes('restrito')){
+                            avisoPermissao.style.display='block';
+                            resultado.innerHTML='';
+                        }else{
+                            resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ '+data.msg+'</p>';
+                            avisoPermissao.style.display='none';
+                        }
                     }
                 }catch(err){
                     console.error('Erro:',err);
                     resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Erro ao alterar taxa</p>';
+                    avisoPermissao.style.display='none';
                 }
             }
 
@@ -4710,7 +4723,7 @@ app.get('/api/config/taxa-juros', async (req, res) => {
 });
 
 // --- ALTERAR TAXA DE JUROS (ADMIN) ---
-app.post('/api/admin/config/taxa-juros', adminAuth, async (req, res) => {
+app.post('/api/admin/config/taxa-juros', superadminAuth, async (req, res) => {
     try {
         const { taxa } = req.body;
         const taxaNum = parseFloat(taxa);
@@ -4723,6 +4736,14 @@ app.post('/api/admin/config/taxa-juros', adminAuth, async (req, res) => {
             'UPDATE CONFIGURACOES SET valor = $1, atualizado_em = CURRENT_TIMESTAMP WHERE chave = $2',
             [taxaNum.toString(), 'TAXA_JUROS']
         );
+
+        // Registrar ação na auditoria
+        registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            'Alterar taxa de juros',
+            `Alterou taxa de juros para ${(taxaNum * 100).toFixed(2)}%`
+        ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
 
         console.log('✅ Taxa de juros alterada para:', (taxaNum * 100) + '%');
         res.json({ ok: true, msg: 'Taxa de juros alterada com sucesso', taxa: taxaNum });
