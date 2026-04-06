@@ -1136,7 +1136,7 @@ app.post('/admin-login', async (req, res) => {
         const { user, pass } = req.body;
 
         // Buscar admin na tabela ADMINS
-        const adminResult = await pool.query('SELECT id, usuario, senha, role FROM ADMINS WHERE usuario = $1', [user]);
+        const adminResult = await pool.query('SELECT id, usuario, senha, COALESCE(role, \'admin\') as role FROM ADMINS WHERE usuario = $1', [user]);
 
         if (adminResult.rows.length === 0) {
             return res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
@@ -5816,4 +5816,23 @@ app.get('/api/admin/auditoria-cliente/:cpf', superadminAuth, async (req, res) =>
     }
 });
 
-app.listen(PORT, () => { console.log('🚀 Servidor AzulCrédito ON: http://localhost:' + PORT); });
+// Executar migrações do banco antes de iniciar
+(async () => {
+    try {
+        // Garantir que coluna 'role' existe na tabela ADMINS
+        await pool.query(`
+            ALTER TABLE ADMINS ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'admin'
+        `);
+
+        // Atualizar qualquer admin existente que não tenha role (especialmente o 'admin' padrão)
+        await pool.query(`
+            UPDATE ADMINS SET role = 'superadmin' WHERE usuario = 'admin' AND role IS NULL
+        `);
+
+        console.log('✅ [MIGRATION] Schema atualizado com sucesso');
+    } catch (err) {
+        console.error('⚠️ [MIGRATION] Erro ao atualizar schema:', err.message);
+    }
+
+    app.listen(PORT, () => { console.log('🚀 Servidor AzulCrédito ON: http://localhost:' + PORT); });
+})();
