@@ -3856,13 +3856,22 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
             // Alterar taxa de juros
             async function alterarTaxaJuros(){
+                const isSuperadmin = document.body.dataset.adminRole === 'superadmin';
                 const input=document.getElementById('taxa-juros-input');
                 const taxa=parseFloat(input.value);
                 const resultado=document.getElementById('resultado-taxa');
                 const avisoPermissao=document.getElementById('aviso-permissao-taxa');
 
+                // Verificação dupla de segurança - frontend
+                if(!isSuperadmin){
+                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;padding:15px;background:#fee2e2;border-radius:8px;border-left:4px solid #e74c3c;">🔒 ACESSO NEGADO - Você não tem permissão para alterar a taxa de juros. Apenas SUPERADMIN pode fazer isso. Esta tentativa foi registrada.</p>';
+                    avisoPermissao.style.display='block';
+                    input.disabled=true;
+                    return;
+                }
+
                 if(isNaN(taxa) || taxa<0 || taxa>1){
-                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Taxa deve estar entre 0 e 1</p>';
+                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Taxa deve estar entre 0 e 1 (ex: 0.05 = 5%)</p>';
                     avisoPermissao.style.display='none';
                     return;
                 }
@@ -3871,29 +3880,34 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     const resp=await fetch('/api/admin/config/taxa-juros',{
                         method:'POST',
                         headers:{'Content-Type':'application/json'},
-                        body:JSON.stringify({taxa:taxa})
+                        body:JSON.stringify({taxa:taxa}),
+                        credentials: 'include'
                     });
-                    const data=await resp.json();
 
-                    if(data.ok){
-                        document.getElementById('taxa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
-                        resultado.innerHTML='<p style="color:#27ae60;font-weight:bold;">✅ Taxa alterada com sucesso!</p>';
-                        avisoPermissao.style.display='none';
-                        setTimeout(()=>{resultado.innerHTML=''},3000);
-                        console.log('✅ Taxa de juros alterada para:',(taxa*100)+'%');
-                    }else{
-                        if(data.msg.includes('superadmin') || data.msg.includes('restrito')){
-                            avisoPermissao.style.display='block';
-                            resultado.innerHTML='';
-                        }else{
-                            resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ '+data.msg+'</p>';
-                            avisoPermissao.style.display='none';
-                        }
+                    const contentType = resp.headers.get('content-type');
+                    let data = null;
+
+                    try {
+                        data = await resp.json();
+                    } catch(e) {
+                        resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Erro na resposta do servidor. Contate o administrador.</p>';
+                        return;
                     }
-                }catch(err){
-                    console.error('Erro:',err);
-                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Erro ao alterar taxa</p>';
+
+                    if(!resp.ok || !data.ok){
+                        resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;padding:15px;background:#fee2e2;border-radius:8px;">🔒 '+data.msg+'</p>';
+                        avisoPermissao.style.display='block';
+                        return;
+                    }
+
+                    // Sucesso
+                    document.getElementById('taxa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
+                    resultado.innerHTML='<p style="color:#27ae60;font-weight:bold;padding:15px;background:#dcfce7;border-radius:8px;border-left:4px solid #27ae60;">✅ Taxa alterada com sucesso para '+( taxa*100).toFixed(2)+'%!</p>';
                     avisoPermissao.style.display='none';
+                    setTimeout(()=>{resultado.innerHTML=''},3000);
+                }catch(err){
+                    console.error('Erro:', err);
+                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Erro ao comunicar com servidor. Tente novamente.</p>';
                 }
             }
 
@@ -3912,17 +3926,21 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 const btn = document.getElementById('btn-salvar-taxa');
                 const aviso = document.getElementById('aviso-permissao-taxa');
                 const bloco = document.getElementById('bloco-taxa-juros');
+                const resultado = document.getElementById('resultado-taxa');
 
                 if (!isSuperadmin) {
                     input.disabled = true;
                     input.style.opacity = '0.5';
                     input.style.cursor = 'not-allowed';
                     btn.disabled = true;
+                    btn.onclick = (e) => { e.preventDefault(); return false; };
                     btn.style.opacity = '0.5';
                     btn.style.cursor = 'not-allowed';
                     btn.style.background = '#95a5a6';
+                    btn.style.pointerEvents = 'none';
                     aviso.style.display = 'block';
                     bloco.style.opacity = '0.7';
+                    resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;">🔒 Você não tem permissão para alterar a taxa de juros. Apenas SUPERADMIN pode fazer isso.</p>';
                 }
             }
 
