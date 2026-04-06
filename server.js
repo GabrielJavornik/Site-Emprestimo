@@ -37,11 +37,149 @@ const superadminAuth = (req, res, next) => {
 
     if (!isLogged) {
         console.warn(`⚠️ Acesso negado (não autenticado) para ${req.path}`);
+        return res.redirect('/admin-login');
     } else {
         console.warn(`⚠️ Acesso negado para ${user} (role=${role}) para ${req.path}`);
     }
 
-    return res.status(403).json({ ok: false, msg: 'Acesso restrito a superadmin apenas' });
+    // Se for requisição JSON API, retornar JSON
+    if (req.path.startsWith('/api/')) {
+        return res.status(403).json({ ok: false, msg: 'Acesso restrito a superadmin apenas' });
+    }
+
+    // Se for requisição de página HTML, retornar página de erro bonita
+    return res.status(403).send(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Restrito - AzulCrédito</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+        h1 {
+            color: #e74c3c;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+        p {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .role-info {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: left;
+            border-left: 4px solid #e74c3c;
+        }
+        .role-info strong {
+            color: #1e3c72;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .role-info span {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-voltar {
+            background: #95a5a6;
+            color: white;
+        }
+        .btn-voltar:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-logout:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔒</div>
+        <h1>Acesso Restrito</h1>
+        <p>Apenas administradores SUPERADMIN podem acessar essa área.</p>
+
+        <div class="warning">
+            ⚠️ Essa ação foi registrada no histórico de auditoria
+        </div>
+
+        <div class="role-info">
+            <strong>Seu Perfil:</strong>
+            <span>${user}</span>
+            <small style="color: #999; display: block; margin-top: 5px;">Role: ${role}</small>
+        </div>
+
+        <div class="buttons">
+            <a href="/admin-azul" class="btn btn-voltar">← Voltar ao Dashboard</a>
+            <a href="/admin-logout" class="btn btn-logout">🚪 Sair</a>
+        </div>
+    </div>
+</body>
+</html>
+    `);
 };
 
 // Credenciais admin agora vêm da tabela ADMINS (veja endpoints de gerenciar admins)
