@@ -44,6 +44,40 @@ CREATE INDEX idx_usuarios_email ON USUARIOS(email);
 CREATE INDEX idx_simulacoes_cpf ON SIMULACOES(cpf);
 CREATE INDEX idx_simulacoes_status ON SIMULACOES(status);
 CREATE INDEX idx_pagamentos_simulacao_id ON PAGAMENTOS(simulacao_id);
+
+-- Tabela de Administradores com controle de permissões
+DROP TABLE IF EXISTS ADMINS CASCADE;
+CREATE TABLE ADMINS (
+    id SERIAL PRIMARY KEY,
+    usuario VARCHAR(50) UNIQUE NOT NULL,
+    senha VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'admin', -- 'superadmin' ou 'admin'
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de Auditoria (histórico de ações dos admins)
+DROP TABLE IF EXISTS AUDITORIA CASCADE;
+CREATE TABLE AUDITORIA (
+    id SERIAL PRIMARY KEY,
+    admin_id INT NOT NULL,
+    admin_nome VARCHAR(50),
+    acao VARCHAR(100) NOT NULL, -- ex: 'Aprovou empréstimo', 'Registrou pagamento', 'Criou admin'
+    descricao TEXT, -- detalhes da ação
+    simulacao_id INT, -- referência ao empréstimo (se aplicável)
+    cliente_cpf VARCHAR(11), -- CPF do cliente afetado (se aplicável)
+    cliente_nome VARCHAR(150), -- nome do cliente (se aplicável)
+    valor_envolvido DECIMAL(10, 2), -- valor relacionado (se aplicável)
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES ADMINS(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_auditoria_admin_id ON AUDITORIA(admin_id);
+CREATE INDEX idx_auditoria_simulacao_id ON AUDITORIA(simulacao_id);
+CREATE INDEX idx_auditoria_criado_em ON AUDITORIA(criado_em);
+
+-- Inserir admin padrão (superadmin)
+INSERT INTO ADMINS (usuario, senha, role) VALUES ('admin', 'Azul2026', 'superadmin') ON CONFLICT (usuario) DO NOTHING;
+
 INSERT INTO USUARIOS (
         nome,
         cpf,
