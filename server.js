@@ -25,6 +25,14 @@ const adminAuth = (req, res, next) => {
     return res.redirect('/admin-login');
 };
 
+// Middleware para verificar se é SUPERADMIN
+const superadminAuth = (req, res, next) => {
+    if (req.session.adminLogado && req.session.adminRole === 'superadmin') {
+        return next();
+    }
+    return res.status(403).json({ ok: false, msg: 'Acesso restrito a superadmin apenas' });
+};
+
 // Credenciais admin agora vêm da tabela ADMINS (veja endpoints de gerenciar admins)
 
 /// --- 2. CONFIGURAÇÃO DO EMAIL (Gmail/Nodemailer) ---
@@ -849,6 +857,22 @@ async function calcularScore(cpf) {
     }
 }
 
+/**
+ * FUNÇÃO DE AUDITORIA - Registra todas as ações importantes dos admins
+ */
+async function registrarAuditoria(adminId, adminNome, acao, descricao, simulacaoId = null, clienteCpf = null, clienteNome = null, valorEnvolvido = null) {
+    try {
+        await pool.query(`
+            INSERT INTO AUDITORIA (admin_id, admin_nome, acao, descricao, simulacao_id, cliente_cpf, cliente_nome, valor_envolvido, criado_em)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        `, [adminId, adminNome, acao, descricao, simulacaoId, clienteCpf, clienteNome, valorEnvolvido]);
+
+        console.log(`📋 [AUDITORIA] ${adminNome} - ${acao}`);
+    } catch (err) {
+        console.error('❌ Erro ao registrar auditoria:', err.message);
+    }
+}
+
 app.get('/ver-arquivo/:nome', adminAuth, (req, res) => {
     const caminho = path.join(__dirname, 'uploads', req.params.nome);
     if (fs.existsSync(caminho)) res.sendFile(caminho);
@@ -1112,7 +1136,7 @@ app.post('/admin-login', async (req, res) => {
         const { user, pass } = req.body;
 
         // Buscar admin na tabela ADMINS
-        const adminResult = await pool.query('SELECT id, usuario, senha FROM ADMINS WHERE usuario = $1', [user]);
+        const adminResult = await pool.query('SELECT id, usuario, senha, role FROM ADMINS WHERE usuario = $1', [user]);
 
         if (adminResult.rows.length === 0) {
             return res.json({ ok: false, msg: 'Usuário ou senha incorretos.' });
@@ -1129,8 +1153,9 @@ app.post('/admin-login', async (req, res) => {
         req.session.adminLogado = true;
         req.session.adminUser = admin.usuario;
         req.session.adminId = admin.id;
+        req.session.adminRole = admin.role || 'admin';
 
-        console.log(`✅ Admin ${user} (ID: ${admin.id}) fez login`);
+        console.log(`✅ Admin ${user} (ID: ${admin.id}, Role: ${admin.role}) fez login`);
         res.json({ ok: true, msg: 'Login realizado com sucesso!' });
     } catch (err) {
         console.error('❌ Erro ao fazer login:', err);
@@ -3866,7 +3891,7 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
     const { id, status } = req.body;
     try {
         console.log('📋 Atualizando status da simulação:', { id, status });
-        const cli = await pool.query('SELECT nome, email, cpf FROM SIMULACOES WHERE ID = $1', [id]);
+        const cli = await pool.query('SELECT nome, email, cpf, valor FROM SIMULACOES WHERE ID = $1', [id]);
 
         // Se status é 'PAGO', salvar data de aprovação para cálculo de vencimentos
         if (status === 'PAGO') {
@@ -3875,25 +3900,53 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
             await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE ID = $2', [status, id]);
         }
 
-        console.log('✅ Status atualizado. Email:', cli.rows[0].email);
+        const cliente = cli.rows[0];
+        console.log('✅ Status atualizado. Email:', cliente.email);
+
+        // Registrar ação na auditoria
+        let acaoAuditoria = '';
+        let descricaoAuditoria = '';
+        if (status === 'PAGO') {
+            acaoAuditoria = 'Aprovar empréstimo';
+            descricaoAuditoria = `Aprovou empréstimo de ${cliente.nome}`;
+        } else if (status === 'REPROVADO') {
+            acaoAuditoria = 'Reprovar empréstimo';
+            descricaoAuditoria = `Reprovou empréstimo de ${cliente.nome}`;
+        } else if (status === 'QUITADO') {
+            acaoAuditoria = 'Quitar empréstimo';
+            descricaoAuditoria = `Marcou como quitado empréstimo de ${cliente.nome}`;
+        }
+
+        if (acaoAuditoria) {
+            registrarAuditoria(
+                req.session.adminId,
+                req.session.adminUser,
+                acaoAuditoria,
+                descricaoAuditoria,
+                id,
+                cliente.cpf,
+                cliente.nome,
+                cliente.valor
+            ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
+        }
 
         // Enviar e-mails com blindagem: não causa erro 500 se falhar
-        if (cli.rows[0].email) {
+        if (cliente.email) {
             if (status === 'PAGO') {
                 console.log('📧 Enviando email de APROVAÇÃO...');
-                enviarEmailAprovado(cli.rows[0].email, cli.rows[0].nome).catch(err => {
+                enviarEmailAprovado(cliente.email, cliente.nome).catch(err => {
                     console.error('⚠️ Email de aprovação falhou:', err.message);
                 });
             }
             if (status === 'REPROVADO') {
                 console.log('📧 Enviando email de REPROVAÇÃO...');
-                enviarEmailReprovado(cli.rows[0].email, cli.rows[0].nome).catch(err => {
+                enviarEmailReprovado(cliente.email, cliente.nome).catch(err => {
                     console.error('⚠️ Email de reprovação falhou:', err.message);
                 });
             }
             if (status === 'QUITADO') {
                 console.log('📧 Enviando email de QUITAÇÃO...');
-                enviarEmailQuitado(cli.rows[0].email, cli.rows[0].nome).catch(err => {
+                enviarEmailQuitado(cliente.email, cliente.nome).catch(err => {
                     console.error('⚠️ Email de quitação falhou:', err.message);
                 });
             }
@@ -3903,7 +3956,7 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
 
         // Recalcular score se status mudou para PAGO ou QUITADO
         if ((status === 'PAGO' || status === 'QUITADO') && cli.rows.length > 0) {
-            calcularScore(cli.rows[0].cpf).catch(err => {
+            calcularScore(cliente.cpf).catch(err => {
                 console.error('⚠️ Erro ao recalcular score após atualização de status:', err.message);
             });
         }
@@ -3955,6 +4008,18 @@ app.post('/registrar-pagamento', adminAuth, async (req, res) => {
 
         console.log('💰 Pagamento registrado:', { simulacao_id, valor: valorPagamento });
 
+        // Registrar ação na auditoria
+        registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            'Registrar pagamento',
+            `Registrou pagamento de R$ ${valorPagamento.toFixed(2)} para ${sim.nome}`,
+            simulacao_id,
+            sim.cpf,
+            sim.nome,
+            valorPagamento
+        ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
+
         const valorMensal = totalDivida / parseInt(sim.parcelas);
         const parcelasRestantes = Math.ceil((totalDivida - totalPagoApos) / valorMensal);
 
@@ -3962,6 +4027,18 @@ app.post('/registrar-pagamento', adminAuth, async (req, res) => {
         if (totalPagoApos >= totalDivida) {
             await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE id = $2', ['QUITADO', simulacao_id]);
             console.log('✅ Proposta marcada como QUITADA automaticamente:', simulacao_id);
+
+            // Registrar quitação automática na auditoria
+            registrarAuditoria(
+                req.session.adminId,
+                req.session.adminUser,
+                'Quitar empréstimo',
+                `Empréstimo de ${sim.nome} foi quitado automaticamente após pagamento total`,
+                simulacao_id,
+                sim.cpf,
+                sim.nome,
+                totalDivida
+            ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
 
             // Enviar email de parabéns
             enviarEmailQuitado(sim.email, sim.nome).catch(err => {
@@ -4591,14 +4668,21 @@ app.post('/api/admin/bloquear-cliente', adminAuth, async (req, res) => {
 
         if (!cpf || !tipo) return res.status(400).json({ ok: false, msg: 'CPF e tipo de bloqueio não fornecidos' });
 
+        // Buscar dados do cliente
+        const clienteResult = await pool.query('SELECT nome FROM USUARIOS WHERE cpf = $1', [cpf]);
+        const clienteNome = clienteResult.rows[0]?.nome || 'desconhecido';
+
         let coluna = '';
         let mensagem = '';
+        let acaoAuditoria = '';
 
         if (tipo === 'login') {
             coluna = 'bloqueado_login';
+            acaoAuditoria = bloqueado ? 'Bloquear login' : 'Desbloquear login';
             mensagem = bloqueado ? 'acesso à conta bloqueado' : 'acesso à conta desbloqueado';
         } else if (tipo === 'emprestimo') {
             coluna = 'bloqueado_emprestimo';
+            acaoAuditoria = bloqueado ? 'Bloquear empréstimo' : 'Desbloquear empréstimo';
             mensagem = bloqueado ? 'solicitações de empréstimo bloqueadas' : 'solicitações de empréstimo desbloqueadas';
         } else {
             return res.status(400).json({ ok: false, msg: 'Tipo de bloqueio inválido (login ou emprestimo)' });
@@ -4608,6 +4692,17 @@ app.post('/api/admin/bloquear-cliente', adminAuth, async (req, res) => {
             `UPDATE USUARIOS SET ${coluna} = $1 WHERE cpf = $2`,
             [bloqueado === true, cpf]
         );
+
+        // Registrar ação na auditoria
+        registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            acaoAuditoria,
+            `${mensagem.charAt(0).toUpperCase() + mensagem.slice(1)} para cliente ${clienteNome}`,
+            null,
+            cpf,
+            clienteNome
+        ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
 
         console.log(`✅ Cliente ${cpf}: ${mensagem}`);
         res.json({ ok: true, msg: `✅ ${mensagem.charAt(0).toUpperCase() + mensagem.slice(1)}!` });
@@ -4689,8 +4784,8 @@ app.post('/api/admin/responder-renegociacao', adminAuth, async (req, res) => {
 
         const ren = renResult.rows[0];
 
-        // Buscar simulação
-        const simResult = await pool.query('SELECT id, total, valor_parcela, parcelas FROM SIMULACOES WHERE id = $1', [ren.simulacao_id]);
+        // Buscar simulação com dados do cliente
+        const simResult = await pool.query('SELECT s.id, s.total, s.valor_parcela, s.parcelas, s.nome, s.cpf FROM SIMULACOES s WHERE s.id = $1', [ren.simulacao_id]);
         if (simResult.rows.length === 0) {
             return res.status(404).json({ ok: false, msg: 'Simulação não encontrada' });
         }
@@ -4716,6 +4811,18 @@ app.post('/api/admin/responder-renegociacao', adminAuth, async (req, res) => {
                 ['APROVADA', renegociacao_id]
             );
 
+            // Registrar ação na auditoria
+            registrarAuditoria(
+                req.session.adminId,
+                req.session.adminUser,
+                'Aprovar renegociação',
+                `Aprovou renegociação de dívida de ${sim.nome}: novo prazo ${ren.novo_prazo}x, nova parcela R$ ${novaParcela}`,
+                ren.simulacao_id,
+                sim.cpf,
+                sim.nome,
+                parseFloat(novaParcela)
+            ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
+
             console.log(`✅ Renegociação aprovada: Simulação ${ren.simulacao_id}, novo prazo ${ren.novo_prazo}x, nova parcela R$ ${novaParcela}`);
             res.json({ ok: true, msg: '✅ Renegociação aprovada! Parcelas atualizadas.' });
         } else {
@@ -4724,6 +4831,17 @@ app.post('/api/admin/responder-renegociacao', adminAuth, async (req, res) => {
                 'UPDATE RENEGOCIACOES SET status = $1, respondido_em = NOW() WHERE id = $2',
                 ['REJEITADA', renegociacao_id]
             );
+
+            // Registrar ação na auditoria
+            registrarAuditoria(
+                req.session.adminId,
+                req.session.adminUser,
+                'Rejeitar renegociação',
+                `Rejeitou renegociação de dívida de ${sim.nome}`,
+                ren.simulacao_id,
+                sim.cpf,
+                sim.nome
+            ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
 
             console.log(`❌ Renegociação rejeitada: Simulação ${ren.simulacao_id}`);
             res.json({ ok: true, msg: '❌ Renegociação rejeitada.' });
@@ -5103,7 +5221,7 @@ app.post('/api/debug-pix', async (req, res) => {
 });
 
 // ===== PÁGINA DE GERENCIAR ADMINS =====
-app.get('/admin-gerenciar', adminAuth, (req, res) => {
+app.get('/admin-gerenciar', superadminAuth, (req, res) => {
     res.send(`
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -5378,8 +5496,8 @@ app.get('/admin-gerenciar', adminAuth, (req, res) => {
 
 // ===== ENDPOINTS PARA GERENCIAR ADMINS =====
 
-// Listar todos os admins
-app.get('/api/admin/listar-admins', adminAuth, async (req, res) => {
+// Listar todos os admins (APENAS SUPERADMIN)
+app.get('/api/admin/listar-admins', superadminAuth, async (req, res) => {
     try {
         const result = await pool.query('SELECT id, usuario, criado_em FROM ADMINS ORDER BY criado_em DESC');
         res.json({ ok: true, admins: result.rows });
@@ -5389,8 +5507,8 @@ app.get('/api/admin/listar-admins', adminAuth, async (req, res) => {
     }
 });
 
-// Criar novo admin
-app.post('/api/admin/criar-admin', adminAuth, async (req, res) => {
+// Criar novo admin (APENAS SUPERADMIN)
+app.post('/api/admin/criar-admin', superadminAuth, async (req, res) => {
     try {
         const { usuario, senha } = req.body;
 
@@ -5406,8 +5524,16 @@ app.post('/api/admin/criar-admin', adminAuth, async (req, res) => {
 
         // Inserir novo admin
         const result = await pool.query(
-            'INSERT INTO ADMINS (usuario, senha, criado_em) VALUES ($1, $2, NOW()) RETURNING id, usuario, criado_em',
-            [usuario, senha]
+            'INSERT INTO ADMINS (usuario, senha, role, criado_em) VALUES ($1, $2, $3, NOW()) RETURNING id, usuario, criado_em',
+            [usuario, senha, 'admin']
+        );
+
+        // Registrar ação na auditoria
+        await registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            'Criar novo admin',
+            `Criou conta de admin: ${usuario}`
         );
 
         console.log(`✅ Novo admin criado: ${usuario}`);
@@ -5418,8 +5544,8 @@ app.post('/api/admin/criar-admin', adminAuth, async (req, res) => {
     }
 });
 
-// Editar admin
-app.post('/api/admin/editar-admin/:id', adminAuth, async (req, res) => {
+// Editar admin (APENAS SUPERADMIN)
+app.post('/api/admin/editar-admin/:id', superadminAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { usuario } = req.body;
@@ -5434,8 +5560,21 @@ app.post('/api/admin/editar-admin/:id', adminAuth, async (req, res) => {
             return res.status(400).json({ ok: false, msg: 'Este usuário já existe' });
         }
 
+        // Buscar usuário antigo para auditoria
+        const adminAntigo = await pool.query('SELECT usuario FROM ADMINS WHERE id = $1', [id]);
+        const nomeAntigo = adminAntigo.rows[0]?.usuario || 'desconhecido';
+
         // Atualizar
         await pool.query('UPDATE ADMINS SET usuario = $1 WHERE id = $2', [usuario, id]);
+
+        // Registrar ação na auditoria
+        await registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            'Editar admin',
+            `Alterou username de ${nomeAntigo} para ${usuario}`
+        );
+
         console.log(`✅ Admin ${id} atualizado para: ${usuario}`);
         res.json({ ok: true, msg: 'Admin atualizado com sucesso!' });
     } catch (err) {
@@ -5444,8 +5583,8 @@ app.post('/api/admin/editar-admin/:id', adminAuth, async (req, res) => {
     }
 });
 
-// Alterar senha do admin
-app.post('/api/admin/alterar-senha/:id', adminAuth, async (req, res) => {
+// Alterar senha do admin (APENAS SUPERADMIN)
+app.post('/api/admin/alterar-senha/:id', superadminAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { novaSenha } = req.body;
@@ -5454,7 +5593,20 @@ app.post('/api/admin/alterar-senha/:id', adminAuth, async (req, res) => {
             return res.status(400).json({ ok: false, msg: 'Senha deve ter no mínimo 6 caracteres' });
         }
 
+        // Buscar nome do admin
+        const admin = await pool.query('SELECT usuario FROM ADMINS WHERE id = $1', [id]);
+        const nomeAdmin = admin.rows[0]?.usuario || 'desconhecido';
+
         await pool.query('UPDATE ADMINS SET senha = $1 WHERE id = $2', [novaSenha, id]);
+
+        // Registrar ação na auditoria
+        await registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            'Alterar senha de admin',
+            `Alterou senha do admin: ${nomeAdmin}`
+        );
+
         console.log(`✅ Senha do admin ${id} alterada`);
         res.json({ ok: true, msg: 'Senha alterada com sucesso!' });
     } catch (err) {
@@ -5463,8 +5615,8 @@ app.post('/api/admin/alterar-senha/:id', adminAuth, async (req, res) => {
     }
 });
 
-// Deletar admin (não deletar o admin logado)
-app.post('/api/admin/deletar-admin/:id', adminAuth, async (req, res) => {
+// Deletar admin (APENAS SUPERADMIN)
+app.post('/api/admin/deletar-admin/:id', superadminAuth, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -5472,12 +5624,94 @@ app.post('/api/admin/deletar-admin/:id', adminAuth, async (req, res) => {
             return res.status(400).json({ ok: false, msg: 'Você não pode deletar sua própria conta!' });
         }
 
+        // Buscar nome do admin antes de deletar
+        const admin = await pool.query('SELECT usuario FROM ADMINS WHERE id = $1', [id]);
+        const nomeAdmin = admin.rows[0]?.usuario || 'desconhecido';
+
         await pool.query('DELETE FROM ADMINS WHERE id = $1', [id]);
+
+        // Registrar ação na auditoria
+        await registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            'Deletar admin',
+            `Deletou conta do admin: ${nomeAdmin}`
+        );
+
         console.log(`✅ Admin ${id} deletado`);
         res.json({ ok: true, msg: 'Admin deletado com sucesso!' });
     } catch (err) {
         console.error('❌ Erro ao deletar admin:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao deletar admin' });
+    }
+});
+
+// ===== ENDPOINTS PARA VER HISTÓRICO DE AUDITORIA =====
+
+// GET /api/admin/auditoria (APENAS SUPERADMIN) - Lista todas as ações
+app.get('/api/admin/auditoria', superadminAuth, async (req, res) => {
+    try {
+        const { filtro, dias } = req.query;
+        const diasAtras = parseInt(dias) || 7; // Padrão: últimos 7 dias
+
+        let query = `
+            SELECT id, admin_nome, acao, descricao, simulacao_id, cliente_cpf, cliente_nome, valor_envolvido, criado_em
+            FROM AUDITORIA
+            WHERE criado_em >= NOW() - INTERVAL '${diasAtras} days'
+        `;
+        let params = [];
+
+        // Se filtrar por CPF do cliente
+        if (filtro) {
+            query += ` AND (cliente_cpf LIKE $1 OR cliente_nome ILIKE $1 OR admin_nome ILIKE $1)`;
+            params.push(`%${filtro}%`);
+        }
+
+        query += ` ORDER BY criado_em DESC LIMIT 500`;
+
+        const result = await pool.query(query, params);
+        res.json({ ok: true, logs: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao listar auditoria:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria' });
+    }
+});
+
+// GET /api/admin/auditoria-admin/:adminId (APENAS SUPERADMIN) - Ações de um admin específico
+app.get('/api/admin/auditoria-admin/:adminId', superadminAuth, async (req, res) => {
+    try {
+        const { adminId } = req.params;
+        const result = await pool.query(`
+            SELECT id, admin_nome, acao, descricao, simulacao_id, cliente_cpf, cliente_nome, valor_envolvido, criado_em
+            FROM AUDITORIA
+            WHERE admin_id = $1
+            ORDER BY criado_em DESC
+            LIMIT 500
+        `, [adminId]);
+
+        res.json({ ok: true, logs: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao listar auditoria de admin:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria' });
+    }
+});
+
+// GET /api/admin/auditoria-cliente/:cpf (APENAS SUPERADMIN) - Ações relacionadas a um cliente
+app.get('/api/admin/auditoria-cliente/:cpf', superadminAuth, async (req, res) => {
+    try {
+        const { cpf } = req.params;
+        const result = await pool.query(`
+            SELECT id, admin_nome, acao, descricao, simulacao_id, cliente_cpf, cliente_nome, valor_envolvido, criado_em
+            FROM AUDITORIA
+            WHERE cliente_cpf = $1
+            ORDER BY criado_em DESC
+            LIMIT 500
+        `, [cpf]);
+
+        res.json({ ok: true, logs: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao listar auditoria de cliente:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar auditoria' });
     }
 });
 
