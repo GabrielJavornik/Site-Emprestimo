@@ -3346,7 +3346,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             select,button{padding:6px 10px;border:1px solid #ddd;border-radius:6px;cursor:pointer;}
             button{background:#3a7bd5;color:white;border:none;font-weight:bold;}
             button:hover{background:#2a5fa5;}
-        </style></head><body>
+        </style></head><body data-admin-role="${req.session.adminRole || 'admin'}">
             <div class="header">
                 <h1 style="margin:0;">📊 Painel de Gestão - AzulCrédito</h1>
                 <div style="display:flex;gap:10px;align-items:center;">
@@ -3355,7 +3355,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
                     </div>
                     <button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>
-                    <a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>
+                    ${req.session.adminRole === 'superadmin' ? '<a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>' : '<span style="color:#999;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins (Superadmin)</span>'}
                     <a href="/admin-logout" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
                 </div>
             </div>
@@ -3439,7 +3439,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #27ae60;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
                 <h3 style="margin-top:0;color:#27ae60;">⚙️ Configurações - Taxa de Juros</h3>
                 <div id="resultado-taxa" style="margin-bottom:15px;"></div>
-                <div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+                <div id="bloco-taxa-juros" style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
                     <div style="flex:1;min-width:250px;">
                         <label style="display:block;font-weight:bold;color:#333;margin-bottom:8px;">Taxa de Juros por Parcela</label>
                         <div style="display:flex;gap:10px;align-items:center;">
@@ -3448,10 +3448,10 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         </div>
                         <small style="color:#666;display:block;margin-top:5px;">*Digite em decimal (ex: 0.05 = 5%, 0.10 = 10%)</small>
                     </div>
-                    <button onclick="alterarTaxaJuros()" style="background:#27ae60;padding:10px 30px;height:fit-content;margin-top:20px;font-weight:bold;cursor:pointer;">✅ Salvar Taxa</button>
+                    <button id="btn-salvar-taxa" onclick="alterarTaxaJuros()" style="background:#27ae60;padding:10px 30px;height:fit-content;margin-top:20px;font-weight:bold;cursor:pointer;border:none;border-radius:8px;color:white;transition:all 0.3s;">✅ Salvar Taxa</button>
                 </div>
-                <div id="aviso-permissao-taxa" style="margin-top:15px;padding:12px;background:#fee2e2;border-left:4px solid #e74c3c;border-radius:6px;color:#991b1b;display:none;">
-                    🔒 <strong>Acesso restrito</strong> - Apenas superadmin pode alterar a taxa de juros. Essa ação foi registrada na auditoria.
+                <div id="aviso-permissao-taxa" style="margin-top:15px;padding:15px;background:#fee2e2;border-left:4px solid #e74c3c;border-radius:6px;color:#991b1b;display:none;">
+                    🔒 <strong>Acesso Restrito</strong> - Apenas superadmin pode alterar a taxa de juros. Esta ação foi registrada no histórico de auditoria.
                 </div>
             </div>
 
@@ -3891,9 +3891,31 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 }
             });
 
+            // Verificar permissão de superadmin
+            function verificarPermissaoTaxa() {
+                const isSuperadmin = document.body.dataset.adminRole === 'superadmin';
+                const input = document.getElementById('taxa-juros-input');
+                const btn = document.getElementById('btn-salvar-taxa');
+                const aviso = document.getElementById('aviso-permissao-taxa');
+                const bloco = document.getElementById('bloco-taxa-juros');
+
+                if (!isSuperadmin) {
+                    input.disabled = true;
+                    input.style.opacity = '0.5';
+                    input.style.cursor = 'not-allowed';
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.background = '#95a5a6';
+                    aviso.style.display = 'block';
+                    bloco.style.opacity = '0.7';
+                }
+            }
+
             // Carregar taxa ao abrir página
             window.addEventListener('load',()=>{
                 carregarTaxaJuros();
+                verificarPermissaoTaxa();
             });
 
             // Exportar PDF
