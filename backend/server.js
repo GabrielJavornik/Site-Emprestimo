@@ -1850,9 +1850,39 @@ app.get('/perfil', async (req, res) => {
                     }
                 }
 
+                // Carregar dados de PIX salvos
+                async function carregarDadosPix() {
+                    try {
+                        const resp = await fetch('/api/meu-pix');
+                        const json = await resp.json();
+                        if (json.ok) {
+                            if (json.pix_cpf) {
+                                document.getElementById('pix-cpf').value = json.pix_cpf;
+                                selecionarPixType('cpf');
+                            } else if (json.pix_cnpj) {
+                                document.getElementById('pix-cnpj').value = json.pix_cnpj;
+                                selecionarPixType('cnpj');
+                            } else if (json.pix_telefone) {
+                                document.getElementById('pix-telefone').value = json.pix_telefone;
+                                selecionarPixType('telefone');
+                            } else if (json.pix_email) {
+                                document.getElementById('pix-email').value = json.pix_email;
+                                selecionarPixType('email');
+                            } else {
+                                selecionarPixType('cpf');
+                            }
+                        } else {
+                            selecionarPixType('cpf');
+                        }
+                    } catch (e) {
+                        console.error('Erro ao carregar PIX:', e);
+                        selecionarPixType('cpf');
+                    }
+                }
+
                 // Inicializar PIX com CPF selecionado
                 window.addEventListener('load', () => {
-                    selecionarPixType('cpf');
+                    carregarDadosPix();
                 });
 
                 async function salvarDadosBancarios() {
@@ -5110,6 +5140,33 @@ app.post('/api/admin/config/taxa-juros', superadminAuth, async (req, res) => {
 });
 
 // --- OBTER MEU SCORE (CLIENTE) ---
+// --- OBTER DADOS DE PIX SALVOS ---
+app.get('/api/meu-pix', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false });
+
+        const cpf = req.session.userCpf;
+        const result = await pool.query(
+            'SELECT pix_cpf, pix_cnpj, pix_telefone, pix_email FROM USUARIOS WHERE cpf = $1',
+            [cpf]
+        );
+
+        if (!result.rows.length) return res.status(404).json({ ok: false });
+
+        const user = result.rows[0];
+        res.json({
+            ok: true,
+            pix_cpf: user.pix_cpf || '',
+            pix_cnpj: user.pix_cnpj || '',
+            pix_telefone: user.pix_telefone || '',
+            pix_email: user.pix_email || ''
+        });
+    } catch (err) {
+        console.error('❌ Erro ao obter PIX:', err);
+        res.status(500).json({ ok: false });
+    }
+});
+
 app.get('/api/meu-score', async (req, res) => {
     try {
         if (!req.session.usuarioLogado) return res.status(401).json({ ok: false });
