@@ -546,7 +546,7 @@ const upload = multer({ storage: storage });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Criar tabela PAGAMENTOS se não existir
 pool.query(`
@@ -1040,7 +1040,7 @@ app.get('/ver-arquivo/:nome', adminAuth, (req, res) => {
 });
 
 // --- 4. ROTAS ---
-app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/index.html')); });
 app.get('/sair', (req, res) => { req.session.destroy(); res.redirect('/'); });
 
 // --- ADMIN LOGIN ---
