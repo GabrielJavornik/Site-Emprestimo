@@ -3368,8 +3368,8 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <div style="font-size:28px;transition:transform 0.2s;">🔔</div>
                         <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
                     </div>
-                    <button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>
-                    ${req.session.adminRole === 'superadmin' ? '<a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>' : '<span style="color:#999;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins (Superadmin)</span>'}
+                    ${req.session.adminRole === 'superadmin' ? '<button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>' : ''}
+                    ${req.session.adminRole === 'superadmin' ? '<a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>' : ''}
                     <a href="/admin-logout" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
                 </div>
             </div>
@@ -5200,7 +5200,7 @@ app.post('/trocar-senha', async (req, res) => {
 });
 
 // --- LIMPAR DADOS (DELETE APENAS) ---
-app.post('/admin-limpar-dados', adminAuth, async (req, res) => {
+app.post('/admin-limpar-dados', superadminAuth, async (req, res) => {
     try {
         console.log('🗑️ Limpando dados de teste...');
 
