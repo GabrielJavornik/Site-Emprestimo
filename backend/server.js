@@ -602,12 +602,17 @@ pool.query(`
 `).catch(err => console.error('⚠️ Erro ao criar tabela CUPONS:', err.message));
 
 pool.query(`
+    DROP TABLE IF EXISTS CUPONS_USADOS
+`).catch(err => console.error('⚠️ Erro ao dropar tabela CUPONS_USADOS:', err.message));
+
+pool.query(`
     CREATE TABLE IF NOT EXISTS CUPONS_USADOS (
         id SERIAL PRIMARY KEY,
-        cpf VARCHAR(20) NOT NULL UNIQUE,
+        cpf VARCHAR(20) NOT NULL,
         cupom VARCHAR(50) NOT NULL,
         desconto DECIMAL(10, 2) NOT NULL,
-        usado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        usado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(cpf, cupom)
     )
 `).catch(err => console.error('⚠️ Erro ao criar tabela CUPONS_USADOS:', err.message));
 
