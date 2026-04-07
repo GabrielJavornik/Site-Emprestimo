@@ -1706,92 +1706,86 @@ app.get('/perfil', async (req, res) => {
             <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL CRÉDITO</div><a href="/simulacoes" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">← VOLTAR</a></div>
 
             <div class="container">
-                <h1 style="color:#1e3c72;text-align:center;">⚙️ Meu Perfil</h1>
+                <h1 style="color:#1e3c72;text-align:center;">Meu Perfil</h1>
 
 
-                <div class="card">
-                    <h2>👤 Meus Dados</h2>
+                <div class="card" style="background:linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);border-left:5px solid #1e3c72;">
+                    <h2 style="color:#1e3c72;border-bottom-color:#1e3c72;">Dados Pessoais</h2>
                     <div id="resultado-perfil"></div>
-                    <label>Nome</label>
-                    <input type="text" id="nome" value="${user.nome}" placeholder="Seu nome completo">
+                    <label style="font-weight:bold;color:#1e3c72;margin-top:15px;margin-bottom:6px;display:block;">Nome Completo</label>
+                    <input type="text" id="nome" value="${user.nome}" placeholder="Seu nome completo" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <label>Email</label>
-                    <input type="email" id="email" value="${user.email}" placeholder="seu@email.com">
+                    <label style="font-weight:bold;color:#1e3c72;margin-top:15px;margin-bottom:6px;display:block;">Email</label>
+                    <input type="email" id="email" value="${user.email}" placeholder="seu@email.com" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <label>WhatsApp</label>
-                    <input type="tel" id="whatsapp" value="${user.whatsapp || ''}" placeholder="55 xx 99999-9999">
+                    <label style="font-weight:bold;color:#1e3c72;margin-top:15px;margin-bottom:6px;display:block;">WhatsApp</label>
+                    <input type="tel" id="whatsapp" value="${user.whatsapp || ''}" placeholder="55 xx 99999-9999" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <button onclick="atualizarPerfil()">✅ Salvar Alterações</button>
+                    <button onclick="atualizarPerfil()" style="background:linear-gradient(135deg, #1e3c72 0%, #2d5a8c 100%);margin-top:20px;color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:bold;cursor:pointer;transition:all 0.3s;width:100%;">Salvar Alterações</button>
                 </div>
 
-                <div class="card">
-                    <h2>📍 Meu Endereço</h2>
+                <div class="card" style="background:linear-gradient(135deg, #fafbff 0%, #f5f8ff 100%);border-left:5px solid #27ae60;">
+                    <h2 style="color:#27ae60;border-bottom-color:#27ae60;">Endereço</h2>
                     <div id="resultado-endereco"></div>
-                    <label>CEP</label>
-                    <input type="text" id="cep" value="${user.cep || ''}" placeholder="00000-000" maxlength="9" onblur="buscarCEPPerfil()">
+                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">CEP</label>
+                    <input type="text" id="cep" value="${user.cep || ''}" placeholder="00000-000" maxlength="9" onblur="buscarCEPPerfil()" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <label>Rua/Avenida</label>
-                    <input type="text" id="rua" value="${user.rua || ''}" placeholder="Rua, Avenida...">
+                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">Rua/Avenida</label>
+                    <input type="text" id="rua" value="${user.rua || ''}" placeholder="Rua, Avenida..." style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <label>Bairro</label>
-                    <input type="text" id="bairro" value="${user.bairro || ''}" placeholder="Bairro">
+                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">Bairro</label>
+                    <input type="text" id="bairro" value="${user.bairro || ''}" placeholder="Bairro" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px;">
                         <div>
-                            <label>Cidade</label>
-                            <input type="text" id="cidade" value="${user.cidade || ''}" placeholder="Cidade">
+                            <label style="font-weight:bold;color:#27ae60;margin-bottom:6px;display:block;">Cidade</label>
+                            <input type="text" id="cidade" value="${user.cidade || ''}" placeholder="Cidade" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;width:100%;box-sizing:border-box;">
                         </div>
                         <div>
-                            <label>Estado</label>
-                            <input type="text" id="estado" value="${user.estado || ''}" placeholder="UF" maxlength="2">
+                            <label style="font-weight:bold;color:#27ae60;margin-bottom:6px;display:block;">Estado</label>
+                            <input type="text" id="estado" value="${user.estado || ''}" placeholder="UF" maxlength="2" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;width:100%;box-sizing:border-box;">
                         </div>
                     </div>
 
-                    <label>Número</label>
-                    <input type="text" id="numero_casa" value="${user.numero_casa || ''}" placeholder="123">
+                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">Número</label>
+                    <input type="text" id="numero_casa" value="${user.numero_casa || ''}" placeholder="123" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <button onclick="atualizarEndereco()" style="background:#27ae60;">🏠 Salvar Endereço</button>
+                    <button onclick="atualizarEndereco()" style="background:linear-gradient(135deg, #27ae60 0%, #1d8449 100%);margin-top:20px;color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:bold;cursor:pointer;transition:all 0.3s;width:100%;">Salvar Endereço</button>
                 </div>
 
                 <div class="card" style="background:linear-gradient(135deg, #f0f9ff 0%, #e3f2fd 100%);border-left:5px solid #0066cc;">
                     <h2 style="color:#0066cc;border-bottom-color:#0066cc;">Chave PIX</h2>
                     <div id="resultado-banco"></div>
 
-                    <div style="background:#e8f5f7;padding:15px;border-radius:10px;border-left:4px solid #0066cc;margin-bottom:20px;">
-                        <strong style="color:#0066cc;">Para solicitar empréstimos:</strong>
-                        <p style="margin:8px 0;color:#333;">Você precisa informar uma chave PIX para receber o dinheiro de forma rápida e segura.</p>
+                    <div style="background:linear-gradient(135deg, #e8f5f7 0%, #dff1f7 100%);padding:18px;border-radius:12px;border-left:5px solid #0066cc;margin-bottom:25px;">
+                        <strong style="color:#0066cc;font-size:1.05rem;">Chave PIX Obrigatória</strong>
+                        <p style="margin:8px 0;color:#1e3c72;font-size:0.95rem;">Informe sua chave PIX para receber empréstimos de forma rápida e segura. Só números.</p>
                     </div>
 
-                    <div style="margin-bottom:30px;">
-                        <label style="font-weight:bold;color:#0066cc;display:block;margin-bottom:15px;font-size:1.05rem;">Selecione seu tipo de chave PIX</label>
-                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
-                            <button onclick="selecionarPixType('cpf')" id="btn-cpf" style="padding:16px 12px;border:2px solid #0066cc;background:linear-gradient(135deg, rgba(0,102,204,0.1) 0%, rgba(0,102,204,0.05) 100%);border-radius:12px;cursor:pointer;font-weight:700;color:#0066cc;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                    <div style="margin-bottom:25px;">
+                        <label style="font-weight:bold;color:#0066cc;display:block;margin-bottom:12px;font-size:0.95rem;">Escolha o tipo de chave</label>
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                            <button onclick="selecionarPixType('cpf')" id="btn-cpf" style="padding:12px 8px;border:2px solid #0066cc;background:linear-gradient(135deg, rgba(0,102,204,0.15) 0%, rgba(0,102,204,0.08) 100%);border-radius:10px;cursor:pointer;font-weight:700;color:#0066cc;transition:all 0.3s;text-align:center;font-size:0.9rem;line-height:1.3;">
                                 CPF
                             </button>
-                            <button onclick="selecionarPixType('cnpj')" id="btn-cnpj" style="padding:16px 12px;border:2px solid #e0e7f1;background:white;border-radius:12px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                            <button onclick="selecionarPixType('cnpj')" id="btn-cnpj" style="padding:12px 8px;border:2px solid #e0e7f1;background:white;border-radius:10px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.9rem;line-height:1.3;">
                                 CNPJ
                             </button>
-                            <button onclick="selecionarPixType('telefone')" id="btn-telefone" style="padding:16px 12px;border:2px solid #e0e7f1;background:white;border-radius:12px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                            <button onclick="selecionarPixType('telefone')" id="btn-telefone" style="padding:12px 8px;border:2px solid #e0e7f1;background:white;border-radius:10px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.9rem;line-height:1.3;">
                                 Telefone
                             </button>
-                            <button onclick="selecionarPixType('email')" id="btn-email" style="padding:16px 12px;border:2px solid #e0e7f1;background:white;border-radius:12px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                            <button onclick="selecionarPixType('email')" id="btn-email" style="padding:12px 8px;border:2px solid #e0e7f1;background:white;border-radius:10px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.9rem;line-height:1.3;">
                                 E-mail
                             </button>
                         </div>
                     </div>
 
-                    <div id="pix-selecionado" style="padding:20px;border-radius:15px;background:linear-gradient(135deg, #e3f2fd 0%, #dbeafe 100%);border:2px solid #0066cc;display:none;margin-bottom:25px;">
-                        <p style="color:#0066cc;font-size:0.9rem;margin-bottom:8px;font-weight:bold;">Chave selecionada:</p>
-                        <div style="font-size:3rem;color:#0066cc;margin-bottom:8px;font-weight:bold;" id="pix-icon">ID</div>
-                        <p style="color:#0066cc;font-weight:bold;font-size:1.2rem;" id="pix-label">CPF</p>
-                    </div>
-
                     <div id="pix-input-wrapper">
-                        <label id="pix-input-label" style="font-weight:bold;color:#0066cc;margin-bottom:8px;display:block;">Sua Chave PIX</label>
-                        <input type="text" id="pix-cpf" placeholder="000.000.000-00" maxlength="14" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;">
-                        <input type="text" id="pix-cnpj" placeholder="00.000.000/0000-00" maxlength="18" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;display:none;">
-                        <input type="text" id="pix-telefone" placeholder="+55 (85) 99999-9999" maxlength="20" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;display:none;">
-                        <input type="email" id="pix-email" placeholder="seu@email.com" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;display:none;">
+                        <label id="pix-input-label" style="font-weight:bold;color:#0066cc;margin-bottom:8px;display:block;font-size:0.95rem;">Digite apenas números</label>
+                        <input type="text" id="pix-cpf" placeholder="12345678901" maxlength="14" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;">
+                        <input type="text" id="pix-cnpj" placeholder="12345678901234" maxlength="18" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
+                        <input type="text" id="pix-telefone" placeholder="85999999999" maxlength="20" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
+                        <input type="email" id="pix-email" placeholder="seu@email.com" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
                     </div>
 
                     <button onclick="salvarDadosPix()" style="background:linear-gradient(135deg, #0066cc 0%, #003d99 100%);margin-top:20px;width:100%;padding:16px;border:none;border-radius:12px;color:white;font-weight:bold;font-size:1rem;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 12px rgba(0,102,204,0.3);">Salvar Chave PIX</button>
@@ -1800,11 +1794,6 @@ app.get('/perfil', async (req, res) => {
                         <strong style="color:#0066cc;">PIX - Instantâneo e Seguro</strong>
                         <p style="margin:8px 0;">Seu PIX será utilizado apenas para receber transferências de empréstimos aprovados.</p>
                     </div>
-                </div>
-
-                <div class="card" id="score-card-perfil" style="display:none;background:linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);border-left:5px solid #8b5cf6;">
-                    <h2 style="color:#8b5cf6;border-bottom-color:#8b5cf6;">Meu Score de Crédito</h2>
-                    <div id="score-content-perfil" style="text-align:center;margin:20px 0;">Carregando...</div>
                 </div>
 
                 <div class="card">
@@ -2120,41 +2109,6 @@ app.get('/perfil', async (req, res) => {
                 }
 
                 // Carregar score na página de perfil
-                async function carregarScorePerfil() {
-                    try {
-                        const resp = await fetch('/api/meu-score');
-                        const json = await resp.json();
-                        if (!json.ok) return;
-
-                        const pct = ((json.score - 300) / 600 * 100).toFixed(1);
-                        const card = document.getElementById('score-card-perfil');
-                        const content = document.getElementById('score-content-perfil');
-
-                        content.innerHTML = \`
-                            <div style="display:flex;justify-content:space-around;align-items:center;margin-top:10px;gap:20px;flex-wrap:wrap;">
-                                <div style="text-align:center;">
-                                    <div style="font-size:2.5rem;font-weight:bold;color:\${json.cor};">\${json.score}</div>
-                                    <div style="background:\${json.cor};color:white;padding:6px 16px;border-radius:50px;font-weight:bold;display:inline-block;margin-top:8px;font-size:0.9rem;">\${json.label}</div>
-                                </div>
-                                <div style="flex:1;min-width:250px;">
-                                    <p style="margin:0 0 8px 0;color:#333;font-weight:bold;">Progresso do Score</p>
-                                    <div style="background:#e5e7eb;border-radius:999px;height:20px;margin-bottom:8px;overflow:hidden;">
-                                        <div style="background:\${json.cor};width:\${pct}%;height:100%;border-radius:999px;transition:width 1s;"></div>
-                                    </div>
-                                    <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:#666;margin-bottom:12px;">
-                                        <span>Mínimo (300)</span><span>Base (600)</span><span>Máximo (900)</span>
-                                    </div>
-                                    <p style="margin:10px 0 0 0;color:#555;font-size:0.95rem;"><strong>Limite disponível para empréstimos:</strong></p>
-                                    <p style="margin:4px 0;font-size:1.2rem;font-weight:bold;color:\${json.cor};">R$ \${json.limite.toLocaleString('pt-BR')}</p>
-                                </div>
-                            </div>
-                        \`;
-                        card.style.display = 'block';
-                    } catch (e) {
-                        console.error('❌ Erro ao carregar score:', e);
-                    }
-                }
-                carregarScorePerfil();
             </script>
         </body></html>`);
     } catch (e) {
