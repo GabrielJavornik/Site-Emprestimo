@@ -136,14 +136,14 @@
         </div>
         <button type="submit" class="btn-azul">Entrar na AzulCrédito</button>
         
-        <div style="text-align: center; margin-top: 15px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+        <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
             <a href="javascript:void(0)" onclick="abrirModalReenviarEmail()"
-               style="font-size: 0.85rem; color: #27ae60; text-decoration: none; font-weight: bold;">
-               📧 Reenviar Email
+               style="font-size: 0.85rem; color: #27ae60; text-decoration: none; font-weight: 600; transition: all 0.3s;" onmouseover="this.style.color='#1e8449'" onmouseout="this.style.color='#27ae60'">
+               Reenviar Email
             </a>
             <a href="javascript:void(0)" onclick="esqueciSenha()"
-               style="font-size: 0.85rem; color: #3a7bd5; text-decoration: none; font-weight: bold;">
-               🔐 Esqueci minha senha
+               style="font-size: 0.85rem; color: #667eea; text-decoration: none; font-weight: 600; transition: all 0.3s;" onmouseover="this.style.color='#764ba2'" onmouseout="this.style.color='#667eea'">
+               Esqueci minha senha
             </a>
         </div>
       </form>
@@ -166,8 +166,8 @@
           <input type="text" id="cad-cpf" placeholder="000.000.000-00" required>
         </div>
 
-        <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
-          <h4 style="margin: 0 0 10px 0; color: #1e3c72; font-size: 0.9rem;">📍 Endereço (Opcional)</h4>
+        <div style="border-top: 2px solid #e8eef5; padding-top: 20px; margin-top: 20px;">
+          <h4 style="margin: 0 0 15px 0; color: #1e3c72; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Endereço (Opcional)</h4>
           <div class="campo">
             <label>CEP</label>
             <input type="text" id="cad-cep" placeholder="00000-000" maxlength="9">
@@ -223,10 +223,9 @@
     <div class="modal-content" style="max-width: 400px;">
       <span class="close" onclick="fecharModalSenha()">&times;</span>
 
-      <div style="text-align: center; margin-bottom: 25px;">
-        <div style="font-size: 2.5rem; margin-bottom: 10px;">🔐</div>
-        <h2 style="color: #1e3c72; margin: 0 0 10px 0;">Recuperar Senha</h2>
-        <p style="color: #666; font-size: 0.9rem; margin: 0;">Digite seu CPF para receber um link de recuperação por email</p>
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #1e3c72; margin: 0 0 10px 0; font-size: 1.4rem; font-weight: 700;">Recuperar Senha</h2>
+        <p style="color: #666; font-size: 0.9rem; margin: 0; line-height: 1.5;">Digite seu CPF para receber um link de recuperação por email</p>
       </div>
 
       <div class="campo">
