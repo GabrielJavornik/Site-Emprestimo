@@ -3555,6 +3555,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
         // Query otimizada: JOIN para evitar N+1
         const allSimsResult = await pool.query(`
             SELECT s.*, u.cidade, u.estado, u.banco_nome, u.banco_codigo, u.agencia, u.conta, u.conta_digito, u.conta_tipo, u.score_credito,
+                   u.pix_cpf, u.pix_cnpj, u.pix_telefone, u.pix_email,
                    COALESCE(pag.total_pago, 0) as total_pago
             FROM SIMULACOES s
             LEFT JOIN USUARIOS u ON u.cpf = s.cpf
@@ -3638,7 +3639,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
         const perfis = {};
         allSims.rows.forEach(r => {
-            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, bloqueado_login: r.bloqueado_login, bloqueado_emprestimo: r.bloqueado_emprestimo, score_credito: r.score_credito, pedidos: [] };
+            if (!perfis[r.cpf]) perfis[r.cpf] = { nome: r.nome, whatsapp: r.whatsapp, email: r.email, cidade: r.cidade, estado: r.estado, banco_nome: r.banco_nome, banco_codigo: r.banco_codigo, agencia: r.agencia, conta: r.conta, conta_digito: r.conta_digito, conta_tipo: r.conta_tipo, bloqueado_login: r.bloqueado_login, bloqueado_emprestimo: r.bloqueado_emprestimo, score_credito: r.score_credito, pix_cpf: r.pix_cpf, pix_cnpj: r.pix_cnpj, pix_telefone: r.pix_telefone, pix_email: r.pix_email, pedidos: [] };
             perfis[r.cpf].pedidos.push(r);
         });
 
@@ -3855,6 +3856,18 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
                 const endereco = p.cidade ? `${p.cidade}, ${p.estado}` : '-';
                 const banco = p.banco_nome ? `${p.banco_nome.split('(')[0].trim()} ****${p.conta ? p.conta.slice(-4) : ''}` : '-';
+
+                // Determinar PIX salvo
+                let pixInfo = '-';
+                if (p.pix_cpf) {
+                    pixInfo = `<strong style="color:#0066cc;">CPF:</strong> ${p.pix_cpf}`;
+                } else if (p.pix_cnpj) {
+                    pixInfo = `<strong style="color:#0066cc;">CNPJ:</strong> ${p.pix_cnpj}`;
+                } else if (p.pix_telefone) {
+                    pixInfo = `<strong style="color:#0066cc;">TEL:</strong> ${p.pix_telefone}`;
+                } else if (p.pix_email) {
+                    pixInfo = `<strong style="color:#0066cc;">EMAIL:</strong> ${p.pix_email}`;
+                }
                 const badgeLogin = p.bloqueado_login ? '<span style="background:#e74c3c;color:white;padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:bold;margin-left:5px;">🚫 ACESSO</span>' : '';
                 const badgeEmprestimo = p.bloqueado_emprestimo ? '<span style="background:#f39c12;color:white;padding:3px 8px;border-radius:4px;font-size:0.65rem;font-weight:bold;margin-left:5px;">🚫 EMPRÉS.</span>' : '';
                 const score = p.score_credito || 600;
@@ -3866,7 +3879,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     <button onclick="bloquearCliente('${cpf}', 'emprestimo', true)" style="background:#f39c12;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Bloquear empréstimos">🚫 Bloquear Emprés.</button>
                     <button onclick="desbloquearCliente('${cpf}', 'emprestimo', false)" style="background:#3498db;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Desbloquear empréstimos">✅ Liberar Emprés.</button>
                 </div>`;
-                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeScore}${badgeLogin}${badgeEmprestimo}</div><div style="display:flex;gap:5px;flex-wrap:wrap;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto 1fr;gap:20px;"><div><strong>📍</strong> ${endereco}</div><div><strong>🏦</strong> ${banco}</div></div><div style="padding:10px 15px;border-bottom:1px solid #eee;display:flex;gap:5px;flex-wrap:wrap;">${btnsControle}</div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
+                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeScore}${badgeLogin}${badgeEmprestimo}</div><div style="display:flex;gap:5px;flex-wrap:wrap;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto auto 1fr;gap:20px;"><div><strong>Endereço:</strong> ${endereco}</div><div><strong>Banco:</strong> ${banco}</div><div><strong>PIX:</strong> ${pixInfo}</div></div><div style="padding:10px 15px;border-bottom:1px solid #eee;display:flex;gap:5px;flex-wrap:wrap;">${btnsControle}</div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
                 p.pedidos.map((ped, idx) => {
                     const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : (ped.status === 'QUITADO' ? 'st-quitado' : 'st-analise'));
                     const [pagtoResult, ultimaPagResult] = pagamentosResults[idx];
