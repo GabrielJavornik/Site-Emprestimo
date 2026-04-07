@@ -2573,17 +2573,17 @@ app.get('/simulacoes', async (req, res) => {
                             const cupomInput = document.getElementById('campo-cupom');
                             const msgCupom = document.getElementById('msg-cupom');
                             const btnAplicar = document.getElementById('btn-aplicar-cupom');
-                            const btnLimpar = document.getElementById('btn-limpar-cupom');
 
-                            cupomInput.value = 'OFF5';
-                            cupomInput.disabled = true;
-                            cupomInput.style.background = '#ffebee';
-                            cupomInput.style.borderColor = '#e74c3c';
-                            cupomInput.style.color = '#c62828';
-                            msgCupom.style.color = '#e74c3c';
-                            msgCupom.innerText = '❌ Inserir cupom';
-                            btnAplicar.style.display = 'none';
-                            btnLimpar.style.display = 'block';
+                            if(cupomInput && msgCupom && btnAplicar){
+                                cupomInput.value = 'OFF5';
+                                cupomInput.disabled = true;
+                                cupomInput.style.background = '#ffebee';
+                                cupomInput.style.borderColor = '#e74c3c';
+                                cupomInput.style.color = '#c62828';
+                                msgCupom.style.color = '#e74c3c';
+                                msgCupom.innerText = '❌ Inserir cupom';
+                                btnAplicar.style.display = 'none';
+                            }
                         }
                     }catch(e){
                         console.log('Verificação de cupom');
@@ -2643,7 +2643,8 @@ app.get('/simulacoes', async (req, res) => {
                     const cupomInput = document.getElementById('campo-cupom');
                     const msgCupom = document.getElementById('msg-cupom');
                     const btnAplicar = document.getElementById('btn-aplicar-cupom');
-                    const btnLimpar = document.getElementById('btn-limpar-cupom');
+
+                    if(!cupomInput || !msgCupom || !btnAplicar) return;
 
                     cupomInput.value = '';
                     cupomInput.disabled = false;
@@ -2652,7 +2653,6 @@ app.get('/simulacoes', async (req, res) => {
                     cupomInput.style.color = '#1e3c72';
                     msgCupom.innerText = '';
                     btnAplicar.style.display = 'block';
-                    btnLimpar.style.display = 'none';
                     cupomAplicado = false;
                 }
 
@@ -2671,18 +2671,18 @@ app.get('/simulacoes', async (req, res) => {
                             const cupomInput = document.getElementById('campo-cupom');
                             const msgCupom = document.getElementById('msg-cupom');
                             const btnAplicar = document.getElementById('btn-aplicar-cupom');
-                            const btnLimpar = document.getElementById('btn-limpar-cupom');
 
-                            cupomInput.value = 'OFF5';
-                            cupomInput.disabled = true;
-                            cupomInput.style.background = '#ffebee';
-                            cupomInput.style.borderColor = '#e74c3c';
-                            cupomInput.style.color = '#c62828';
-                            msgCupom.style.color = '#e74c3c';
-                            msgCupom.innerText = '❌ Inserir cupom';
-                            btnAplicar.style.display = 'none';
-                            btnLimpar.style.display = 'block';
-                            cupomAplicado = false;
+                            if(cupomInput && msgCupom && btnAplicar){
+                                cupomInput.value = 'OFF5';
+                                cupomInput.disabled = true;
+                                cupomInput.style.background = '#ffebee';
+                                cupomInput.style.borderColor = '#e74c3c';
+                                cupomInput.style.color = '#c62828';
+                                msgCupom.style.color = '#e74c3c';
+                                msgCupom.innerText = '❌ Inserir cupom';
+                                btnAplicar.style.display = 'none';
+                                cupomAplicado = false;
+                            }
                         } else {
                             console.log('✅ Cupom OFF5 disponível para usar');
                         }
@@ -2697,7 +2697,6 @@ app.get('/simulacoes', async (req, res) => {
                     const cupom = cupomInput.value.trim().toUpperCase();
                     const msgCupom = document.getElementById('msg-cupom');
                     const btnAplicar = document.getElementById('btn-aplicar-cupom');
-                    const btnLimpar = document.getElementById('btn-limpar-cupom');
 
                     console.log('Cupom digitado:', cupom);
 
@@ -2726,7 +2725,6 @@ app.get('/simulacoes', async (req, res) => {
                             cupomInput.style.borderColor = '#2ecc71';
                             cupomInput.style.color = '#2ecc71';
                             btnAplicar.style.display = 'none';
-                            btnLimpar.style.display = 'block';
                             console.log('✅ Cupom validado com sucesso!');
                         } else {
                             cupomAplicado = false;
