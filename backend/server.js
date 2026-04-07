@@ -1408,7 +1408,7 @@ app.post('/api/reenviar-email-confirmacao', async (req, res) => {
                     <h2 style="color:#1e3c72;">Bem-vindo novamente, ${usuario.nome}! 👋</h2>
                     <p>Você solicitou um novo link de confirmação de email.</p>
                     <p>Clique no botão abaixo para confirmar seu email:</p>
-                    <a href="${linkConfirmacao}" style="background:#1e3c72;color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">CONFIRMAR EMAIL</a>
+                    <a href="${linkConfirmacao}" style="background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">CONFIRMAR EMAIL</a>
                     <p style="font-size:0.9rem;color:#666;">Ou copie este link: ${linkConfirmacao}</p>
                     <p style="font-size:0.85rem;color:#999;">Este link expira em 24 horas.</p></div>`
         }).catch(e => console.error('❌ Erro ao reenviar email:', e.message));
@@ -1443,7 +1443,7 @@ app.post('/solicitar-reset-senha', async (req, res) => {
                     <h2 style="color:#991b1b;">🔐 Recuperação de Senha</h2>
                     <p>Recebemos uma solicitação para resetar sua senha.</p>
                     <p>Clique no botão abaixo para criar uma nova senha:</p>
-                    <a href="${linkReset}" style="background:#1e3c72;color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">RESETAR SENHA</a>
+                    <a href="${linkReset}" style="background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">RESETAR SENHA</a>
                     <p style="font-size:0.9rem;color:#666;">Este link expira em 1 hora.</p>
                     <p style="font-size:0.85rem;color:#999;">Se você não solicitou isso, ignore este email.</p></div>`
         }).catch(e => console.error('Erro ao enviar reset:', e.message));
@@ -1463,7 +1463,7 @@ app.get('/reset-senha/:token', async (req, res) => {
         }
 
         res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resetar Senha</title><style>
-            body{font-family:"Segoe UI";background:#f4f7fa;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}
+            body{font-family:"Segoe UI";background:#f1f5f9;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}
             .box{background:white;padding:40px;border-radius:15px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-width:400px;width:90%;}
             h2{color:#1e3c72;text-align:center;}
             input{width:100%;padding:12px;margin:15px 0;border:2px solid #eef2f7;border-radius:8px;box-sizing:border-box;font-size:1rem;}
@@ -1572,7 +1572,7 @@ app.post('/cadastro', async (req, res) => {
             html: `<div style="font-family:sans-serif;color:#333;max-width:500px;border:1px solid #eee;padding:25px;border-radius:15px;background-color:#fcfdfe;">
                     <h2 style="color:#1e3c72;">Bem-vindo, ${nome}! 👋</h2>
                     <p>Clique no botão abaixo para confirmar seu email:</p>
-                    <a href="${linkConfirmacao}" style="background:#1e3c72;color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">CONFIRMAR EMAIL</a>
+                    <a href="${linkConfirmacao}" style="background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">CONFIRMAR EMAIL</a>
                     <p style="font-size:0.9rem;color:#666;">Ou copie este link: ${linkConfirmacao}</p>
                     <p style="font-size:0.85rem;color:#999;">Este link expira em 24 horas.</p></div>`
         }).catch(e => console.error('Erro ao enviar email de confirmação:', e.message));
@@ -1689,13 +1689,13 @@ app.get('/perfil', async (req, res) => {
 
         const user = result.rows[0];
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Perfil - AzulCrédito</title><style>
-            body{font-family:"Segoe UI",sans-serif;background:#f4f7fa;margin:0;padding:0;}
-            .header{background:#1e3c72;color:white;padding:15px 30px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+            body{font-family:"Segoe UI",sans-serif;background:#f1f5f9;margin:0;padding:0;}
+            .header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:15px 30px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
             .container{max-width:600px;margin:40px auto;padding:20px;}
             .card{background:white;padding:30px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.08);margin-bottom:30px;}
             .card h2{margin-top:0;color:#1e3c72;border-bottom:2px solid #1e3c72;padding-bottom:10px;}
             label{display:block;margin-top:15px;font-weight:bold;color:#333;margin-bottom:5px;}
-            input{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;box-sizing:border-box;}
+            input{width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:1rem;box-sizing:border-box;}
             input:focus{outline:none;border-color:#3a7bd5;box-shadow:0 0 0 3px rgba(58,123,213,0.1);}
             button{width:100%;padding:12px;margin-top:20px;background:#3a7bd5;color:white;border:none;border-radius:8px;font-weight:bold;font-size:1rem;cursor:pointer;}
             button:hover{background:#2a5fa5;}
@@ -1722,35 +1722,6 @@ app.get('/perfil', async (req, res) => {
                     <input type="tel" id="whatsapp" value="${user.whatsapp || ''}" placeholder="55 xx 99999-9999" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
 
                     <button onclick="atualizarPerfil()" style="background:linear-gradient(135deg, #1e3c72 0%, #2d5a8c 100%);margin-top:20px;color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:bold;cursor:pointer;transition:all 0.3s;width:100%;">Salvar Alterações</button>
-                </div>
-
-                <div class="card" style="background:linear-gradient(135deg, #fafbff 0%, #f5f8ff 100%);border-left:5px solid #27ae60;">
-                    <h2 style="color:#27ae60;border-bottom-color:#27ae60;">Endereço</h2>
-                    <div id="resultado-endereco"></div>
-                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">CEP</label>
-                    <input type="text" id="cep" value="${user.cep || ''}" placeholder="00000-000" maxlength="9" onblur="buscarCEPPerfil()" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
-
-                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">Rua/Avenida</label>
-                    <input type="text" id="rua" value="${user.rua || ''}" placeholder="Rua, Avenida..." style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
-
-                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">Bairro</label>
-                    <input type="text" id="bairro" value="${user.bairro || ''}" placeholder="Bairro" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
-
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px;">
-                        <div>
-                            <label style="font-weight:bold;color:#27ae60;margin-bottom:6px;display:block;">Cidade</label>
-                            <input type="text" id="cidade" value="${user.cidade || ''}" placeholder="Cidade" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;width:100%;box-sizing:border-box;">
-                        </div>
-                        <div>
-                            <label style="font-weight:bold;color:#27ae60;margin-bottom:6px;display:block;">Estado</label>
-                            <input type="text" id="estado" value="${user.estado || ''}" placeholder="UF" maxlength="2" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;width:100%;box-sizing:border-box;">
-                        </div>
-                    </div>
-
-                    <label style="font-weight:bold;color:#27ae60;margin-top:15px;margin-bottom:6px;display:block;">Número</label>
-                    <input type="text" id="numero_casa" value="${user.numero_casa || ''}" placeholder="123" style="border:2px solid #e0e7f1;padding:12px;border-radius:10px;font-size:1rem;">
-
-                    <button onclick="atualizarEndereco()" style="background:linear-gradient(135deg, #27ae60 0%, #1d8449 100%);margin-top:20px;color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:bold;cursor:pointer;transition:all 0.3s;width:100%;">Salvar Endereço</button>
                 </div>
 
                 <div class="card" style="background:linear-gradient(135deg, #f0f9ff 0%, #e3f2fd 100%);border-left:5px solid #0066cc;">
@@ -1796,6 +1767,53 @@ app.get('/perfil', async (req, res) => {
                     </div>
                 </div>
 
+                <div class="card" style="background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border:none;box-shadow:0 10px 30px rgba(139,92,246,0.15);">
+                    <h2 style="color:#8b5cf6;border-bottom:3px solid #8b5cf6;padding-bottom:15px;margin-bottom:25px;font-size:1.8rem;">Meu Endereço</h2>
+                    <div id="resultado-endereco"></div>
+
+                    <div style="background:linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(139,92,246,0.05) 100%);padding:20px;border-radius:16px;border-left:5px solid #8b5cf6;margin-bottom:30px;border:2px dashed #8b5cf6;">
+                        <strong style="color:#8b5cf6;font-size:1.1rem;display:block;margin-bottom:8px;">Endereço Obrigatório</strong>
+                        <p style="margin:0;color:#1e3c72;font-size:0.95rem;line-height:1.5;">Para solicitar empréstimos e receber documentação, precisamos do seu endereço completo e atualizado.</p>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <label style="font-weight:bold;color:#8b5cf6;margin-bottom:10px;display:block;font-size:0.95rem;">CEP (Código de Endereçamento Postal)</label>
+                        <input type="text" id="cep" placeholder="00000-000" maxlength="9" onkeyup="buscarCEPAuto()" style="border:2px solid #8b5cf6;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;font-weight:500;color:#1e3c72;">
+                    </div>
+
+                    <label style="font-weight:bold;color:#8b5cf6;margin-bottom:10px;display:block;font-size:0.95rem;">Rua / Avenida</label>
+                    <input type="text" id="rua" placeholder="Avenida Paulista" style="border:2px solid #8b5cf6;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;margin-bottom:20px;background:white;">
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;">
+                        <div>
+                            <label style="font-weight:bold;color:#8b5cf6;margin-bottom:8px;display:block;font-size:0.95rem;">Número</label>
+                            <input type="text" id="numero_casa" placeholder="123" style="border:2px solid #8b5cf6;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;background:white;">
+                        </div>
+                        <div>
+                            <label style="font-weight:bold;color:#8b5cf6;margin-bottom:8px;display:block;font-size:0.95rem;">Bairro</label>
+                            <input type="text" id="bairro" placeholder="Centro" style="border:2px solid #8b5cf6;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;background:white;">
+                        </div>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:2fr 1fr;gap:15px;margin-bottom:25px;">
+                        <div>
+                            <label style="font-weight:bold;color:#8b5cf6;margin-bottom:8px;display:block;font-size:0.95rem;">Cidade</label>
+                            <input type="text" id="cidade" placeholder="São Paulo" style="border:2px solid #8b5cf6;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;background:white;">
+                        </div>
+                        <div>
+                            <label style="font-weight:bold;color:#8b5cf6;margin-bottom:8px;display:block;font-size:0.95rem;">Estado</label>
+                            <input type="text" id="estado" placeholder="SP" maxlength="2" style="border:2px solid #8b5cf6;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;text-transform:uppercase;background:white;">
+                        </div>
+                    </div>
+
+                    <button onclick="atualizarEndereco()" style="background:linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);width:100%;padding:16px;border:none;border-radius:10px;color:white;font-weight:bold;font-size:1rem;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 15px rgba(139,92,246,0.3);">Salvar Endereço</button>
+
+                    <div style="background:linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);border-left:5px solid #8b5cf6;padding:16px;border-radius:10px;margin-top:20px;">
+                        <strong style="color:#8b5cf6;font-size:0.9rem;">Seu endereço é 100% seguro</strong>
+                        <p style="margin:6px 0 0 0;color:#5b21b6;font-size:0.85rem;line-height:1.4;">Criptografado e protegido.</p>
+                    </div>
+                </div>
+
                 <div class="card">
                     <h2>Trocar Senha</h2>
                     <div id="resultado-senha"></div>
@@ -1825,15 +1843,29 @@ app.get('/perfil', async (req, res) => {
             </div>
 
             <script>
-                // Buscar endereço por CEP na página de perfil
-                async function buscarCEPPerfil() {
-                    const cepInput = document.getElementById('cep');
-                    const cep = cepInput.value.replace(/\D/g, '');
-                    if (cep.length !== 8) return;
+                // Formatar CEP e buscar automaticamente
+                function buscarCEPAuto() {
+                    const input = document.getElementById('cep');
+                    let value = input.value.replace(/[^0-9]/g, '').slice(0, 8);
 
+                    // Formatar: 12345678 → 12345-678
+                    if (value.length > 5) {
+                        input.value = value.slice(0, 5) + '-' + value.slice(5);
+                    } else {
+                        input.value = value;
+                    }
+
+                    // Buscar automaticamente quando tiver 8 dígitos
+                    if (value.length === 8) {
+                        buscarCEP(value);
+                    }
+                }
+
+                // Executa a busca do CEP
+                async function buscarCEP(cep) {
                     try {
-                        const resp = await fetch(\`/api/cep/\${cep}\`);
-                        const data = await resp.json();
+                        const res = await fetch('/api/cep/' + cep);
+                        const data = await res.json();
 
                         if (data.ok) {
                             document.getElementById('rua').value = data.rua || '';
@@ -1841,12 +1873,9 @@ app.get('/perfil', async (req, res) => {
                             document.getElementById('cidade').value = data.cidade || '';
                             document.getElementById('estado').value = data.estado || '';
                             document.getElementById('numero_casa').focus();
-                        } else {
-                            alert('⚠️ ' + data.msg);
                         }
                     } catch (e) {
-                        console.error('❌ Erro ao buscar CEP:', e);
-                        alert('❌ Erro ao buscar endereço');
+                        console.error('Erro ao buscar CEP:', e);
                     }
                 }
 
@@ -1880,9 +1909,28 @@ app.get('/perfil', async (req, res) => {
                     }
                 }
 
-                // Inicializar PIX com CPF selecionado
+                // Carregar dados de endereço do banco
+                async function carregarDadosEndereco() {
+                    try {
+                        const resp = await fetch('/api/meu-endereco');
+                        const json = await resp.json();
+                        if (json.ok) {
+                            if (json.cep) document.getElementById('cep').value = json.cep;
+                            if (json.rua) document.getElementById('rua').value = json.rua;
+                            if (json.numero_casa) document.getElementById('numero_casa').value = json.numero_casa;
+                            if (json.bairro) document.getElementById('bairro').value = json.bairro;
+                            if (json.cidade) document.getElementById('cidade').value = json.cidade;
+                            if (json.estado) document.getElementById('estado').value = json.estado;
+                        }
+                    } catch (e) {
+                        console.error('Erro ao carregar endereço:', e);
+                    }
+                }
+
+                // Inicializar na página de perfil
                 window.addEventListener('load', () => {
                     carregarDadosPix();
+                    carregarDadosEndereco();
                 });
 
                 async function salvarDadosBancarios() {
@@ -2822,7 +2870,7 @@ app.get('/simulacoes', async (req, res) => {
                                 <img src="\${json.qr_code_base64}" style="width:250px;height:250px;margin:20px auto;border:2px solid #1e3c72;border-radius:8px;">
                                 <div style="margin:20px 0;padding:15px;background:#f0f7ff;border-radius:8px;">
                                     <p style="margin:0 0 10px 0;color:#666;font-size:0.9rem;">📋 Código (copia e cola):</p>
-                                    <p style="margin:0;padding:10px;background:white;border:1px solid #ddd;border-radius:4px;font-family:monospace;word-break:break-all;cursor:pointer;font-size:11px;" onclick="navigator.clipboard.writeText('\${json.qr_code}');alert('Código copiado!');">\${json.qr_code}</p>
+                                    <p style="margin:0;padding:10px;background:white;border:2px solid #e2e8f0;border-radius:4px;font-family:monospace;word-break:break-all;cursor:pointer;font-size:11px;" onclick="navigator.clipboard.writeText('\${json.qr_code}');alert('Código copiado!');">\${json.qr_code}</p>
                                 </div>
                             \`;
 
@@ -3384,6 +3432,135 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
             </html>`);
         }
 
+        // Verificar se cliente informou endereço completo
+        if (user.rows.length > 0) {
+            const usuarioResult = await pool.query('SELECT cep, rua, numero_casa, bairro, cidade, estado FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
+            if (usuarioResult.rows.length > 0) {
+                const endereco = usuarioResult.rows[0];
+                const temEndereco = endereco.cep && endereco.rua && endereco.numero_casa && endereco.bairro && endereco.cidade && endereco.estado;
+                if (!temEndereco) {
+                    console.log(`❌ Cliente sem endereço completo tentou solicitar empréstimo: ${req.session.userCpf}`);
+                    return res.send(`<!DOCTYPE html>
+                    <html lang="pt-BR">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Endereço Obrigatório - AzulCrédito</title>
+                        <style>
+                            * { margin: 0; padding: 0; box-sizing: border-box; }
+                            body {
+                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                min-height: 100vh;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                padding: 20px;
+                            }
+                            .container {
+                                background: white;
+                                border-radius: 20px;
+                                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                                padding: 60px 40px;
+                                max-width: 500px;
+                                text-align: center;
+                            }
+                            .icon { font-size: 80px; margin-bottom: 20px; }
+                            h1 {
+                                color: #8b5cf6;
+                                font-size: 28px;
+                                margin-bottom: 15px;
+                                font-weight: 700;
+                            }
+                            p {
+                                color: #666;
+                                font-size: 16px;
+                                line-height: 1.6;
+                                margin-bottom: 15px;
+                            }
+                            .warning-box {
+                                background: #f3e8ff;
+                                border: 2px solid #8b5cf6;
+                                border-radius: 12px;
+                                padding: 20px;
+                                margin: 30px 0;
+                                color: #5b21b6;
+                            }
+                            .missing-fields {
+                                text-align: left;
+                                background: #faf5ff;
+                                padding: 15px;
+                                border-radius: 8px;
+                                margin: 15px 0;
+                            }
+                            .missing-fields li {
+                                margin: 8px 0;
+                                color: #5b21b6;
+                                font-weight: 500;
+                            }
+                            .btn {
+                                padding: 14px 24px;
+                                border: none;
+                                border-radius: 10px;
+                                font-size: 16px;
+                                font-weight: bold;
+                                cursor: pointer;
+                                text-decoration: none;
+                                display: inline-block;
+                                transition: all 0.3s;
+                                margin-top: 15px;
+                            }
+                            .btn-primary {
+                                background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+                                color: white;
+                            }
+                            .btn-primary:hover {
+                                transform: translateY(-2px);
+                                box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+                            }
+                            .btn-secondary {
+                                background: white;
+                                border: 2px solid #8b5cf6;
+                                color: #8b5cf6;
+                            }
+                            .btn-secondary:hover {
+                                background: #f3e8ff;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="icon">📍</div>
+                            <h1>Endereço Obrigatório</h1>
+                            <p>Para solicitar um empréstimo, você precisa informar seu endereço completo.</p>
+
+                            <div class="warning-box">
+                                <strong>Campos necessários:</strong>
+                                <div class="missing-fields">
+                                    <ul style="list-style: none; padding: 0;">
+                                        ${!endereco.cep ? '<li>✗ CEP</li>' : '<li style="color: #22c55e;">✓ CEP</li>'}
+                                        ${!endereco.rua ? '<li>✗ Rua</li>' : '<li style="color: #22c55e;">✓ Rua</li>'}
+                                        ${!endereco.numero_casa ? '<li>✗ Número</li>' : '<li style="color: #22c55e;">✓ Número</li>'}
+                                        ${!endereco.bairro ? '<li>✗ Bairro</li>' : '<li style="color: #22c55e;">✓ Bairro</li>'}
+                                        ${!endereco.cidade ? '<li>✗ Cidade</li>' : '<li style="color: #22c55e;">✓ Cidade</li>'}
+                                        ${!endereco.estado ? '<li>✗ Estado</li>' : '<li style="color: #22c55e;">✓ Estado</li>'}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <p style="color: #5b21b6; font-size: 14px; margin: 20px 0;">Clique em "Meu Perfil" e preencha a seção de Endereço para continuar.</p>
+
+                            <div style="margin-top: 30px;">
+                                <a href="/perfil" class="btn btn-primary">Completar Endereço</a>
+                                <a href="/simulacoes" class="btn btn-secondary">Voltar</a>
+                            </div>
+                        </div>
+                    </body>
+                    </html>`);
+                }
+            }
+        }
+
         // Obter taxa de juros dinâmica
         const taxaResult = await pool.query('SELECT valor FROM CONFIGURACOES WHERE chave = $1', ['TAXA_JUROS']);
         const taxa = taxaResult.rows.length > 0 ? parseFloat(taxaResult.rows[0].valor) : 0.05;
@@ -3654,8 +3831,8 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
         const renegociacoesPendentes = renegPendResult.rows;
 
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Admin AzulCrédito</title><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>
-            body{font-family:"Segoe UI",sans-serif;background:#f0f4f8;padding:20px;}
-            .header{background:#1e3c72;color:white;padding:20px;border-radius:10px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:center;}
+            body{font-family:"Segoe UI",sans-serif;background:#f1f5f9;padding:20px;}
+            .header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:20px;border-radius:10px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:center;}
             .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:40px;}
             .stat-card{background:white;padding:25px;border-radius:15px;border-left:5px solid #1e3c72;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
             .stat-card h3{margin:0;font-size:0.9rem;color:#666;text-transform:uppercase;}
@@ -3673,12 +3850,12 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             table th{background:#f8f9fa;padding:12px;text-align:left;font-weight:600;color:#333;}
             table td{padding:12px;border-bottom:1px solid #f1f3f5;}
             .profile-card{background:white;border-radius:15px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);overflow:hidden;}
-            .profile-header{background:#1e3c72;color:white;padding:15px 25px;display:flex;justify-content:space-between;align-items:center;}
+            .profile-header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:15px 25px;display:flex;justify-content:space-between;align-items:center;}
             .btn-whatsapp{background:#25d366;color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:0.8rem;}
             .badge{padding:4px 12px;border-radius:50px;font-size:0.7rem;font-weight:bold;}
             .st-pago{background:#d4edda;color:#155724;}.st-analise{background:#fff3cd;color:#856404;}.st-reprovado{background:#f8d7da;color:#721c24;}.st-quitado{background:#dbeafe;color:#1e40af;}
             .doc-link{text-decoration:none;font-weight:bold;color:#3498db;margin-right:10px;}
-            select,button{padding:6px 10px;border:1px solid #ddd;border-radius:6px;cursor:pointer;}
+            select,button{padding:6px 10px;border:2px solid #e2e8f0;border-radius:6px;cursor:pointer;}
             button{background:#3a7bd5;color:white;border:none;font-weight:bold;}
             button:hover{background:#2a5fa5;}
         </style></head><body data-admin-role="${req.session.adminRole || 'admin'}">
@@ -3689,7 +3866,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <div style="font-size:28px;transition:transform 0.2s;">🔔</div>
                         <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
                     </div>
-                    ${req.session.adminRole === 'superadmin' ? '<button onclick="limparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>' : ''}
+                    ${req.session.adminRole === 'superadmin' ? '<button onclick="abrirModalLimparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>' : ''}
                     ${req.session.adminRole === 'superadmin' ? '<a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>' : ''}
                     <a href="/admin-logout" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
                 </div>
@@ -3812,7 +3989,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             <div style="background:white;padding:20px;border-radius:15px;margin-bottom:20px;display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
                 <div style="display:flex;gap:10px;align-items:center;">
                     <label style="font-weight:bold;color:#333;">Filtrar por Status:</label>
-                    <select id="filtroStatus" onchange="aplicarFiltros()" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    <select id="filtroStatus" onchange="aplicarFiltros()" style="padding:8px;border:2px solid #e2e8f0;border-radius:6px;">
                         <option value="">Todos</option>
                         <option value="EM ANÁLISE">Em Análise</option>
                         <option value="PAGO">Aprovado</option>
@@ -3822,23 +3999,23 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;">
                     <label style="font-weight:bold;color:#333;">Valor Mín:</label>
-                    <input type="number" id="filtroValorMin" onkeyup="aplicarFiltros()" placeholder="0" style="padding:8px;border:1px solid #ddd;border-radius:6px;width:100px;">
+                    <input type="number" id="filtroValorMin" onkeyup="aplicarFiltros()" placeholder="0" style="padding:8px;border:2px solid #e2e8f0;border-radius:6px;width:100px;">
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;">
                     <label style="font-weight:bold;color:#333;">Valor Máx:</label>
-                    <input type="number" id="filtroValorMax" onkeyup="aplicarFiltros()" placeholder="999999" style="padding:8px;border:1px solid #ddd;border-radius:6px;width:100px;">
+                    <input type="number" id="filtroValorMax" onkeyup="aplicarFiltros()" placeholder="999999" style="padding:8px;border:2px solid #e2e8f0;border-radius:6px;width:100px;">
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;">
                     <label style="font-weight:bold;color:#333;">De:</label>
-                    <input type="date" id="filtroDataInicio" onchange="aplicarFiltros()" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    <input type="date" id="filtroDataInicio" onchange="aplicarFiltros()" style="padding:8px;border:2px solid #e2e8f0;border-radius:6px;">
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;">
                     <label style="font-weight:bold;color:#333;">Até:</label>
-                    <input type="date" id="filtroDataFim" onchange="aplicarFiltros()" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    <input type="date" id="filtroDataFim" onchange="aplicarFiltros()" style="padding:8px;border:2px solid #e2e8f0;border-radius:6px;">
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-grow:1;">
                     <label style="font-weight:bold;color:#333;">🔍 Buscar:</label>
-                    <input type="text" id="filtrowBusca" onkeyup="aplicarFiltros()" placeholder="Nome ou CPF..." style="padding:8px;border:1px solid #ddd;border-radius:6px;flex:1;max-width:300px;">
+                    <input type="text" id="filtrowBusca" onkeyup="aplicarFiltros()" placeholder="Nome ou CPF..." style="padding:8px;border:2px solid #e2e8f0;border-radius:6px;flex:1;max-width:300px;">
                 </div>
                 <button onclick="exportarCSV()" style="background:#16a34a;padding:8px 16px;border:none;border-radius:6px;color:white;font-weight:bold;cursor:pointer;">📥 Exportar CSV</button>
                 <button onclick="exportarPDF()" style="background:#3b82f6;padding:8px 16px;border:none;border-radius:6px;color:white;font-weight:bold;cursor:pointer;">📄 Exportar PDF</button>
@@ -3879,7 +4056,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     <button onclick="bloquearCliente('${cpf}', 'emprestimo', true)" style="background:#f39c12;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Bloquear empréstimos">🚫 Bloquear Emprés.</button>
                     <button onclick="desbloquearCliente('${cpf}', 'emprestimo', false)" style="background:#3498db;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.75rem;" title="Desbloquear empréstimos">✅ Liberar Emprés.</button>
                 </div>`;
-                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeScore}${badgeLogin}${badgeEmprestimo}</div><div style="display:flex;gap:5px;flex-wrap:wrap;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div></div><div style="padding:10px 15px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:0.85rem;color:#666;display:grid;grid-template-columns:auto auto auto 1fr;gap:20px;"><div><strong>Endereço:</strong> ${endereco}</div><div><strong>Banco:</strong> ${banco}</div><div><strong>PIX:</strong> ${pixInfo}</div></div><div style="padding:10px 15px;border-bottom:1px solid #eee;display:flex;gap:5px;flex-wrap:wrap;">${btnsControle}</div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
+                return `<div class="profile-card"><div class="profile-header"><div><strong>👤 ${p.nome}</strong> <small style="margin-left:15px;opacity:0.8;">CPF: ${cpf}</small>${badgeScore}${badgeLogin}${badgeEmprestimo}</div><div style="display:flex;gap:5px;flex-wrap:wrap;"><a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn-whatsapp">WHATSAPP</a></div></div><div style="padding:15px;background:linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%);border-bottom:1px solid #e0e7f1;font-size:0.9rem;color:#1e3c72;display:grid;grid-template-columns:1fr 1fr;gap:15px;"><div><strong style="color:#0066cc;display:block;margin-bottom:4px;">Endereço:</strong> <span style="color:#333;font-weight:500;">${endereco}</span></div><div><strong style="color:#0066cc;display:block;margin-bottom:4px;">PIX:</strong> <span style="color:#333;font-weight:500;">${pixInfo}</span></div></div><div style="padding:10px 15px;border-bottom:1px solid #eee;display:flex;gap:5px;flex-wrap:wrap;">${btnsControle}</div><table><thead><tr><th>DATA</th><th>VALOR</th><th>TOTAL</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>ÚLTIMA PAGA</th><th>PRÓX. VENCIMENTO</th><th>DOCS</th><th>AÇÃO</th></tr></thead><tbody>` +
                 p.pedidos.map((ped, idx) => {
                     const st = ped.status === 'PAGO' ? 'st-pago' : (ped.status === 'REPROVADO' ? 'st-reprovado' : (ped.status === 'QUITADO' ? 'st-quitado' : 'st-analise'));
                     const [pagtoResult, ultimaPagResult] = pagamentosResults[idx];
@@ -3912,11 +4089,11 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     <h3 style="margin-top:0;color:#1e3c72;">Registrar Pagamento</h3>
                     <div style="margin:15px 0;">
                         <label style="display:block;font-weight:bold;margin-bottom:5px;color:#333;">Valor do Pagamento</label>
-                        <input type="number" id="valor-pagamento" placeholder="Ex: 100.00" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;" step="0.01" min="0">
+                        <input type="number" id="valor-pagamento" placeholder="Ex: 100.00" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;box-sizing:border-box;" step="0.01" min="0">
                     </div>
                     <div style="margin:15px 0;">
                         <label style="display:block;font-weight:bold;margin-bottom:5px;color:#333;">Data do Pagamento</label>
-                        <input type="date" id="data-pagamento" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;">
+                        <input type="date" id="data-pagamento" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;box-sizing:border-box;">
                     </div>
                     <div style="display:flex;gap:10px;margin-top:25px;">
                         <button onclick="registrarPagamento()" style="flex:1;background:#27ae60;color:white;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✅ Registrar</button>
@@ -3930,7 +4107,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             function fecharModalPagamento(){document.getElementById('modalPagamento').style.display='none';}
             async function registrarPagamento(){const val=parseFloat(document.getElementById('valor-pagamento').value);const data=document.getElementById('data-pagamento').value;if(!val||!data){alert('Preencha todos os campos');return;}
             const resp=await fetch('/registrar-pagamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({simulacao_id:simIdAtual,valor:val,data_pagamento:data})});const json=await resp.json();if(json.ok){alert('✅ Pagamento registrado!');location.reload();}else{alert('❌ Erro ao registrar');}}
-            async function limparDados(){if(confirm('⚠️ ATENÇÃO!\\n\\nVocê tem certeza que quer DELETAR TODOS os dados?\\n\\nEsta ação é IRREVERSÍVEL!')){const resp=await fetch('/admin-limpar-dados',{method:'POST',headers:{'Content-Type':'application/json'}});const json=await resp.json();if(json.ok){alert('✅ '+json.msg);location.reload();}else{alert('❌ '+json.msg);}}}
+            function abrirModalLimparDados(){document.getElementById('modalLimparDados').style.display='flex';}function fecharModalLimparDados(){document.getElementById('modalLimparDados').style.display='none';}async function executarLimpeza(){const usuarios=document.getElementById('ckUsuarios').checked;const simulacoes=document.getElementById('ckSimulacoes').checked;const pagamentos=document.getElementById('ckPagamentos').checked;if(!usuarios&&!simulacoes&&!pagamentos){alert('⚠️ Selecione pelo menos uma tabela para limpar');return;}if(!confirm('⚠️ ATENÇÃO!\\n\\nVocê vai deletar os dados selecionados.\\n\\nEsta ação é IRREVERSÍVEL!')){return;}const resp=await fetch('/admin-limpar-dados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuarios,simulacoes,pagamentos})});const json=await resp.json();if(json.ok){alert('✅ '+json.msg);fecharModalLimparDados();location.reload();}else{alert('❌ '+json.msg);}}
             async function salvar(id,whats,nome){const st=document.getElementById('st-'+id).value;await fetch('/atualizar-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:st})});if(st==='PAGO'){window.open("https://wa.me/"+whats+"?text="+encodeURIComponent("Olá "+nome+"! Seu empréstimo foi APROVADO! 🚀"),"_blank");}location.reload();}
 
             // Gráfico de Status
@@ -4278,7 +4455,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 let html='<h2 style="text-align:center;color:#1e3c72;margin-bottom:30px;">Relatório de Propostas - AzulCrédito</h2>';
                 html+='<p style="text-align:center;font-size:12px;color:#999;">Gerado em '+new Date().toLocaleString('pt-BR')+'</p>';
                 html+='<table style="width:100%;border-collapse:collapse;margin-top:20px;font-size:11px;">';
-                html+='<thead><tr style="background:#1e3c72;color:white;"><th style="border:1px solid #ddd;padding:8px;">Data</th><th style="border:1px solid #ddd;padding:8px;">Nome</th><th style="border:1px solid #ddd;padding:8px;">CPF</th><th style="border:1px solid #ddd;padding:8px;">Valor</th><th style="border:1px solid #ddd;padding:8px;">Parcelas</th><th style="border:1px solid #ddd;padding:8px;">Total</th><th style="border:1px solid #ddd;padding:8px;">Status</th><th style="border:1px solid #ddd;padding:8px;">Total Pago</th></tr></thead><tbody>';
+                html+='<thead><tr style="background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;"><th style="border:2px solid #e2e8f0;padding:8px;">Data</th><th style="border:2px solid #e2e8f0;padding:8px;">Nome</th><th style="border:2px solid #e2e8f0;padding:8px;">CPF</th><th style="border:2px solid #e2e8f0;padding:8px;">Valor</th><th style="border:2px solid #e2e8f0;padding:8px;">Parcelas</th><th style="border:2px solid #e2e8f0;padding:8px;">Total</th><th style="border:2px solid #e2e8f0;padding:8px;">Status</th><th style="border:2px solid #e2e8f0;padding:8px;">Total Pago</th></tr></thead><tbody>';
                 document.querySelectorAll('.profile-card').forEach(card=>{
                     if(card.style.display!=='none'){
                         const header=card.querySelector('.profile-header').innerText;
@@ -4295,7 +4472,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                                 const parcelas=tds[3].innerText;
                                 const pago=tds[5].innerText;
                                 const status=tds[8].querySelector('.badge')?.innerText||'';
-                                html+=\`<tr><td style="border:1px solid #ddd;padding:8px;">\${data}</td><td style="border:1px solid #ddd;padding:8px;">\${nome}</td><td style="border:1px solid #ddd;padding:8px;">\${cpf}</td><td style="border:1px solid #ddd;padding:8px;">\${valor}</td><td style="border:1px solid #ddd;padding:8px;">\${parcelas}</td><td style="border:1px solid #ddd;padding:8px;">\${total}</td><td style="border:1px solid #ddd;padding:8px;">\${status}</td><td style="border:1px solid #ddd;padding:8px;">\${pago}</td></tr>\`;
+                                html+=\`<tr><td style="border:2px solid #e2e8f0;padding:8px;">\${data}</td><td style="border:2px solid #e2e8f0;padding:8px;">\${nome}</td><td style="border:2px solid #e2e8f0;padding:8px;">\${cpf}</td><td style="border:2px solid #e2e8f0;padding:8px;">\${valor}</td><td style="border:2px solid #e2e8f0;padding:8px;">\${parcelas}</td><td style="border:2px solid #e2e8f0;padding:8px;">\${total}</td><td style="border:2px solid #e2e8f0;padding:8px;">\${status}</td><td style="border:2px solid #e2e8f0;padding:8px;">\${pago}</td></tr>\`;
                             }
                         });
                     }
@@ -4420,7 +4597,44 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             carregarNotificacoes();
             // Carregar ranking de scores
             carregarRankingScores();
-            </script></body></html>`);
+            </script>
+
+            <div id="modalLimparDados" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
+                <div style="background:white;padding:40px;border-radius:16px;width:min(500px,90%);box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <h2 style="color:#dc2626;margin-top:0;margin-bottom:15px;font-size:1.3rem;">⚠️ Cuidado - Deleção Permanente</h2>
+                    <p style="color:#991b1b;margin-bottom:25px;line-height:1.6;background:#fee2e2;padding:15px;border-radius:8px;border-left:4px solid #dc2626;"><strong>AVISO:</strong> Esta ação é IRREVERSÍVEL. Os dados deletados não podem ser recuperados. Marque APENAS as categorias que deseja deletar.</p>
+
+                    <h3 style="color:#1a2e4a;margin-top:0;margin-bottom:15px;font-size:1rem;">Selecione o que deseja deletar:</h3>
+
+                    <div style="background:#f1f5f9;padding:20px;border-radius:12px;margin-bottom:25px;border:2px solid #e2e8f0;">
+                        <label style="display:flex;align-items:center;margin-bottom:15px;cursor:pointer;">
+                            <input type="checkbox" id="ckUsuarios" style="width:18px;height:18px;margin-right:12px;cursor:pointer;accent-color:#dc2626;">
+                            <span style="color:#1e293b;font-weight:600;">❌ Deletar Todos os Usuários</span>
+                        </label>
+
+                        <label style="display:flex;align-items:center;margin-bottom:15px;cursor:pointer;">
+                            <input type="checkbox" id="ckSimulacoes" style="width:18px;height:18px;margin-right:12px;cursor:pointer;accent-color:#dc2626;">
+                            <span style="color:#1e293b;font-weight:600;">❌ Deletar Todos os Empréstimos</span>
+                        </label>
+
+                        <label style="display:flex;align-items:center;cursor:pointer;">
+                            <input type="checkbox" id="ckPagamentos" style="width:18px;height:18px;margin-right:12px;cursor:pointer;accent-color:#dc2626;">
+                            <span style="color:#1e293b;font-weight:600;">❌ Deletar Todos os Pagamentos</span>
+                        </label>
+                    </div>
+
+                    <div id="avisoSemSelecao" style="display:none;background:#fef2f2;padding:12px;border-radius:8px;margin-bottom:15px;color:#991b1b;font-weight:bold;text-align:center;border-left:4px solid #dc2626;">
+                        Selecione pelo menos uma categoria!
+                    </div>
+
+                    <div style="display:flex;gap:12px;justify-content:flex-end;">
+                        <button onclick="fecharModalLimparDados()" style="padding:12px 24px;background:#e2e8f0;color:#1e293b;border:none;border-radius:8px;cursor:pointer;font-weight:bold;transition:all 0.3s;">Cancelar</button>
+                        <button onclick="executarLimpeza()" style="padding:12px 24px;background:#dc2626;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;transition:all 0.3s;">🗑️ Deletar Selecionados</button>
+                    </div>
+                </div>
+            </div>
+
+            </body></html>`);
     } catch (e) { console.error(e); res.status(500).send("Erro"); }
 });
 
@@ -5180,6 +5394,35 @@ app.get('/api/meu-pix', async (req, res) => {
     }
 });
 
+// Obter dados de endereço
+app.get('/api/meu-endereco', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false });
+
+        const cpf = req.session.userCpf;
+        const result = await pool.query(
+            'SELECT cep, rua, numero_casa, bairro, cidade, estado FROM USUARIOS WHERE cpf = $1',
+            [cpf]
+        );
+
+        if (!result.rows.length) return res.status(404).json({ ok: false });
+
+        const user = result.rows[0];
+        res.json({
+            ok: true,
+            cep: user.cep || '',
+            rua: user.rua || '',
+            numero_casa: user.numero_casa || '',
+            bairro: user.bairro || '',
+            cidade: user.cidade || '',
+            estado: user.estado || ''
+        });
+    } catch (err) {
+        console.error('❌ Erro ao obter endereço:', err);
+        res.status(500).json({ ok: false });
+    }
+});
+
 app.get('/api/meu-score', async (req, res) => {
     try {
         if (!req.session.usuarioLogado) return res.status(401).json({ ok: false });
@@ -5577,21 +5820,35 @@ app.post('/trocar-senha', async (req, res) => {
 // --- LIMPAR DADOS (DELETE APENAS) ---
 app.post('/admin-limpar-dados', superadminAuth, async (req, res) => {
     try {
-        console.log('🗑️ Limpando dados de teste...');
+        const { usuarios, simulacoes, pagamentos } = req.body;
+
+        console.log('🗑️ Limpando dados selecionados...', { usuarios, simulacoes, pagamentos });
+
+        let resultPag, resultSim, resultUsr;
+        let msg = '🗑️ Dados deletados:\n';
 
         // Deletar em ordem de dependência (por causa das foreign keys)
-        const resultPag = await pool.query('DELETE FROM PAGAMENTOS');
-        console.log(`✅ ${resultPag.rowCount} registros de PAGAMENTOS deletados`);
+        if (pagamentos) {
+            resultPag = await pool.query('DELETE FROM PAGAMENTOS');
+            console.log(`✅ ${resultPag.rowCount} registros de PAGAMENTOS deletados`);
+            msg += `- ${resultPag.rowCount} pagamentos\n`;
+        }
 
-        const resultSim = await pool.query('DELETE FROM SIMULACOES');
-        console.log(`✅ ${resultSim.rowCount} registros de SIMULACOES deletados`);
+        if (simulacoes) {
+            resultSim = await pool.query('DELETE FROM SIMULACOES');
+            console.log(`✅ ${resultSim.rowCount} registros de SIMULACOES deletados`);
+            msg += `- ${resultSim.rowCount} propostas\n`;
+        }
 
-        const resultUsr = await pool.query('DELETE FROM USUARIOS');
-        console.log(`✅ ${resultUsr.rowCount} registros de USUARIOS deletados`);
+        if (usuarios) {
+            resultUsr = await pool.query('DELETE FROM USUARIOS');
+            console.log(`✅ ${resultUsr.rowCount} registros de USUARIOS deletados`);
+            msg += `- ${resultUsr.rowCount} usuários\n`;
+        }
 
         res.json({
             ok: true,
-            msg: `🗑️ Dados limpados!\n- ${resultPag.rowCount} pagamentos\n- ${resultSim.rowCount} propostas\n- ${resultUsr.rowCount} usuários`
+            msg: msg.trim()
         });
     } catch (err) {
         console.error('❌ Erro ao limpar dados:', err);
