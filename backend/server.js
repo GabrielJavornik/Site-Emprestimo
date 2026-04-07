@@ -700,6 +700,23 @@ pool.query(`
     ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS score_atualizado_em TIMESTAMP
 `).catch(err => console.error('⚠️ Erro ao adicionar coluna score_atualizado_em:', err.message));
 
+// Adicionar colunas de PIX
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS pix_cpf VARCHAR(14)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna pix_cpf:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS pix_cnpj VARCHAR(18)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna pix_cnpj:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS pix_telefone VARCHAR(20)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna pix_telefone:', err.message));
+
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS pix_email VARCHAR(100)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna pix_email:', err.message));
+
 // Tabela para controlar lembretes enviados
 pool.query(`
     CREATE TABLE IF NOT EXISTS LEMBRETES_ENVIADOS (
@@ -1741,43 +1758,79 @@ app.get('/perfil', async (req, res) => {
                 </div>
 
                 <div class="card">
-                    <h2>🏦 Dados Bancários</h2>
+                    <h2>💳 Dados de Transferência</h2>
                     <div id="resultado-banco"></div>
-                    <label>Banco</label>
-                    <select id="banco" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;">
-                        <option value="">Selecione seu banco</option>
-                        <option value="001">Banco do Brasil (001)</option>
-                        <option value="033">Banco Santander (033)</option>
-                        <option value="104">Caixa Econômica Federal (104)</option>
-                        <option value="237">Banco Bradesco (237)</option>
-                        <option value="260">Nu Pagamentos S.A. - Nubank (260)</option>
-                        <option value="077">Banco Inter (077)</option>
-                        <option value="341">Itaú Unibanco (341)</option>
-                        <option value="745">Banco Citibank (745)</option>
-                        <option value="399">HSBC Bank Brasil (399)</option>
-                        <option value="072">Banco Bmg (072)</option>
-                    </select>
 
-                    <label>Agência (sem dígito)</label>
-                    <input type="text" id="agencia" placeholder="0000" maxlength="5">
+                    <!-- Abas -->
+                    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #e0e7f1;">
+                        <button onclick="switchBancoTab('transferencia')" id="tab-transferencia" style="flex:1;padding:15px;background:none;border:none;cursor:pointer;font-weight:bold;color:#667eea;border-bottom:3px solid #667eea;font-size:1rem;">Transferência Bancária</button>
+                        <button onclick="switchBancoTab('pix')" id="tab-pix" style="flex:1;padding:15px;background:none;border:none;cursor:pointer;font-weight:bold;color:#999;border-bottom:none;font-size:1rem;">PIX (Recomendado)</button>
+                    </div>
 
-                    <label>Conta (sem dígito)</label>
-                    <input type="text" id="conta" placeholder="0000000" maxlength="14">
+                    <!-- Aba Transferência Bancária -->
+                    <div id="tab-content-transferencia">
+                        <label style="font-weight:bold;color:#1e3c72;">Banco</label>
+                        <select id="banco" style="width:100%;padding:12px;border:2px solid #e0e7f1;border-radius:8px;font-size:1rem;">
+                            <option value="">Selecione seu banco</option>
+                            <option value="001">Banco do Brasil (001)</option>
+                            <option value="033">Banco Santander (033)</option>
+                            <option value="104">Caixa Econômica Federal (104)</option>
+                            <option value="237">Banco Bradesco (237)</option>
+                            <option value="260">Nu Pagamentos S.A. - Nubank (260)</option>
+                            <option value="077">Banco Inter (077)</option>
+                            <option value="341">Itaú Unibanco (341)</option>
+                            <option value="745">Banco Citibank (745)</option>
+                            <option value="399">HSBC Bank Brasil (399)</option>
+                            <option value="072">Banco Bmg (072)</option>
+                        </select>
 
-                    <label>Dígito da Conta</label>
-                    <input type="text" id="conta-digito" placeholder="0" maxlength="3">
+                        <label style="font-weight:bold;color:#1e3c72;">Agência (sem dígito)</label>
+                        <input type="text" id="agencia" placeholder="0000" maxlength="5" style="border:2px solid #e0e7f1;">
 
-                    <label>Tipo de Conta</label>
-                    <select id="conta-tipo" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;">
-                        <option value="">Selecione o tipo</option>
-                        <option value="corrente">Conta Corrente</option>
-                        <option value="poupanca">Conta Poupança</option>
-                    </select>
+                        <label style="font-weight:bold;color:#1e3c72;">Conta (sem dígito)</label>
+                        <input type="text" id="conta" placeholder="0000000" maxlength="14" style="border:2px solid #e0e7f1;">
 
-                    <button onclick="salvarDadosBancarios()">💾 Salvar Dados Bancários</button>
-                    <div class="info" style="background:#e8f4f8;border-left-color:#0066cc;">
-                        <strong>ℹ️ Informações:</strong>
-                        <p style="margin:8px 0;">Seus dados bancários são armazenados de forma segura e serão usados para transferências futuras.</p>
+                        <label style="font-weight:bold;color:#1e3c72;">Dígito da Conta</label>
+                        <input type="text" id="conta-digito" placeholder="0" maxlength="3" style="border:2px solid #e0e7f1;">
+
+                        <label style="font-weight:bold;color:#1e3c72;">Tipo de Conta</label>
+                        <select id="conta-tipo" style="width:100%;padding:12px;border:2px solid #e0e7f1;border-radius:8px;font-size:1rem;">
+                            <option value="">Selecione o tipo</option>
+                            <option value="corrente">Conta Corrente</option>
+                            <option value="poupanca">Conta Poupança</option>
+                        </select>
+
+                        <button onclick="salvarDadosBancarios()" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);margin-top:15px;">Salvar Dados Bancários</button>
+                        <div class="info" style="background:#e8f4f8;border-left-color:#0066cc;margin-top:15px;">
+                            <strong>Informações:</strong>
+                            <p style="margin:8px 0;">Seus dados bancários são armazenados de forma segura e serão usados para transferências futuras.</p>
+                        </div>
+                    </div>
+
+                    <!-- Aba PIX -->
+                    <div id="tab-content-pix" style="display:none;">
+                        <div class="info" style="background:#fff3cd;border-left-color:#ff9800;margin-bottom:20px;">
+                            <strong>Importante:</strong>
+                            <p style="margin:8px 0;">Para solicitar empréstimos, você <strong>DEVE</strong> informar pelo menos uma chave PIX.</p>
+                        </div>
+
+                        <label style="font-weight:bold;color:#1e3c72;">CPF</label>
+                        <input type="text" id="pix-cpf" placeholder="000.000.000-00" maxlength="14" style="border:2px solid #e0e7f1;">
+
+                        <label style="font-weight:bold;color:#1e3c72;">CNPJ</label>
+                        <input type="text" id="pix-cnpj" placeholder="00.000.000/0000-00" maxlength="18" style="border:2px solid #e0e7f1;">
+
+                        <label style="font-weight:bold;color:#1e3c72;">Número de Telefone</label>
+                        <input type="text" id="pix-telefone" placeholder="+55 (85) 99999-9999" maxlength="20" style="border:2px solid #e0e7f1;">
+
+                        <label style="font-weight:bold;color:#1e3c72;">E-mail</label>
+                        <input type="email" id="pix-email" placeholder="seu@email.com" style="border:2px solid #e0e7f1;">
+
+                        <button onclick="salvarDadosPix()" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);margin-top:15px;">Salvar Chave PIX</button>
+                        <div class="info" style="background:#e8f8f5;border-left-color:#27ae60;margin-top:15px;">
+                            <strong>PIX - Transferência Instantânea:</strong>
+                            <p style="margin:8px 0;">Transações rápidas, seguras e sem taxas. O PIX é o método de pagamento mais moderno e eficiente.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1890,6 +1943,63 @@ app.get('/perfil', async (req, res) => {
                     } catch (e) {
                         resultado.innerHTML = '<p class="error">❌ Erro ao conectar ao servidor</p>';
                         console.error(e);
+                    }
+                }
+
+                // Trocar entre abas de dados bancários
+                function switchBancoTab(tab) {
+                    const tabTransf = document.getElementById('tab-content-transferencia');
+                    const tabPix = document.getElementById('tab-content-pix');
+                    const btnTransf = document.getElementById('tab-transferencia');
+                    const btnPix = document.getElementById('tab-pix');
+
+                    if (tab === 'transferencia') {
+                        tabTransf.style.display = 'block';
+                        tabPix.style.display = 'none';
+                        btnTransf.style.color = '#667eea';
+                        btnTransf.style.borderBottom = '3px solid #667eea';
+                        btnPix.style.color = '#999';
+                        btnPix.style.borderBottom = 'none';
+                    } else {
+                        tabTransf.style.display = 'none';
+                        tabPix.style.display = 'block';
+                        btnTransf.style.color = '#999';
+                        btnTransf.style.borderBottom = 'none';
+                        btnPix.style.color = '#667eea';
+                        btnPix.style.borderBottom = '3px solid #667eea';
+                    }
+                }
+
+                // Salvar dados de PIX
+                async function salvarDadosPix() {
+                    const pix_cpf = document.getElementById('pix-cpf').value.trim();
+                    const pix_cnpj = document.getElementById('pix-cnpj').value.trim();
+                    const pix_telefone = document.getElementById('pix-telefone').value.trim();
+                    const pix_email = document.getElementById('pix-email').value.trim();
+                    const resultado = document.getElementById('resultado-banco');
+
+                    // Validar se pelo menos uma chave PIX foi fornecida
+                    if (!pix_cpf && !pix_cnpj && !pix_telefone && !pix_email) {
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">❌ Informe pelo menos uma chave PIX!</p>';
+                        return;
+                    }
+
+                    try {
+                        const resp = await fetch('/salvar-pix', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pix_cpf, pix_cnpj, pix_telefone, pix_email })
+                        });
+
+                        const json = await resp.json();
+                        if (json.ok) {
+                            resultado.innerHTML = '<p style="color:#27ae60;font-weight:bold;padding:12px;background:#dcfce7;border-radius:8px;border-left:3px solid #27ae60;">✅ Chave PIX salva com sucesso!</p>';
+                        } else {
+                            resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">❌ ' + (json.msg || 'Erro ao salvar') + '</p>';
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">❌ Erro ao salvar PIX</p>';
                     }
                 }
 
@@ -2791,7 +2901,118 @@ app.post('/enviar-proposta', upload.fields([{name:'doc_id'}, {name:'doc_renda'}]
         const { valor, parcelas } = req.body;
         const vPedido = parseFloat(valor);
         const p = parseInt(parcelas);
-        const user = await pool.query('SELECT nome, email, whatsapp, bloqueado_login, bloqueado_emprestimo, score_credito FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
+        const user = await pool.query('SELECT nome, email, whatsapp, bloqueado_login, bloqueado_emprestimo, score_credito, pix_cpf, pix_cnpj, pix_telefone, pix_email FROM USUARIOS WHERE cpf = $1', [req.session.userCpf]);
+
+        // Verificar se cliente informou PIX
+        if (user.rows.length > 0) {
+            const u = user.rows[0];
+            const temPix = u.pix_cpf || u.pix_cnpj || u.pix_telefone || u.pix_email;
+            if (!temPix) {
+                console.log(`❌ Cliente sem PIX tentou solicitar empréstimo: ${req.session.userCpf}`);
+                return res.send(`<!DOCTYPE html>
+                <html lang="pt-BR">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>PIX Obrigatório - AzulCrédito</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            min-height: 100vh;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            padding: 20px;
+                        }
+                        .container {
+                            background: white;
+                            border-radius: 20px;
+                            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                            padding: 60px 40px;
+                            max-width: 500px;
+                            text-align: center;
+                        }
+                        .icon { font-size: 80px; margin-bottom: 20px; }
+                        h1 {
+                            color: #dc2626;
+                            font-size: 28px;
+                            margin-bottom: 15px;
+                            font-weight: 700;
+                        }
+                        p {
+                            color: #666;
+                            font-size: 16px;
+                            line-height: 1.6;
+                            margin-bottom: 15px;
+                        }
+                        .warning-box {
+                            background: #fef3c7;
+                            border: 2px solid #f59e0b;
+                            border-radius: 12px;
+                            padding: 20px;
+                            margin: 30px 0;
+                            color: #92400e;
+                        }
+                        .btn {
+                            padding: 14px 24px;
+                            border: none;
+                            border-radius: 10px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            text-decoration: none;
+                            display: inline-block;
+                            transition: all 0.3s;
+                        }
+                        .btn-primary {
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            margin-right: 10px;
+                        }
+                        .btn-primary:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+                        }
+                        .btn-secondary {
+                            background: #f0f0f0;
+                            color: #333;
+                            border: 2px solid #ddd;
+                        }
+                        .btn-secondary:hover {
+                            background: #e0e0e0;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="icon">💳</div>
+                        <h1>PIX Obrigatório</h1>
+                        <p>Para solicitar um empréstimo, você precisa informar uma chave PIX.</p>
+
+                        <div class="warning-box">
+                            <strong>Por que PIX é obrigatório?</strong>
+                            <p style="margin-top: 10px;">O PIX permite que você receba o dinheiro de forma rápida, segura e sem tarifas. É o método de transferência mais moderno e eficiente.</p>
+                        </div>
+
+                        <p style="color: #1e3c72; font-weight: bold;">Você pode cadastrar:</p>
+                        <ul style="text-align: left; margin: 15px 0; color: #666;">
+                            <li>✓ CPF</li>
+                            <li>✓ CNPJ</li>
+                            <li>✓ Número de Telefone</li>
+                            <li>✓ E-mail</li>
+                        </ul>
+
+                        <div style="margin-top: 30px;">
+                            <a href="/perfil" class="btn btn-primary">Ir para Dados Bancários</a>
+                            <a href="/simulacoes" class="btn btn-secondary">Voltar</a>
+                        </div>
+                    </div>
+                </body>
+                </html>`);
+            }
+        }
 
         // Verificar se cliente está bloqueado para empréstimos
         if (user.rows.length > 0 && user.rows[0].bloqueado_emprestimo === true) {
@@ -4387,6 +4608,31 @@ app.post('/salvar-dados-bancarios', async (req, res) => {
     } catch (e) {
         console.error('❌ Erro ao salvar dados bancários:', e.message);
         res.status(500).json({ ok: false, msg: 'Erro ao salvar dados bancários' });
+    }
+});
+
+// Salvar chaves PIX
+app.post('/salvar-pix', async (req, res) => {
+    try {
+        if (!req.session.usuarioLogado) return res.status(401).json({ ok: false, msg: 'Não autenticado' });
+
+        const { pix_cpf, pix_cnpj, pix_telefone, pix_email } = req.body;
+
+        // Validar se pelo menos uma chave foi fornecida
+        if (!pix_cpf && !pix_cnpj && !pix_telefone && !pix_email) {
+            return res.json({ ok: false, msg: 'Informe pelo menos uma chave PIX' });
+        }
+
+        await pool.query(
+            'UPDATE USUARIOS SET pix_cpf=$1, pix_cnpj=$2, pix_telefone=$3, pix_email=$4 WHERE cpf=$5',
+            [pix_cpf || null, pix_cnpj || null, pix_telefone || null, pix_email || null, req.session.userCpf]
+        );
+
+        console.log(`✅ Chaves PIX salvas para ${req.session.userCpf}`);
+        res.json({ ok: true, msg: 'Chave PIX salva com sucesso!' });
+    } catch (e) {
+        console.error('❌ Erro ao salvar PIX:', e.message);
+        res.status(500).json({ ok: false, msg: 'Erro ao salvar PIX' });
     }
 });
 
