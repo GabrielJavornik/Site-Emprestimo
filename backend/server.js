@@ -5293,18 +5293,19 @@ app.post('/api/registrar-cupom-usado', async (req, res) => {
         console.log(`   Cupom: ${cupom}`);
         console.log(`   Desconto: R$ ${desconto}`);
 
-        // Verificar se já existe
-        const jaExiste = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, cupom]);
+        // Verificar se já existe (padronizar para uppercase)
+        const cupomUpper = cupom.toUpperCase();
+        const jaExiste = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, cupomUpper]);
 
         if (jaExiste.rows.length > 0) {
-            console.log(`⚠️ Cupom ${cupom} já estava registrado para este CPF`);
+            console.log(`⚠️ Cupom ${cupomUpper} já estava registrado para este CPF`);
             return res.json({ ok: true, msg: 'Cupom já registrado' });
         }
 
         // Inserir novo registro
         const insertResult = await pool.query(
             'INSERT INTO CUPONS_USADOS (cpf, cupom, desconto) VALUES ($1, $2, $3) RETURNING *',
-            [cpf, cupom, desconto]
+            [cpf, cupomUpper, desconto]
         );
 
         console.log(`✅ Cupom ${cupom} registrado com sucesso para CPF ${cpf}`);
@@ -5354,10 +5355,12 @@ app.post('/api/validar-cupom', async (req, res) => {
         // Verificar se já foi usado por este CPF
         const jaUsado = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, cupom.toUpperCase()]);
         if (jaUsado.rows.length > 0) {
-            return res.json({ ok: false, msg: '❌ Inserir cupom' });
+            console.log(`❌ Cupom ${cupom} JÁ FOI USADO por ${cpf}`);
+            return res.json({ ok: false, msg: '❌ Cupom já foi utilizado' });
         }
 
         // Cupom válido
+        console.log(`✅ Cupom ${cupom} VALIDADO para ${cpf}`);
         res.json({ ok: true, msg: 'Cupom válido!', desconto: (cupomData.desconto / 100).toString(), cupom: cupomData.codigo });
     } catch (err) {
         console.error('❌ Erro ao validar cupom:', err);
