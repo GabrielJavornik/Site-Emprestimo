@@ -2596,12 +2596,12 @@ app.get('/simulacoes', async (req, res) => {
                     let textoValor = valorPagar.toFixed(2).replace('.',',');
 
                     // Aplicar cupom se foi aplicado com sucesso
-                    if(cupomAplicado && document.getElementById('msg-cupom').innerText.includes('Cupom aplicado')){
-                        const desconto = valorPagar * 0.05;
+                    if(cupomAplicado && cupomAplicadoCodigo){
+                        const desconto = valorPagar * (cupomAplicadoDesconto / 100);
                         const valorComDesconto = valorPagar - desconto;
-                        console.log('💚 Cupom OFF5 aplicado: R$ '+valorPagar.toFixed(2)+' → R$ '+valorComDesconto.toFixed(2));
+                        console.log('💚 Cupom '+cupomAplicadoCodigo+' aplicado: R$ '+valorPagar.toFixed(2)+' → R$ '+valorComDesconto.toFixed(2));
                         valorPagar = valorComDesconto;
-                        textoValor = '(com 5% desconto) R$ ' + valorComDesconto.toFixed(2).replace('.',',');
+                        textoValor = '(com '+cupomAplicadoDesconto.toFixed(0)+'% desconto) R$ ' + valorComDesconto.toFixed(2).replace('.',',');
                     }
 
                     // Fechar modal de escolha e abrir PIX
@@ -2611,6 +2611,8 @@ app.get('/simulacoes', async (req, res) => {
 
                 // SISTEMA DE CUPOM
                 let cupomAplicado = false;
+                let cupomAplicadoCodigo = '';
+                let cupomAplicadoDesconto = 0;
 
                 function limparCupom(){
                     const cupomInput = document.getElementById('campo-cupom');
@@ -2627,6 +2629,8 @@ app.get('/simulacoes', async (req, res) => {
                     msgCupom.innerText = '';
                     btnAplicar.style.display = 'block';
                     cupomAplicado = false;
+                    cupomAplicadoCodigo = '';
+                    cupomAplicadoDesconto = 0;
                 }
 
                 async function verificarCupomJaUsado(){
@@ -2691,8 +2695,10 @@ app.get('/simulacoes', async (req, res) => {
 
                         if(json.ok){
                             cupomAplicado = true;
+                            cupomAplicadoCodigo = json.cupom;
+                            cupomAplicadoDesconto = parseFloat(json.desconto) * 100;
                             msgCupom.style.color = '#2ecc71';
-                            msgCupom.innerText = '✅ Cupom aplicado! 5% de desconto será debitado';
+                            msgCupom.innerText = '✅ Cupom aplicado! '+cupomAplicadoDesconto.toFixed(0)+'% de desconto será debitado';
                             cupomInput.disabled = true;
                             cupomInput.style.background = '#e8f5e9';
                             cupomInput.style.borderColor = '#2ecc71';
@@ -2776,17 +2782,18 @@ app.get('/simulacoes', async (req, res) => {
                     }
                     try{
                         // Se cupom foi aplicado, registrar ANTES de notificar pagamento
-                        if(cupomAplicado === true){
-                            const desconto = valorPixAtual * 0.05;
-                            console.log('💾 CUPOM APLICADO - Registrando cupom OFF5 como usado');
-                            console.log('  - Cupom: OFF5');
+                        if(cupomAplicado === true && cupomAplicadoCodigo){
+                            const desconto = valorPixAtual * (cupomAplicadoDesconto / 100);
+                            console.log('💾 CUPOM APLICADO - Registrando cupom como usado');
+                            console.log('  - Cupom: ' + cupomAplicadoCodigo);
+                            console.log('  - Desconto %: ' + cupomAplicadoDesconto);
                             console.log('  - Valor: R$ ' + valorPixAtual.toFixed(2));
                             console.log('  - Desconto: R$ ' + desconto.toFixed(2));
 
                             const respCupom = await fetch('/api/registrar-cupom-usado', {
                                 method:'POST',
                                 headers:{'Content-Type':'application/json'},
-                                body:JSON.stringify({cupom:'OFF5', desconto:desconto})
+                                body:JSON.stringify({cupom:cupomAplicadoCodigo, desconto:desconto})
                             });
                             const jsonCupom = await respCupom.json();
                             console.log('✅ RESPOSTA DO SERVIDOR:', jsonCupom);
@@ -2843,7 +2850,7 @@ app.get('/simulacoes', async (req, res) => {
                             const expiracao=new Date(json.expiracao);
                             const avisoDesconto = temDesconto ? '<div style="margin:20px 0;padding:15px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:1.2rem;">🎁 10% de Desconto Aplicado!</p><p style="margin:5px 0 0 0;color:#166534;font-size:0.9rem;">Você está quitando antecipadamente</p></div>' : '';
                             const valorExibido = textoValor || ('R$ ' + valorPagar.toFixed(2).replace('.',','));
-                            const avisoDesconto5pct = cupomAplicado ? '<div style="margin:20px 0;padding:15px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:1.2rem;">💚 5% de Desconto Aplicado!</p><p style="margin:5px 0 0 0;color:#166534;font-size:0.9rem;">Cupom OFF5 foi aplicado</p></div>' : '';
+                            const avisoDesconto5pct = cupomAplicado && cupomAplicadoCodigo ? '<div style="margin:20px 0;padding:15px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:1.2rem;">💚 '+cupomAplicadoDesconto.toFixed(0)+'% de Desconto Aplicado!</p><p style="margin:5px 0 0 0;color:#166534;font-size:0.9rem;">Cupom '+cupomAplicadoCodigo+' foi aplicado</p></div>' : '';
                             container.innerHTML=\`
                                 <div style="margin:20px 0;"><strong>Valor a Pagar:</strong> <span style="font-size:1.5rem;color:#2ecc71;font-weight:bold;">\${valorExibido}</span></div>
                                 \${avisoDesconto5pct}
