@@ -2560,34 +2560,9 @@ app.get('/simulacoes', async (req, res) => {
                 }
 
                 async function abrirModalEscolhaPagamento(simulacaoId, valorParcela, saldoDevido){
-                    // Resetar cupom e verificar se já foi usado
+                    // Resetar cupom
                     limparCupom();
                     cupomAplicado = false;
-
-                    try{
-                        const resp = await fetch('/api/cupom-ja-usado', {method:'GET'});
-                        const json = await resp.json();
-
-                        if(json.jaUsado){
-                            console.log('⚠️ Cupom OFF5 já foi utilizado');
-                            const cupomInput = document.getElementById('campo-cupom');
-                            const msgCupom = document.getElementById('msg-cupom');
-                            const btnAplicar = document.getElementById('btn-aplicar-cupom');
-
-                            if(cupomInput && msgCupom && btnAplicar){
-                                cupomInput.value = 'OFF5';
-                                cupomInput.disabled = true;
-                                cupomInput.style.background = '#ffebee';
-                                cupomInput.style.borderColor = '#e74c3c';
-                                cupomInput.style.color = '#c62828';
-                                msgCupom.style.color = '#e74c3c';
-                                msgCupom.innerText = '❌ Inserir cupom';
-                                btnAplicar.style.display = 'none';
-                            }
-                        }
-                    }catch(e){
-                        console.log('Verificação de cupom');
-                    }
 
                     simIdSelecionado = simulacaoId;
                     valorParcelaSelecionado = valorParcela;
