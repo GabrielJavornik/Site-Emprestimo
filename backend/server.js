@@ -2422,22 +2422,20 @@ app.get('/simulacoes', async (req, res) => {
                 </div>
             </div>
 
-            <div id="modalPix" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;overflow-y:auto;">
-                <div style="background:linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);padding:40px;border-radius:20px;width:min(550px,95%);margin:30px auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
-                        <h3 style="margin:0;color:#1e3c72;font-size:24px;font-weight:bold;">💙 Pagar via PIX</h3>
-                        <button onclick="fecharModalPix()" style="background:#f0f0f0;border:none;font-size:28px;cursor:pointer;color:#666;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;hover:background:#e0e0e0;">✕</button>
+            <div id="modalPix" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;overflow-y:auto;padding:10px;">
+                <div style="background:linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);padding:20px;border-radius:16px;width:min(480px,98%);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;position:relative;">
+                    <button onclick="fecharModalPixSemPagamento()" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:28px;cursor:pointer;color:#666;width:35px;height:35px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;">✕</button>
+                    <h3 style="margin:0 0 20px 0;color:#1e3c72;font-size:20px;font-weight:bold;">💙 Pagar via PIX</h3>
+                    <div id="pix-container" style="padding:15px;background:white;border-radius:12px;margin:15px 0;border:2px solid #f0f7ff;">
+                        <p style="color:#666;margin:15px 0;">Carregando QR Code...</p>
                     </div>
-                    <div id="pix-container" style="padding:20px;background:white;border-radius:15px;margin:20px 0;border:2px solid #f0f7ff;">
-                        <p style="color:#666;margin:20px 0;">Carregando QR Code...</p>
+                    <div style="background:#f9fafb;padding:12px;border-radius:10px;margin:12px 0;border-left:4px solid #2ecc71;">
+                        <p style="margin:0;font-size:12px;color:#666;">⏰ Válido por <span id="timer" style="font-weight:bold;color:#1e3c72;">30:00</span></p>
                     </div>
-                    <div style="background:#f9fafb;padding:15px;border-radius:12px;margin:20px 0;border-left:4px solid #2ecc71;">
-                        <p style="margin:0;font-size:13px;color:#666;">⏰ QR Code válido por <span id="timer" style="font-weight:bold;color:#1e3c72;">30:00</span></p>
-                    </div>
-                    <button onclick="confirmarPagamentoPix()" style="width:100%;padding:15px;background:linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:16px;margin-top:15px;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 25px rgba(46,204,113,0.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+                    <button onclick="confirmarPagamentoPix()" style="width:100%;padding:12px;background:linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;margin-top:12px;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 25px rgba(46,204,113,0.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
                         ✅ Já fiz o Pagamento PIX
                     </button>
-                    <p style="font-size:12px;color:#999;margin-top:15px;">Após confirmar, o administrador será notificado para validar seu pagamento</p>
+                    <p style="font-size:11px;color:#999;margin-top:12px;margin-bottom:0;">Admin será notificado para validar</p>
                 </div>
             </div>
 
@@ -2765,6 +2763,7 @@ app.get('/simulacoes', async (req, res) => {
 
                 // PIX QR CODE
                 function fecharModalPix(){document.getElementById('modalPix').style.display='none';}
+                function fecharModalPixSemPagamento(){limparCupom();cupomAplicado=false;document.getElementById('modalPix').style.display='none';clearInterval(timerInterval);}
                 let timerInterval, pixPaymentIdAtual, simIdAtual, valorPixAtual;
 
                 async function confirmarPagamentoPix(){
