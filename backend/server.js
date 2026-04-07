@@ -4081,7 +4081,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         proximaVenc.setDate(aprovadoEm.getDate() + ((parcelasPagas + 1) * 30));
                         proximaVencimentoStr = proximaVenc.toLocaleDateString('pt-BR');
                     }
-                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="font-size:0.85rem;"><strong>${ultimaPagaNum}</strong><br><small style="color:#666;">${ultimaPagaDate}</small></td><td style="font-size:0.85rem;font-weight:bold;color:#0066cc;">${proximaVencimentoStr}</td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}" ${isQuitado ? 'disabled' : ''}><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option><option value="QUITADO" ${ped.status==='QUITADO'?'selected':''}>Quitado</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''}>OK</button><button style="background:#27ae60;margin-left:5px;" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Pagamento</button></td></tr>`;
+                    return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="font-size:0.85rem;"><strong>${ultimaPagaNum}</strong><br><small style="color:#666;">${ultimaPagaDate}</small></td><td style="font-size:0.85rem;font-weight:bold;color:#0066cc;">${proximaVencimentoStr}</td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}" ${isQuitado ? 'disabled' : ''}><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option><option value="QUITADO" ${ped.status==='QUITADO'?'selected':''}>Quitado</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''}>OK</button><button style="background:#3498db;margin-left:5px;" onclick="abrirModalVerPagamentos(${ped.id})">📋 Ver Pagamentos</button><button style="background:#27ae60;margin-left:5px;" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Registrar</button></td></tr>`;
                 }).join('') + '</tbody></table></div>';
             }))).join('') +
             `<div id="modalPagamento" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
@@ -4101,12 +4101,26 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     </div>
                 </div>
             </div>
+
+            <div id="modalVerPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
+                <div style="background:white;padding:30px;border-radius:15px;width:min(600px,90%);box-shadow:0 10px 40px rgba(0,0,0,0.2);margin:20px 0;">
+                    <h3 style="margin-top:0;color:#1e3c72;">Histórico de Pagamentos</h3>
+                    <div id="listaPagamentos" style="max-height:400px;overflow-y:auto;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;">
+                        <p style="text-align:center;color:#999;">Carregando...</p>
+                    </div>
+                    <button onclick="fecharModalVerPagamentos()" style="width:100%;background:#95a5a6;color:white;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✕ Fechar</button>
+                </div>
+            </div>
+
             <script>
             let simIdAtual = null;
             function abrirModalPagamento(id,val,tot){simIdAtual=id;document.getElementById('modalPagamento').style.display='flex';document.getElementById('data-pagamento').valueAsDate=new Date();document.getElementById('valor-pagamento').focus();}
             function fecharModalPagamento(){document.getElementById('modalPagamento').style.display='none';}
             async function registrarPagamento(){const val=parseFloat(document.getElementById('valor-pagamento').value);const data=document.getElementById('data-pagamento').value;if(!val||!data){alert('Preencha todos os campos');return;}
             const resp=await fetch('/registrar-pagamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({simulacao_id:simIdAtual,valor:val,data_pagamento:data})});const json=await resp.json();if(json.ok){alert('✅ Pagamento registrado!');location.reload();}else{alert('❌ Erro ao registrar');}}
+            async function abrirModalVerPagamentos(simId){document.getElementById('modalVerPagamentos').style.display='flex';const resp=await fetch('/api/pagamentos-simulacao/'+simId);const json=await resp.json();if(json.ok){const lista=document.getElementById('listaPagamentos');if(json.pagamentos.length===0){lista.innerHTML='<p style="padding:20px;text-align:center;color:#999;">Nenhum pagamento registrado</p>';}else{lista.innerHTML=json.pagamentos.map(p=>`<div style="padding:15px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;"><div><strong>R$ ${parseFloat(p.valor).toFixed(2).replace('.',',')}</strong><br><small style="color:#666;">${new Date(p.data_pagamento).toLocaleDateString('pt-BR')} - ${p.status}</small></div><button onclick="deletarPagamento(${p.id})" style="background:#e74c3c;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;">🗑️ Deletar</button></div>`).join('');}}}
+            function fecharModalVerPagamentos(){document.getElementById('modalVerPagamentos').style.display='none';}
+            async function deletarPagamento(pagId){if(!confirm('Deseja deletar este pagamento? Esta ação é IRREVERSÍVEL!')){return;}const resp=await fetch('/deletar-pagamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pagamento_id:pagId})});const json=await resp.json();if(json.ok){alert(json.msg);location.reload();}else{alert('❌ '+json.msg);}}
             function abrirModalLimparDados(){document.getElementById('modalLimparDados').style.display='flex';}function fecharModalLimparDados(){document.getElementById('modalLimparDados').style.display='none';}async function executarLimpeza(){const usuarios=document.getElementById('ckUsuarios').checked;const simulacoes=document.getElementById('ckSimulacoes').checked;const pagamentos=document.getElementById('ckPagamentos').checked;if(!usuarios&&!simulacoes&&!pagamentos){alert('⚠️ Selecione pelo menos uma tabela para limpar');return;}if(!confirm('⚠️ ATENÇÃO!\\n\\nVocê vai deletar os dados selecionados.\\n\\nEsta ação é IRREVERSÍVEL!')){return;}const resp=await fetch('/admin-limpar-dados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuarios,simulacoes,pagamentos})});const json=await resp.json();if(json.ok){alert('✅ '+json.msg);fecharModalLimparDados();location.reload();}else{alert('❌ '+json.msg);}}
             async function salvar(id,whats,nome){const st=document.getElementById('st-'+id).value;await fetch('/atualizar-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:st})});if(st==='PAGO'){window.open("https://wa.me/"+whats+"?text="+encodeURIComponent("Olá "+nome+"! Seu empréstimo foi APROVADO! 🚀"),"_blank");}location.reload();}
 
@@ -5814,6 +5828,53 @@ app.post('/trocar-senha', async (req, res) => {
     } catch (err) {
         console.error('❌ Erro ao trocar senha:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao trocar senha' });
+    }
+});
+
+// --- LISTAR PAGAMENTOS DE UMA SIMULAÇÃO ---
+app.get('/api/pagamentos-simulacao/:simulacao_id', adminAuth, async (req, res) => {
+    try {
+        const { simulacao_id } = req.params;
+        const result = await pool.query(
+            'SELECT id, valor, data_pagamento, status FROM PAGAMENTOS WHERE simulacao_id = $1 ORDER BY data_pagamento DESC',
+            [simulacao_id]
+        );
+        res.json({ ok: true, pagamentos: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao buscar pagamentos:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao buscar pagamentos' });
+    }
+});
+
+// --- DELETAR PAGAMENTO INDIVIDUAL ---
+app.post('/deletar-pagamento', adminAuth, async (req, res) => {
+    try {
+        const { pagamento_id } = req.body;
+
+        // Buscar o pagamento para pegar o simulacao_id e valor
+        const pagResult = await pool.query(
+            'SELECT simulacao_id, valor FROM PAGAMENTOS WHERE id = $1',
+            [pagamento_id]
+        );
+
+        if (pagResult.rows.length === 0) {
+            return res.status(404).json({ ok: false, msg: 'Pagamento não encontrado' });
+        }
+
+        const { simulacao_id, valor } = pagResult.rows[0];
+
+        // Deletar o pagamento
+        await pool.query('DELETE FROM PAGAMENTOS WHERE id = $1', [pagamento_id]);
+
+        console.log('🗑️ Pagamento deletado:', { pagamento_id, simulacao_id, valor });
+
+        res.json({
+            ok: true,
+            msg: `✅ Pagamento de R$ ${parseFloat(valor).toFixed(2).replace('.', ',')} deletado com sucesso`
+        });
+    } catch (err) {
+        console.error('❌ Erro ao deletar pagamento:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao deletar pagamento' });
     }
 });
 
