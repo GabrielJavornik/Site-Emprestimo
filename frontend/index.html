@@ -273,11 +273,67 @@
     </div>
   </div>
 
+  <!-- Modal para Termos de Uso -->
+  <div id="modalTermos" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+      <span class="close" onclick="fecharModalTermos()">&times;</span>
+
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; margin: -40px -35px 30px -35px; border-radius: 28px 28px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 1.6rem; font-weight: 700;">TERMOS DE USO</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 0.95rem;">AzulCrédito</p>
+      </div>
+
+      <div style="padding: 0;">
+        <section style="margin-bottom: 25px;">
+          <h3 style="color: #1e3c72; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-bottom: 2px solid #e8eef5; padding-bottom: 10px;">1. Autorização de Dados</h3>
+          <p style="color: #555; line-height: 1.7; margin: 0;">O usuário autoriza a AzulCrédito a analisar e processar seus dados pessoais, financeiros e documentos para fins de avaliação de crédito e concessão de empréstimos. Os dados serão tratados com segurança e confidencialidade, em conformidade com a Lei Geral de Proteção de Dados (LGPD).</p>
+        </section>
+
+        <section style="margin-bottom: 25px;">
+          <h3 style="color: #1e3c72; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-bottom: 2px solid #e8eef5; padding-bottom: 10px;">2. Sem Pagamentos Antecipados</h3>
+          <p style="color: #555; line-height: 1.7; margin: 0;">A AzulCrédito não solicita pagamentos, depósitos ou taxas antecipadas em nenhuma hipótese. Qualquer cobrança será realizada apenas após aprovação e liberação do crédito. Desconfiança é importante!</p>
+        </section>
+
+        <section style="margin-bottom: 25px;">
+          <h3 style="color: #1e3c72; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-bottom: 2px solid #e8eef5; padding-bottom: 10px;">3. Comunicação e Notificações</h3>
+          <p style="color: #555; line-height: 1.7; margin: 0;">Os dados de contato fornecidos (E-mail e WhatsApp) serão utilizados exclusivamente para comunicações relacionadas ao processo de avaliação, aprovação, liberação de crédito e gerenciamento de empréstimos. Você pode gerenciar suas preferências de comunicação a qualquer momento.</p>
+        </section>
+
+        <section style="margin-bottom: 25px;">
+          <h3 style="color: #1e3c72; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-bottom: 2px solid #e8eef5; padding-bottom: 10px;">4. Segurança e Sigilo</h3>
+          <p style="color: #555; line-height: 1.7; margin: 0;">Todos os dados pessoais e documentos são armazenados em servidores seguros com criptografia de ponta a ponta. Suas informações nunca serão compartilhadas com terceiros sem seu consentimento explícito, exceto quando exigido por lei.</p>
+        </section>
+
+        <section style="margin-bottom: 25px;">
+          <h3 style="color: #1e3c72; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-bottom: 2px solid #e8eef5; padding-bottom: 10px;">5. Responsabilidade do Usuário</h3>
+          <p style="color: #555; line-height: 1.7; margin: 0;">O usuário é responsável pelas informações fornecidas. Qualquer dado falso, alterado ou enganoso pode resultar na rejeição da solicitação e possível denúncia às autoridades competentes. Sempre forneça informações verdadeiras e completas.</p>
+        </section>
+
+        <section style="margin-bottom: 25px;">
+          <h3 style="color: #1e3c72; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; border-bottom: 2px solid #e8eef5; padding-bottom: 10px;">6. Aceite dos Termos</h3>
+          <p style="color: #555; line-height: 1.7; margin: 0;">Ao utilizar a plataforma AzulCrédito, você concorda em aceitar todos estes termos e condições. Se não concordar com alguma disposição, não poderá usar nossos serviços.</p>
+        </section>
+
+        <div style="background: #f8fbfc; padding: 20px; border-radius: 12px; border-left: 4px solid #667eea; margin-top: 30px;">
+          <p style="color: #666; margin: 0; font-size: 0.9rem; line-height: 1.6;"><strong>Data de Atualização:</strong> Abril de 2026. Estes termos podem ser atualizados a qualquer momento. O uso contínuo da plataforma após atualizações constitui aceitação dos novos termos.</p>
+        </div>
+      </div>
+
+      <div style="margin-top: 30px; display: flex; gap: 12px;">
+        <button onclick="fecharModalTermos()" class="btn-azul" style="flex: 1; margin-top: 0;">OK, Entendi</button>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
-  
+
   <script>
     function mostrarTermos() {
-        alert("TERMOS DE USO AZULCRÉDITO\n\n1. O usuário autoriza a análise dos dados para fins de crédito.\n2. Não solicitamos pagamentos antecipados em nenhuma hipótese.\n3. Os dados de contato (E-mail/WhatsApp) serão usados para notificações de aprovação.");
+        document.getElementById('modalTermos').style.display = 'flex';
+    }
+
+    function fecharModalTermos() {
+        document.getElementById('modalTermos').style.display = 'none';
     }
 
     // === RECUPERAR SENHA ===

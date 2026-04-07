@@ -318,6 +318,22 @@ nav a:hover {
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
 }
 
+/* Scrollbar para modal de termos */
+#modalTermos .modal-content::-webkit-scrollbar {
+    width: 10px;
+}
+#modalTermos .modal-content::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+#modalTermos .modal-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+}
+#modalTermos .modal-content::-webkit-scrollbar-thumb:hover {
+    background: #667eea;
+}
+
 .close {
     position: absolute;
     right: 25px; top: 20px;
