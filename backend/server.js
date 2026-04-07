@@ -592,6 +592,16 @@ pool.query(`
 
 // Criar tabela para cupons usados
 pool.query(`
+    CREATE TABLE IF NOT EXISTS CUPONS (
+        id SERIAL PRIMARY KEY,
+        codigo VARCHAR(50) UNIQUE NOT NULL,
+        desconto DECIMAL(5, 2) NOT NULL,
+        ativo BOOLEAN DEFAULT true,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`).catch(err => console.error('⚠️ Erro ao criar tabela CUPONS:', err.message));
+
+pool.query(`
     CREATE TABLE IF NOT EXISTS CUPONS_USADOS (
         id SERIAL PRIMARY KEY,
         cpf VARCHAR(20) NOT NULL UNIQUE,
@@ -2388,7 +2398,6 @@ app.get('/simulacoes', async (req, res) => {
                             <button onclick="aplicarCupom()" id="btn-aplicar-cupom" style="padding:14px 20px;background:linear-gradient(135deg, #0066cc 0%, #003d99 100%);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:0.9rem;transition:all 0.3s;box-shadow:0 4px 8px rgba(0,102,204,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 12px rgba(0,102,204,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 8px rgba(0,102,204,0.3)'">
                                 Aplicar
                             </button>
-                            <button onclick="limparCupom()" id="btn-limpar-cupom" style="padding:14px 10px;background:#999;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:1.1rem;display:none;transition:all 0.3s;">✕</button>
                         </div>
                         <p id="msg-cupom" style="margin:12px 0 0 0;font-size:0.95rem;color:#666;font-weight:bold;min-height:20px;"></p>
                     </div>
@@ -2572,7 +2581,7 @@ app.get('/simulacoes', async (req, res) => {
                             cupomInput.style.borderColor = '#e74c3c';
                             cupomInput.style.color = '#c62828';
                             msgCupom.style.color = '#e74c3c';
-                            msgCupom.innerText = '❌ Cupom já foi utilizado nesta conta';
+                            msgCupom.innerText = '❌ Inserir cupom';
                             btnAplicar.style.display = 'none';
                             btnLimpar.style.display = 'block';
                         }
@@ -2670,7 +2679,7 @@ app.get('/simulacoes', async (req, res) => {
                             cupomInput.style.borderColor = '#e74c3c';
                             cupomInput.style.color = '#c62828';
                             msgCupom.style.color = '#e74c3c';
-                            msgCupom.innerText = '❌ Cupom já foi utilizado nesta conta';
+                            msgCupom.innerText = '❌ Inserir cupom';
                             btnAplicar.style.display = 'none';
                             btnLimpar.style.display = 'block';
                             cupomAplicado = false;
@@ -5330,22 +5339,75 @@ app.post('/api/validar-cupom', async (req, res) => {
         const { cupom } = req.body;
         const cpf = req.session.userCpf;
 
-        // Cupom válido é "OFF5"
-        if (cupom !== 'OFF5') {
-            return res.json({ ok: false, msg: '❌ Cupom inválido' });
+        // Buscar cupom no banco de dados
+        const cupomResult = await pool.query('SELECT * FROM CUPONS WHERE codigo = $1 AND ativo = true', [cupom.toUpperCase()]);
+        if (cupomResult.rows.length === 0) {
+            return res.json({ ok: false, msg: '❌ Inserir cupom' });
         }
 
+        const cupomData = cupomResult.rows[0];
+
         // Verificar se já foi usado por este CPF
-        const jaUsado = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, 'OFF5']);
+        const jaUsado = await pool.query('SELECT * FROM CUPONS_USADOS WHERE cpf = $1 AND cupom = $2', [cpf, cupom.toUpperCase()]);
         if (jaUsado.rows.length > 0) {
-            return res.json({ ok: false, msg: '❌ Este cupom já foi utilizado em sua conta' });
+            return res.json({ ok: false, msg: '❌ Inserir cupom' });
         }
 
         // Cupom válido
-        res.json({ ok: true, msg: 'Cupom válido!', desconto: '0.05', cupom: 'OFF5' });
+        res.json({ ok: true, msg: 'Cupom válido!', desconto: (cupomData.desconto / 100).toString(), cupom: cupomData.codigo });
     } catch (err) {
         console.error('❌ Erro ao validar cupom:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao validar cupom' });
+    }
+});
+
+// --- CRIAR CUPOM (SUPERADMIN) ---
+app.post('/admin-criar-cupom', superadminAuth, async (req, res) => {
+    try {
+        const { codigo, desconto } = req.body;
+
+        if (!codigo || !desconto || desconto <= 0 || desconto > 100) {
+            return res.status(400).json({ ok: false, msg: 'Código e desconto válido são obrigatórios' });
+        }
+
+        // Verificar se já existe
+        const existe = await pool.query('SELECT * FROM CUPONS WHERE codigo = $1', [codigo.toUpperCase()]);
+        if (existe.rows.length > 0) {
+            return res.status(400).json({ ok: false, msg: 'Cupom já existe' });
+        }
+
+        await pool.query('INSERT INTO CUPONS (codigo, desconto, ativo) VALUES ($1, $2, $3)',
+            [codigo.toUpperCase(), desconto, true]);
+
+        res.json({ ok: true, msg: `✅ Cupom ${codigo.toUpperCase()} criado com ${desconto}% de desconto` });
+    } catch (err) {
+        console.error('❌ Erro ao criar cupom:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao criar cupom' });
+    }
+});
+
+// --- LISTAR CUPONS (SUPERADMIN) ---
+app.get('/admin-listar-cupons', superadminAuth, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM CUPONS ORDER BY criado_em DESC');
+        res.json({ ok: true, cupons: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao listar cupons:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar cupons' });
+    }
+});
+
+// --- DELETAR CUPOM (SUPERADMIN) ---
+app.post('/admin-deletar-cupom', superadminAuth, async (req, res) => {
+    try {
+        const { cupom_id } = req.body;
+
+        await pool.query('DELETE FROM CUPONS WHERE id = $1', [cupom_id]);
+
+        res.json({ ok: true, msg: '✅ Cupom deletado' });
+    } catch (err) {
+        console.error('❌ Erro ao deletar cupom:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao deletar cupom' });
     }
 });
 
