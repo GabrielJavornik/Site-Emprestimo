@@ -1781,10 +1781,10 @@ app.get('/perfil', async (req, res) => {
                     </div>
 
                     <div id="pix-input-wrapper">
-                        <label id="pix-input-label" style="font-weight:bold;color:#0066cc;margin-bottom:8px;display:block;font-size:0.95rem;">Digite apenas números</label>
-                        <input type="text" id="pix-cpf" placeholder="12345678901" maxlength="14" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;">
-                        <input type="text" id="pix-cnpj" placeholder="12345678901234" maxlength="18" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
-                        <input type="text" id="pix-telefone" placeholder="85999999999" maxlength="20" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
+                        <label id="pix-input-label" style="font-weight:bold;color:#0066cc;margin-bottom:8px;display:block;font-size:0.95rem;">Digite apenas números (11 dígitos)</label>
+                        <input type="text" id="pix-cpf" placeholder="12345678901" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11); validarCpf();" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;">
+                        <input type="text" id="pix-cnpj" placeholder="12345678901234" maxlength="14" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 14); validarCnpj();" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
+                        <input type="text" id="pix-telefone" placeholder="(85) 99999-9999" maxlength="15" oninput="formatarTelefone(this);" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
                         <input type="email" id="pix-email" placeholder="seu@email.com" style="border:2px solid #0066cc;width:100%;padding:14px;border-radius:10px;font-size:1.1rem;box-sizing:border-box;font-weight:500;display:none;">
                     </div>
 
@@ -1976,19 +1976,83 @@ app.get('/perfil', async (req, res) => {
 
                     // Focar no input
                     document.getElementById('pix-' + tipo).focus();
+
+                    // Atualizar label conforme o tipo
+                    const labels_info = {
+                        cpf: 'Digite apenas números (11 dígitos)',
+                        cnpj: 'Digite apenas números (14 dígitos)',
+                        telefone: 'Digite o DDD + número (11 dígitos)',
+                        email: 'Seu melhor e-mail'
+                    };
+                    document.getElementById('pix-input-label').textContent = labels_info[tipo];
+                }
+
+                // Validar CPF
+                function validarCpf() {
+                    const cpf = document.getElementById('pix-cpf').value;
+                    if (cpf.length < 11) {
+                        document.getElementById('pix-cpf').style.borderColor = '#f97316';
+                    } else if (cpf.length === 11) {
+                        document.getElementById('pix-cpf').style.borderColor = '#27ae60';
+                    }
+                }
+
+                // Validar CNPJ
+                function validarCnpj() {
+                    const cnpj = document.getElementById('pix-cnpj').value;
+                    if (cnpj.length < 14) {
+                        document.getElementById('pix-cnpj').style.borderColor = '#f97316';
+                    } else if (cnpj.length === 14) {
+                        document.getElementById('pix-cnpj').style.borderColor = '#27ae60';
+                    }
+                }
+
+                // Formatar Telefone
+                function formatarTelefone(input) {
+                    let value = input.value.replace(/[^0-9]/g, '').slice(0, 11);
+                    if (value.length > 0) {
+                        if (value.length <= 2) {
+                            value = value;
+                        } else if (value.length <= 7) {
+                            value = '(' + value.slice(0, 2) + ') ' + value.slice(2);
+                        } else {
+                            value = '(' + value.slice(0, 2) + ') ' + value.slice(2, 7) + '-' + value.slice(7);
+                        }
+                    }
+                    input.value = value;
+
+                    if (value.replace(/[^0-9]/g, '').length < 11) {
+                        input.style.borderColor = '#f97316';
+                    } else if (value.replace(/[^0-9]/g, '').length === 11) {
+                        input.style.borderColor = '#27ae60';
+                    }
                 }
 
                 // Salvar dados de PIX
                 async function salvarDadosPix() {
-                    const pix_cpf = document.getElementById('pix-cpf').value.trim();
-                    const pix_cnpj = document.getElementById('pix-cnpj').value.trim();
-                    const pix_telefone = document.getElementById('pix-telefone').value.trim();
+                    const pix_cpf = document.getElementById('pix-cpf').value.trim().replace(/[^0-9]/g, '');
+                    const pix_cnpj = document.getElementById('pix-cnpj').value.trim().replace(/[^0-9]/g, '');
+                    const pix_telefone = document.getElementById('pix-telefone').value.trim().replace(/[^0-9]/g, '');
                     const pix_email = document.getElementById('pix-email').value.trim();
                     const resultado = document.getElementById('resultado-banco');
 
                     // Validar se pelo menos uma chave PIX foi fornecida
                     if (!pix_cpf && !pix_cnpj && !pix_telefone && !pix_email) {
-                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">❌ Informe pelo menos uma chave PIX!</p>';
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">Informe pelo menos uma chave PIX!</p>';
+                        return;
+                    }
+
+                    // Validar quantidade de dígitos
+                    if (pix_cpf && pix_cpf.length !== 11) {
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">CPF deve ter exatamente 11 dígitos!</p>';
+                        return;
+                    }
+                    if (pix_cnpj && pix_cnpj.length !== 14) {
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">CNPJ deve ter exatamente 14 dígitos!</p>';
+                        return;
+                    }
+                    if (pix_telefone && pix_telefone.length !== 11) {
+                        resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">Telefone deve ter exatamente 11 dígitos!</p>';
                         return;
                     }
 
