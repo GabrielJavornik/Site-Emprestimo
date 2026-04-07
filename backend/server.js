@@ -2061,28 +2061,53 @@ app.get('/simulacoes', async (req, res) => {
             Promise.all(renegPromises)
         ]);
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Painel AzulCrédito</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script><style>
-            body{font-family:"Segoe UI",sans-serif;background:#f4f7fa;margin:0;padding:0;}
-            .header{background:#1e3c72;color:white;padding:15px 30px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
-            .container{max-width:900px;margin:30px auto;padding:20px;}
-            .card{background:white;padding:30px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.05);margin-bottom:30px;}
-            input,button{width:100%;padding:14px;margin:10px 0;border-radius:12px;border:2px solid #eef2f7;font-size:1rem;box-sizing:border-box;}
-            .btn-blue{background:#3a7bd5;color:white;font-weight:bold;border:none;cursor:pointer;margin-top:20px;}
-            .btn-pdf{background:#e74c3c;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:0.85rem;margin-top:5px;}
-            .resumo-box{background:#f0f7ff; padding:20px; border-radius:15px; margin:15px 0; border-left:5px solid #3a7bd5; display:none;}
-            .badge{padding:6px 12px;border-radius:50px;font-size:0.85rem;font-weight:bold;}
-            .st-PAGO{background:#dcfce7;color:#166534;}.st-ANÁLISE{background:#fef9c3;color:#854d0e;}.st-REPROVADO{background:#fee2e2;color:#991b1b;}.st-QUITADO{background:#dbeafe;color:#1e40af;}
-            table{width:100%;border-collapse:collapse;}td, th{padding:15px 10px; border-bottom:1px solid #f1f5f9; text-align:left;}
+            *{margin:0;padding:0;box-sizing:border-box;}
+            body{font-family:"Segoe UI","Helvetica Neue",sans-serif;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);min-height:100vh;padding:20px;}
+            .header{background:linear-gradient(135deg, #1e3c72 0%, #2d5a8c 100%);color:white;padding:25px 40px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 8px 32px rgba(0,0,0,0.15);position:sticky;top:0;z-index:100;border-radius:0 0 20px 20px;}
+            .header > div:first-child{font-size:1.5rem;font-weight:800;letter-spacing:1px;}
+            .container{max-width:950px;margin:40px auto;padding:0;}
+            .welcome-banner{background:white;padding:30px 40px;border-radius:20px;margin-bottom:30px;box-shadow:0 15px 40px rgba(0,0,0,0.08);border-left:5px solid #667eea;}
+            .welcome-banner h2{color:#1e3c72;font-size:2rem;margin-bottom:8px;}
+            .welcome-banner p{color:#666;font-size:0.95rem;}
+            .card{background:white;padding:40px;border-radius:20px;box-shadow:0 15px 40px rgba(0,0,0,0.08);margin-bottom:30px;transition:all 0.3s ease;border:1px solid rgba(255,255,255,0.1);}
+            .card:hover{box-shadow:0 20px 50px rgba(0,0,0,0.12);transform:translateY(-2px);}
+            .card h3{color:#1e3c72;font-size:1.5rem;margin-bottom:25px;display:flex;align-items:center;gap:10px;}
+            input,select{width:100%;padding:16px;margin:12px 0;border-radius:12px;border:2px solid #e0e7f1;font-size:0.95rem;box-sizing:border-box;transition:all 0.3s;font-family:inherit;}
+            input:focus,select:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.1);background:#fafbfc;}
+            label{display:block;font-weight:600;color:#1e3c72;margin-top:16px;margin-bottom:6px;font-size:0.9rem;}
+            .btn-blue{background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;font-weight:bold;border:none;cursor:pointer;margin-top:24px;padding:16px 40px;transition:all 0.3s;box-shadow:0 8px 20px rgba(102,126,234,0.3);font-size:1rem;}
+            .btn-blue:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(102,126,234,0.4);}
+            .btn-blue:active{transform:translateY(-1px);}
+            .btn-pdf{background:#e74c3c;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:0.8rem;margin:4px;transition:all 0.3s;}
+            .btn-pdf:hover{background:#c0392b;transform:translateY(-2px);box-shadow:0 4px 12px rgba(231,76,60,0.3);}
+            .resumo-box{background:linear-gradient(135deg, #f0f7ff 0%, #e3f2fd 100%);padding:25px;border-radius:15px;margin:20px 0;border-left:4px solid #667eea;display:none;border:2px solid #bbdefb;}
+            .resumo-box strong{color:#1e3c72;font-size:1.1rem;}
+            .badge{padding:8px 16px;border-radius:50px;font-size:0.85rem;font-weight:bold;display:inline-block;transition:all 0.3s;}
+            .st-PAGO{background:linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);color:#166534;border:1px solid #86efac;}.st-ANÁLISE{background:linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);color:#854d0e;border:1px solid #fcd34d;}.st-REPROVADO{background:linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);color:#991b1b;border:1px solid #fca5a5;}.st-QUITADO{background:linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);color:#1e40af;border:1px solid #93c5fd;}
+            table{width:100%;border-collapse:collapse;margin-top:20px;}
+            th{background:linear-gradient(135deg, #f8f9fa 0%, #f0f4f8 100%);padding:18px 12px;text-align:left;font-weight:700;color:#1e3c72;border-bottom:2px solid #e0e7f1;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.5px;}
+            td{padding:18px 12px;border-bottom:1px solid #f1f5f9;color:#333;}
+            tbody tr{transition:all 0.2s;}
+            tbody tr:hover{background:#f8f9fc;box-shadow:inset 0 0 10px rgba(102,126,234,0.05);}
+            .score-card-content{background:linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);padding:30px;border-radius:15px;border:2px solid #e9d5ff;}
+            .score-value{font-size:3.5rem;font-weight:900;color:#8b5cf6;text-align:center;margin:20px 0;}
+            .score-bar{width:100%;height:12px;background:#e9d5ff;border-radius:10px;margin:20px 0;overflow:hidden;}
+            .score-fill{height:100%;background:linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%);transition:width 0.5s ease;}
+            .score-info{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:20px;}
+            .score-info-item{background:white;padding:15px;border-radius:10px;text-align:center;border-left:3px solid #8b5cf6;}
+            .score-info-item strong{color:#1e3c72;display:block;margin-bottom:5px;}
+            .score-info-item span{color:#8b5cf6;font-weight:bold;font-size:1.2rem;}
         </style></head><body>
-            <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL CRÉDITO</div><div style="display:flex;gap:10px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:5px 15px;border-radius:8px;">SAIR</a></div></div>
-            <div class="container"><h2>Olá, ${req.session.userName}! 👋</h2>
-            <div class="card" id="score-card" style="display:none;"><h3>⭐ Meu Score de Crédito</h3><div id="score-loading">Carregando...</div></div>
+            <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL<span style="color:#764ba2;">CRÉDITO</span></div><div style="display:flex;gap:15px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">SAIR</a></div></div>
+            <div class="container"><div class="welcome-banner"><h2>Bem-vindo, ${req.session.userName}! 👋</h2><p>Aqui você pode simular, gerenciar e acompanhar seus empréstimos</p></div>
+            <div class="card" id="score-card" style="display:none;"><h3>⭐ Meu Score de Crédito</h3><div id="score-loading" style="text-align:center;padding:40px;color:#666;">Carregando seu score...</div></div>
             <div class="card"><h3>💰 Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
-            <label>VALOR DESEJADO (MÁX <span id="max-limite">R$ 20.000</span>)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
+            <label>VALOR DESEJADO (MÁX <span id="max-limite" style="color:#667eea;font-weight:bold;">R$ 20.000</span>)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
             <label>PARCELAS (MÁX 24)</label><input type="number" id="parcelas" name="parcelas" placeholder="Ex: 12" min="1" max="24" required>
-            <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#1e3c72; font-weight:bold;">R$ 0,00</span><br><small id="taxa-texto">*Incluso taxa de 5% por parcela</small></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:15px;"><div><label>FOTO ID</label><input type="file" name="doc_id" required></div><div><label>RENDA</label><input type="file" name="doc_renda" required></div></div>
-            <button type="submit" class="btn-blue">SOLICITAR CRÉDITO</button></form></div>
-            <div class="card"><h3>📋 Meu Histórico</h3><table><thead><tr><th>DATA</th><th>VALOR</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
+            <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#667eea; font-weight:bold;">R$ 0,00</span><br><small id="taxa-texto" style="color:#666;">*Incluso taxa de 5% por parcela</small></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;"><div><label>FOTO ID</label><input type="file" name="doc_id" required></div><div><label>RENDA</label><input type="file" name="doc_renda" required></div></div>
+            <button type="submit" class="btn-blue" style="width:100%;">SOLICITAR CRÉDITO AGORA</button></form></div>
+            <div class="card"><h3>📋 Meu Histórico de Empréstimos</h3><div style="overflow-x:auto;"><table><thead><tr><th>DATA</th><th>VALOR</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
             ${result.rows.map((r, idx) => {
                 const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
                 const temMultaAtiva = parseInt(multasResults[idx].rows[0].qtd || 0) > 0;
@@ -2720,19 +2745,26 @@ app.get('/simulacoes', async (req, res) => {
                         const loading = document.getElementById('score-loading');
 
                         loading.innerHTML = \`
-                            <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-                                <div style="text-align:center;">
-                                    <div style="font-size:3rem;font-weight:bold;color:\${json.cor};">\${json.score}</div>
-                                    <span style="background:\${json.cor};color:white;padding:4px 14px;border-radius:50px;font-size:0.9rem;font-weight:bold;display:inline-block;margin-top:8px;">\${json.label}</span>
+                            <div class="score-card-content">
+                                <div class="score-value">\${json.score}</div>
+                                <div style="text-align:center;margin-bottom:20px;">
+                                    <span class="badge" style="background:\${json.cor};color:white;border:none;padding:12px 24px;font-size:1rem;">\${json.label}</span>
                                 </div>
-                                <div style="flex:1;min-width:200px;">
-                                    <div style="background:#e5e7eb;border-radius:999px;height:16px;margin-bottom:8px;overflow:hidden;">
-                                        <div style="background:\${json.cor};width:\${pct}%;height:100%;border-radius:999px;transition:width 1s;"></div>
+                                <div class="score-bar">
+                                    <div class="score-fill" style="width:\${pct}%;background:linear-gradient(90deg, \${json.cor} 0%, \${json.cor}cc 100%);"></div>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:#666;margin-bottom:20px;font-weight:600;">
+                                    <span>Mínimo (300)</span><span>Base (600)</span><span>Máximo (900)</span>
+                                </div>
+                                <div class="score-info">
+                                    <div class="score-info-item">
+                                        <strong>Sua Categoria</strong>
+                                        <span>\${json.label}</span>
                                     </div>
-                                    <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#666;margin-bottom:12px;">
-                                        <span>300</span><span>600</span><span>900</span>
+                                    <div class="score-info-item">
+                                        <strong>Limite Disponível</strong>
+                                        <span style="font-size:1.3rem;">R$ \${json.limite.toLocaleString('pt-BR')}</span>
                                     </div>
-                                    <p style="margin:0;color:#555;font-size:0.95rem;"><strong>Limite disponível:</strong> <span style="color:\${json.cor};font-weight:bold;font-size:1.1rem;">R$ \${json.limite.toLocaleString('pt-BR')}</span></p>
                                 </div>
                             </div>
                         \`;
