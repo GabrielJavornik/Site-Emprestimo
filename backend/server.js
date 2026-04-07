@@ -3876,6 +3876,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
                     </div>
                     ${req.session.adminRole === 'superadmin' ? '<button onclick="abrirModalLimparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>' : ''}
+                    ${req.session.adminRole === 'superadmin' ? '<button onclick="abrirModalGerenciarCupons()" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #2563eb;background:#2563eb;padding:8px 16px;border-radius:8px;cursor:pointer;">🎟️ Cupons</button>' : ''}
                     ${req.session.adminRole === 'superadmin' ? '<a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>' : ''}
                     <a href="/admin-logout" style="color:white;text-decoration:none;font-weight:bold;border:1px solid white;padding:8px 16px;border-radius:8px;">SAIR</a>
                 </div>
@@ -4143,6 +4144,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             function fecharModalVerPagamentos(){document.getElementById('modalVerPagamentos').style.display='none';}
             async function deletarPagamento(pagId){if(!confirm('Deseja deletar este pagamento? Esta ação é IRREVERSÍVEL!')){return;}const resp=await fetch('/deletar-pagamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pagamento_id:pagId})});const json=await resp.json();if(json.ok){alert(json.msg);location.reload();}else{alert('❌ '+json.msg);}}
             function abrirModalLimparDados(){document.getElementById('modalLimparDados').style.display='flex';}function fecharModalLimparDados(){document.getElementById('modalLimparDados').style.display='none';}async function executarLimpeza(){const usuarios=document.getElementById('ckUsuarios').checked;const simulacoes=document.getElementById('ckSimulacoes').checked;const pagamentos=document.getElementById('ckPagamentos').checked;if(!usuarios&&!simulacoes&&!pagamentos){alert('⚠️ Selecione pelo menos uma tabela para limpar');return;}if(!confirm('⚠️ ATENÇÃO!\\n\\nVocê vai deletar os dados selecionados.\\n\\nEsta ação é IRREVERSÍVEL!')){return;}const resp=await fetch('/admin-limpar-dados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuarios,simulacoes,pagamentos})});const json=await resp.json();if(json.ok){alert('✅ '+json.msg);fecharModalLimparDados();location.reload();}else{alert('❌ '+json.msg);}}
+            function abrirModalGerenciarCupons(){document.getElementById('modalGerenciarCupons').style.display='flex';carregarCupons();}function fecharModalGerenciarCupons(){document.getElementById('modalGerenciarCupons').style.display='none';}async function carregarCupons(){const resp=await fetch('/admin-listar-cupons');const json=await resp.json();const lista=document.getElementById('listaCupons');if(json.ok&&json.cupons.length>0){lista.innerHTML=json.cupons.map(c=>'<div style="padding:15px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;"><div><strong>'+c.codigo+'</strong><br><small style="color:#666;">'+c.desconto+'% de desconto</small></div><button onclick="deletarCupom('+c.id+')" style="background:#e74c3c;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;">🗑️</button></div>').join('');}else{lista.innerHTML='<p style="padding:20px;text-align:center;color:#999;">Nenhum cupom criado</p>';}}async function criarCupom(){const codigo=document.getElementById('cupomCodigo').value.trim();const desconto=parseInt(document.getElementById('cupomDesconto').value);if(!codigo||!desconto||desconto<=0||desconto>100){alert('❌ Código e desconto válidos são obrigatórios');return;}const resp=await fetch('/admin-criar-cupom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codigo,desconto})});const json=await resp.json();if(json.ok){alert(json.msg);document.getElementById('cupomCodigo').value='';document.getElementById('cupomDesconto').value='';carregarCupons();}else{alert('❌ '+json.msg);}}async function deletarCupom(cupId){if(!confirm('Deletar este cupom?')){return;}const resp=await fetch('/admin-deletar-cupom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cupom_id:cupId})});const json=await resp.json();if(json.ok){alert(json.msg);carregarCupons();}else{alert('❌ '+json.msg);}}
             async function salvar(id,whats,nome){const st=document.getElementById('st-'+id).value;await fetch('/atualizar-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:st})});if(st==='PAGO'){window.open("https://wa.me/"+whats+"?text="+encodeURIComponent("Olá "+nome+"! Seu empréstimo foi APROVADO! 🚀"),"_blank");}location.reload();}
 
             // Gráfico de Status
@@ -4666,6 +4668,29 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <button onclick="fecharModalLimparDados()" style="padding:12px 24px;background:#e2e8f0;color:#1e293b;border:none;border-radius:8px;cursor:pointer;font-weight:bold;transition:all 0.3s;">Cancelar</button>
                         <button onclick="executarLimpeza()" style="padding:12px 24px;background:#dc2626;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;transition:all 0.3s;">🗑️ Deletar Selecionados</button>
                     </div>
+                </div>
+            </div>
+
+            <div id="modalGerenciarCupons" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
+                <div style="background:white;padding:30px;border-radius:15px;width:min(600px,90%);box-shadow:0 10px 40px rgba(0,0,0,0.2);margin:20px 0;">
+                    <h3 style="margin-top:0;color:#1e3c72;">🎟️ Gerenciar Cupons de Desconto</h3>
+
+                    <div style="background:#f1f5f9;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #e2e8f0;">
+                        <h4 style="margin-top:0;color:#1a2e4a;">Criar Novo Cupom</h4>
+                        <div style="display:flex;gap:10px;margin-bottom:15px;">
+                            <input type="text" id="cupomCodigo" placeholder="Código (ex: DESCONTO10)" style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-weight:bold;">
+                            <input type="number" id="cupomDesconto" placeholder="Desconto %" style="width:100px;padding:10px;border:2px solid #e2e8f0;border-radius:8px;" min="1" max="100">
+                            <button onclick="criarCupom()" style="padding:10px 20px;background:#2563eb;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">➕ Criar</button>
+                        </div>
+                    </div>
+
+                    <div style="border:1px solid #e2e8f0;border-radius:12px;max-height:300px;overflow-y:auto;">
+                        <div id="listaCupons" style="padding:20px;text-align:center;color:#999;">
+                            <p>Carregando cupons...</p>
+                        </div>
+                    </div>
+
+                    <button onclick="fecharModalGerenciarCupons()" style="width:100%;margin-top:20px;padding:12px;background:#95a5a6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✕ Fechar</button>
                 </div>
             </div>
 
