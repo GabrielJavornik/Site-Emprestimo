@@ -2391,7 +2391,7 @@ app.get('/simulacoes', async (req, res) => {
                     <div style="margin-top:25px;padding:20px;background:linear-gradient(135deg, #f0f9ff 0%, #e3f2fd 100%);border-radius:15px;border:2px solid #0066cc;box-shadow:0 4px 12px rgba(0,102,204,0.1);">
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
                             <span style="font-size:24px;">🎟️</span>
-                            <p style="margin:0;color:#1e3c72;font-weight:bold;font-size:1.1rem;">Cupom de Desconto (5% OFF)</p>
+                            <p style="margin:0;color:#1e3c72;font-weight:bold;font-size:1.1rem;">Cupom de Desconto</p>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 110px 40px;gap:10px;">
                             <input type="text" id="campo-cupom" placeholder="OFF5" style="padding:14px 16px;border:2px solid #0066cc;border-radius:10px;font-size:1rem;font-weight:bold;box-sizing:border-box;background:white;color:#1e3c72;" maxlength="20">
