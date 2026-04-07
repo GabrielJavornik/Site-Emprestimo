@@ -1708,10 +1708,6 @@ app.get('/perfil', async (req, res) => {
             <div class="container">
                 <h1 style="color:#1e3c72;text-align:center;">⚙️ Meu Perfil</h1>
 
-                <div class="card" id="score-card-perfil" style="display:none;background:linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);border-left:5px solid #8b5cf6;">
-                    <h2 style="color:#8b5cf6;border-bottom-color:#8b5cf6;">⭐ Meu Score de Crédito</h2>
-                    <div id="score-content-perfil" style="text-align:center;margin:20px 0;">Carregando...</div>
-                </div>
 
                 <div class="card">
                     <h2>👤 Meus Dados</h2>
@@ -1757,110 +1753,62 @@ app.get('/perfil', async (req, res) => {
                     <button onclick="atualizarEndereco()" style="background:#27ae60;">🏠 Salvar Endereço</button>
                 </div>
 
-                <div class="card">
-                    <h2>💳 Dados de Transferência</h2>
+                <div class="card" style="background:linear-gradient(135deg, #f0f9ff 0%, #e3f2fd 100%);border-left:5px solid #0066cc;">
+                    <h2 style="color:#0066cc;border-bottom-color:#0066cc;">Chave PIX</h2>
                     <div id="resultado-banco"></div>
 
-                    <!-- Abas -->
-                    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #e0e7f1;">
-                        <button onclick="switchBancoTab('transferencia')" id="tab-transferencia" style="flex:1;padding:15px;background:none;border:none;cursor:pointer;font-weight:bold;color:#667eea;border-bottom:3px solid #667eea;font-size:1rem;">Transferência Bancária</button>
-                        <button onclick="switchBancoTab('pix')" id="tab-pix" style="flex:1;padding:15px;background:none;border:none;cursor:pointer;font-weight:bold;color:#999;border-bottom:none;font-size:1rem;">PIX (Recomendado)</button>
+                    <div style="background:#e8f5f7;padding:15px;border-radius:10px;border-left:4px solid #0066cc;margin-bottom:20px;">
+                        <strong style="color:#0066cc;">Para solicitar empréstimos:</strong>
+                        <p style="margin:8px 0;color:#333;">Você precisa informar uma chave PIX para receber o dinheiro de forma rápida e segura.</p>
                     </div>
 
-                    <!-- Aba Transferência Bancária -->
-                    <div id="tab-content-transferencia">
-                        <label style="font-weight:bold;color:#1e3c72;">Banco</label>
-                        <select id="banco" style="width:100%;padding:12px;border:2px solid #e0e7f1;border-radius:8px;font-size:1rem;">
-                            <option value="">Selecione seu banco</option>
-                            <option value="001">Banco do Brasil (001)</option>
-                            <option value="033">Banco Santander (033)</option>
-                            <option value="104">Caixa Econômica Federal (104)</option>
-                            <option value="237">Banco Bradesco (237)</option>
-                            <option value="260">Nu Pagamentos S.A. - Nubank (260)</option>
-                            <option value="077">Banco Inter (077)</option>
-                            <option value="341">Itaú Unibanco (341)</option>
-                            <option value="745">Banco Citibank (745)</option>
-                            <option value="399">HSBC Bank Brasil (399)</option>
-                            <option value="072">Banco Bmg (072)</option>
-                        </select>
-
-                        <label style="font-weight:bold;color:#1e3c72;">Agência (sem dígito)</label>
-                        <input type="text" id="agencia" placeholder="0000" maxlength="5" style="border:2px solid #e0e7f1;">
-
-                        <label style="font-weight:bold;color:#1e3c72;">Conta (sem dígito)</label>
-                        <input type="text" id="conta" placeholder="0000000" maxlength="14" style="border:2px solid #e0e7f1;">
-
-                        <label style="font-weight:bold;color:#1e3c72;">Dígito da Conta</label>
-                        <input type="text" id="conta-digito" placeholder="0" maxlength="3" style="border:2px solid #e0e7f1;">
-
-                        <label style="font-weight:bold;color:#1e3c72;">Tipo de Conta</label>
-                        <select id="conta-tipo" style="width:100%;padding:12px;border:2px solid #e0e7f1;border-radius:8px;font-size:1rem;">
-                            <option value="">Selecione o tipo</option>
-                            <option value="corrente">Conta Corrente</option>
-                            <option value="poupanca">Conta Poupança</option>
-                        </select>
-
-                        <button onclick="salvarDadosBancarios()" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);margin-top:15px;">Salvar Dados Bancários</button>
-                        <div class="info" style="background:#e8f4f8;border-left-color:#0066cc;margin-top:15px;">
-                            <strong>Informações:</strong>
-                            <p style="margin:8px 0;">Seus dados bancários são armazenados de forma segura e serão usados para transferências futuras.</p>
+                    <div style="margin-bottom:30px;">
+                        <label style="font-weight:bold;color:#0066cc;display:block;margin-bottom:15px;font-size:1.05rem;">Selecione seu tipo de chave PIX</label>
+                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+                            <button onclick="selecionarPixType('cpf')" id="btn-cpf" style="padding:16px 12px;border:2px solid #0066cc;background:linear-gradient(135deg, rgba(0,102,204,0.1) 0%, rgba(0,102,204,0.05) 100%);border-radius:12px;cursor:pointer;font-weight:700;color:#0066cc;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                                CPF
+                            </button>
+                            <button onclick="selecionarPixType('cnpj')" id="btn-cnpj" style="padding:16px 12px;border:2px solid #e0e7f1;background:white;border-radius:12px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                                CNPJ
+                            </button>
+                            <button onclick="selecionarPixType('telefone')" id="btn-telefone" style="padding:16px 12px;border:2px solid #e0e7f1;background:white;border-radius:12px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                                Telefone
+                            </button>
+                            <button onclick="selecionarPixType('email')" id="btn-email" style="padding:16px 12px;border:2px solid #e0e7f1;background:white;border-radius:12px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:center;font-size:0.95rem;line-height:1.4;">
+                                E-mail
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Aba PIX -->
-                    <div id="tab-content-pix" style="display:none;">
-                        <div class="info" style="background:#fff3cd;border-left-color:#ff9800;margin-bottom:25px;">
-                            <strong>Importante:</strong>
-                            <p style="margin:8px 0;">Para solicitar empréstimos, você <strong>DEVE</strong> informar pelo menos uma chave PIX.</p>
-                        </div>
+                    <div id="pix-selecionado" style="padding:20px;border-radius:15px;background:linear-gradient(135deg, #e3f2fd 0%, #dbeafe 100%);border:2px solid #0066cc;display:none;margin-bottom:25px;">
+                        <p style="color:#0066cc;font-size:0.9rem;margin-bottom:8px;font-weight:bold;">Chave selecionada:</p>
+                        <div style="font-size:3rem;color:#0066cc;margin-bottom:8px;font-weight:bold;" id="pix-icon">ID</div>
+                        <p style="color:#0066cc;font-weight:bold;font-size:1.2rem;" id="pix-label">CPF</p>
+                    </div>
 
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:25px;">
-                            <div>
-                                <label style="font-weight:bold;color:#1e3c72;display:block;margin-bottom:12px;">Escolha o tipo de chave PIX:</label>
-                                <div style="display:flex;flex-direction:column;gap:10px;">
-                                    <button onclick="selecionarPixType('cpf')" id="btn-cpf" style="padding:15px;border:2px solid #e0e7f1;background:white;border-radius:10px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:left;">
-                                        🆔 CPF
-                                    </button>
-                                    <button onclick="selecionarPixType('cnpj')" id="btn-cnpj" style="padding:15px;border:2px solid #e0e7f1;background:white;border-radius:10px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:left;">
-                                        🏢 CNPJ
-                                    </button>
-                                    <button onclick="selecionarPixType('telefone')" id="btn-telefone" style="padding:15px;border:2px solid #e0e7f1;background:white;border-radius:10px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:left;">
-                                        📱 Telefone
-                                    </button>
-                                    <button onclick="selecionarPixType('email')" id="btn-email" style="padding:15px;border:2px solid #e0e7f1;background:white;border-radius:10px;cursor:pointer;font-weight:600;color:#1e3c72;transition:all 0.3s;text-align:left;">
-                                        ✉️ E-mail
-                                    </button>
-                                </div>
-                            </div>
+                    <div id="pix-input-wrapper">
+                        <label id="pix-input-label" style="font-weight:bold;color:#0066cc;margin-bottom:8px;display:block;">Sua Chave PIX</label>
+                        <input type="text" id="pix-cpf" placeholder="000.000.000-00" maxlength="14" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;">
+                        <input type="text" id="pix-cnpj" placeholder="00.000.000/0000-00" maxlength="18" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;display:none;">
+                        <input type="text" id="pix-telefone" placeholder="+55 (85) 99999-9999" maxlength="20" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;display:none;">
+                        <input type="email" id="pix-email" placeholder="seu@email.com" style="border:2px solid #ddeaf8;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;display:none;">
+                    </div>
 
-                            <div>
-                                <div id="pix-selecionado" style="padding:20px;border-radius:12px;background:linear-gradient(135deg, #e8f4f8 0%, #f0f9ff 100%);border:2px solid #0066cc;display:none;text-align:center;">
-                                    <p style="color:#666;font-size:0.9rem;margin-bottom:10px;">Tipo selecionado:</p>
-                                    <div style="font-size:2rem;margin-bottom:10px;" id="pix-icon">🆔</div>
-                                    <p style="color:#1e3c72;font-weight:bold;font-size:1.1rem;" id="pix-label">CPF</p>
-                                </div>
-                            </div>
-                        </div>
+                    <button onclick="salvarDadosPix()" style="background:linear-gradient(135deg, #0066cc 0%, #003d99 100%);margin-top:20px;width:100%;padding:16px;border:none;border-radius:12px;color:white;font-weight:bold;font-size:1rem;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 12px rgba(0,102,204,0.3);">Salvar Chave PIX</button>
 
-                        <div id="pix-input-wrapper">
-                            <label id="pix-input-label" style="font-weight:bold;color:#1e3c72;">CPF</label>
-                            <input type="text" id="pix-cpf" placeholder="000.000.000-00" maxlength="14" style="border:2px solid #e0e7f1;">
-                            <input type="text" id="pix-cnpj" placeholder="00.000.000/0000-00" maxlength="18" style="border:2px solid #e0e7f1;display:none;">
-                            <input type="text" id="pix-telefone" placeholder="+55 (85) 99999-9999" maxlength="20" style="border:2px solid #e0e7f1;display:none;">
-                            <input type="email" id="pix-email" placeholder="seu@email.com" style="border:2px solid #e0e7f1;display:none;">
-                        </div>
-
-                        <button onclick="salvarDadosPix()" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);margin-top:25px;width:100%;padding:16px;border:none;border-radius:10px;color:white;font-weight:bold;font-size:1rem;cursor:pointer;transition:all 0.3s;">Salvar Chave PIX</button>
-                        <div id="resultado-banco" style="margin-top:15px;"></div>
-                        <div class="info" style="background:#e8f8f5;border-left-color:#27ae60;margin-top:15px;">
-                            <strong>PIX - Transferência Instantânea:</strong>
-                            <p style="margin:8px 0;">Transações rápidas, seguras e sem taxas. O PIX é o método de pagamento mais moderno e eficiente.</p>
-                        </div>
+                    <div class="info" style="background:#e8f5f7;border-left-color:#0066cc;margin-top:20px;">
+                        <strong style="color:#0066cc;">PIX - Instantâneo e Seguro</strong>
+                        <p style="margin:8px 0;">Seu PIX será utilizado apenas para receber transferências de empréstimos aprovados.</p>
                     </div>
                 </div>
 
+                <div class="card" id="score-card-perfil" style="display:none;background:linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);border-left:5px solid #8b5cf6;">
+                    <h2 style="color:#8b5cf6;border-bottom-color:#8b5cf6;">Meu Score de Crédito</h2>
+                    <div id="score-content-perfil" style="text-align:center;margin:20px 0;">Carregando...</div>
+                </div>
+
                 <div class="card">
-                    <h2>🔒 Trocar Senha</h2>
+                    <h2>Trocar Senha</h2>
                     <div id="resultado-senha"></div>
                     <label>Senha Atual</label>
                     <input type="password" id="senha-atual" placeholder="Digite sua senha atual">
@@ -1871,10 +1819,10 @@ app.get('/perfil', async (req, res) => {
                     <label>Confirmar Nova Senha</label>
                     <input type="password" id="confirmar-senha" placeholder="Confirme a nova senha">
 
-                    <button onclick="trocarSenha()">🔒 Trocar Senha</button>
+                    <button onclick="trocarSenha()">Trocar Senha</button>
 
                     <div class="info" style="background:#fff3cd;border-left-color:#ff9800;">
-                        <strong>🔐 Requisitos de Senha Forte:</strong>
+                        <strong>Requisitos de Senha Forte:</strong>
                         <ul style="margin:10px 0;padding-left:20px;">
                             <li>Mínimo 8 caracteres</li>
                             <li>Pelo menos 1 LETRA MAIÚSCULA (A-Z)</li>
@@ -1913,16 +1861,8 @@ app.get('/perfil', async (req, res) => {
                     }
                 }
 
-                // Preencher select de banco com dados salvos e inicializar PIX
+                // Inicializar PIX com CPF selecionado
                 window.addEventListener('load', () => {
-                    if ('${user.banco_codigo}') {
-                        document.getElementById('banco').value = '${user.banco_codigo}';
-                        document.getElementById('agencia').value = '${user.agencia || ''}';
-                        document.getElementById('conta').value = '${user.conta || ''}';
-                        document.getElementById('conta-digito').value = '${user.conta_digito || ''}';
-                        document.getElementById('conta-tipo').value = '${user.conta_tipo || ''}';
-                    }
-                    // Inicializar PIX com CPF selecionado
                     selecionarPixType('cpf');
                 });
 
@@ -2004,15 +1944,17 @@ app.get('/perfil', async (req, res) => {
                     botoes.forEach(b => {
                         const btn = document.getElementById('btn-' + b);
                         if (b === tipo) {
-                            btn.style.borderColor = '#667eea';
-                            btn.style.background = 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)';
-                            btn.style.color = '#667eea';
+                            btn.style.borderColor = '#0066cc';
+                            btn.style.background = 'linear-gradient(135deg, rgba(0,102,204,0.15) 0%, rgba(0,102,204,0.08) 100%)';
+                            btn.style.color = '#0066cc';
                             btn.style.fontWeight = '700';
+                            btn.style.boxShadow = '0 0 0 3px rgba(0,102,204,0.1)';
                         } else {
                             btn.style.borderColor = '#e0e7f1';
                             btn.style.background = 'white';
                             btn.style.color = '#1e3c72';
                             btn.style.fontWeight = '600';
+                            btn.style.boxShadow = 'none';
                         }
                     });
 
@@ -2031,14 +1973,14 @@ app.get('/perfil', async (req, res) => {
                     };
 
                     const icons = {
-                        cpf: '🆔',
-                        cnpj: '🏢',
-                        telefone: '📱',
-                        email: '✉️'
+                        cpf: 'ID',
+                        cnpj: 'CNPJ',
+                        telefone: 'TEL',
+                        email: 'EMAIL'
                     };
 
                     document.getElementById('pix-' + tipo).style.display = 'block';
-                    document.getElementById('pix-input-label').textContent = labels[tipo];
+                    document.getElementById('pix-input-label').textContent = 'Sua Chave PIX';
                     document.getElementById('pix-icon').textContent = icons[tipo];
                     document.getElementById('pix-label').textContent = labels[tipo];
                     document.getElementById('pix-selecionado').style.display = 'block';
