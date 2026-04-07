@@ -3464,9 +3464,6 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     </div>
                     <button id="btn-salvar-taxa" onclick="alterarTaxaJuros()" style="background:#27ae60;padding:10px 30px;height:fit-content;margin-top:20px;font-weight:bold;cursor:pointer;border:none;border-radius:8px;color:white;transition:all 0.3s;">✅ Salvar Taxa</button>
                 </div>
-                <div id="aviso-permissao-taxa" style="margin-top:15px;padding:15px;background:#fee2e2;border-left:4px solid #e74c3c;border-radius:6px;color:#991b1b;display:none;">
-                    🔒 <strong>Acesso Restrito</strong> - Apenas superadmin pode alterar a taxa de juros. Esta ação foi registrada no histórico de auditoria.
-                </div>
             </div>
 
             <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #ff9800;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
@@ -3860,19 +3857,16 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 const input=document.getElementById('taxa-juros-input');
                 const taxa=parseFloat(input.value);
                 const resultado=document.getElementById('resultado-taxa');
-                const avisoPermissao=document.getElementById('aviso-permissao-taxa');
 
                 // Verificação dupla de segurança - frontend
                 if(!isSuperadmin){
-                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;padding:15px;background:#fee2e2;border-radius:8px;border-left:4px solid #e74c3c;">🔒 ACESSO NEGADO - Você não tem permissão para alterar a taxa de juros. Apenas SUPERADMIN pode fazer isso. Esta tentativa foi registrada.</p>';
-                    avisoPermissao.style.display='block';
+                    resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">Você não tem permissão para alterar a taxa de juros.</p>';
                     input.disabled=true;
                     return;
                 }
 
                 if(isNaN(taxa) || taxa<0 || taxa>1){
                     resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ Taxa deve estar entre 0 e 1 (ex: 0.05 = 5%)</p>';
-                    avisoPermissao.style.display='none';
                     return;
                 }
 
@@ -3895,15 +3889,13 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     }
 
                     if(!resp.ok || !data.ok){
-                        resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;padding:15px;background:#fee2e2;border-radius:8px;">🔒 '+data.msg+'</p>';
-                        avisoPermissao.style.display='block';
+                        resultado.innerHTML='<p style="color:#e74c3c;font-weight:bold;">❌ '+data.msg+'</p>';
                         return;
                     }
 
                     // Sucesso
                     document.getElementById('taxa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
-                    resultado.innerHTML='<p style="color:#27ae60;font-weight:bold;padding:15px;background:#dcfce7;border-radius:8px;border-left:4px solid #27ae60;">✅ Taxa alterada com sucesso para '+( taxa*100).toFixed(2)+'%!</p>';
-                    avisoPermissao.style.display='none';
+                    resultado.innerHTML='<p style="color:#27ae60;font-weight:bold;">✅ Taxa alterada com sucesso para '+( taxa*100).toFixed(2)+'%!</p>';
                     setTimeout(()=>{resultado.innerHTML=''},3000);
                 }catch(err){
                     console.error('Erro:', err);
@@ -3924,7 +3916,6 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 const isSuperadmin = document.body.dataset.adminRole === 'superadmin';
                 const input = document.getElementById('taxa-juros-input');
                 const btn = document.getElementById('btn-salvar-taxa');
-                const aviso = document.getElementById('aviso-permissao-taxa');
                 const bloco = document.getElementById('bloco-taxa-juros');
                 const resultado = document.getElementById('resultado-taxa');
 
@@ -3938,9 +3929,8 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     btn.style.cursor = 'not-allowed';
                     btn.style.background = '#95a5a6';
                     btn.style.pointerEvents = 'none';
-                    aviso.style.display = 'block';
                     bloco.style.opacity = '0.7';
-                    resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;">🔒 Você não tem permissão para alterar a taxa de juros. Apenas SUPERADMIN pode fazer isso.</p>';
+                    resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;">Você não tem permissão para alterar a taxa de juros.</p>';
                 }
             }
 
