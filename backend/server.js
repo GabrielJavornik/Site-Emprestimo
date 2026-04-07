@@ -2853,17 +2853,17 @@ app.get('/simulacoes', async (req, res) => {
                         if(json.ok){
                             pixPaymentIdAtual=json.mp_payment_id;
                             const expiracao=new Date(json.expiracao);
-                            const avisoDesconto = temDesconto ? '<div style="margin:20px 0;padding:15px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:1.2rem;">🎁 10% de Desconto Aplicado!</p><p style="margin:5px 0 0 0;color:#166534;font-size:0.9rem;">Você está quitando antecipadamente</p></div>' : '';
+                            const avisoDesconto = temDesconto ? '<div style="margin:8px 0;padding:10px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:0.95rem;">🎁 10% Desconto!</p></div>' : '';
                             const valorExibido = textoValor || ('R$ ' + valorPagar.toFixed(2).replace('.',','));
-                            const avisoDesconto5pct = cupomAplicado && cupomAplicadoCodigo ? '<div style="margin:20px 0;padding:15px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:1.2rem;">💚 '+cupomAplicadoDesconto.toFixed(0)+'% de Desconto Aplicado!</p><p style="margin:5px 0 0 0;color:#166534;font-size:0.9rem;">Cupom '+cupomAplicadoCodigo+' foi aplicado</p></div>' : '';
+                            const avisoDesconto5pct = cupomAplicado && cupomAplicadoCodigo ? '<div style="margin:8px 0;padding:10px;background:#dcfce7;border:2px solid #2ecc71;border-radius:8px;"><p style="margin:0;color:#166534;font-weight:bold;font-size:0.95rem;">💚 '+cupomAplicadoDesconto.toFixed(0)+'% - '+cupomAplicadoCodigo+'</p></div>' : '';
                             container.innerHTML=\`
-                                <div style="margin:20px 0;"><strong>Valor a Pagar:</strong> <span style="font-size:1.5rem;color:#2ecc71;font-weight:bold;">\${valorExibido}</span></div>
+                                <div style="margin:10px 0;"><strong>Valor:</strong> <span style="font-size:1.3rem;color:#2ecc71;font-weight:bold;">\${valorExibido}</span></div>
                                 \${avisoDesconto5pct}
                                 \${avisoDesconto}
-                                <img src="\${json.qr_code_base64}" style="width:250px;height:250px;margin:20px auto;border:2px solid #1e3c72;border-radius:8px;">
-                                <div style="margin:20px 0;padding:15px;background:#f0f7ff;border-radius:8px;">
-                                    <p style="margin:0 0 10px 0;color:#666;font-size:0.9rem;">📋 Código (copia e cola):</p>
-                                    <p style="margin:0;padding:10px;background:white;border:2px solid #e2e8f0;border-radius:4px;font-family:monospace;word-break:break-all;cursor:pointer;font-size:11px;" onclick="navigator.clipboard.writeText('\${json.qr_code}');alert('Código copiado!');">\${json.qr_code}</p>
+                                <img src="\${json.qr_code_base64}" style="width:180px;height:180px;margin:10px auto;border:2px solid #1e3c72;border-radius:8px;">
+                                <div style="margin:10px 0;padding:10px;background:#f0f7ff;border-radius:8px;">
+                                    <p style="margin:0 0 6px 0;color:#666;font-size:0.8rem;">📋 Código:</p>
+                                    <p style="margin:0;padding:8px;background:white;border:2px solid #e2e8f0;border-radius:4px;font-family:monospace;word-break:break-all;cursor:pointer;font-size:9px;" onclick="navigator.clipboard.writeText('\${json.qr_code}');alert('Código copiado!');">\${json.qr_code}</p>
                                 </div>
                             \`;
 
