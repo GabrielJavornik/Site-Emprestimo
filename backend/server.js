@@ -4166,6 +4166,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     document.getElementById('max-atraso').textContent=vencidos.length>0?Math.max(...vencidos.map(v=>parseInt(v.max_dias_atraso))):0+' dias';
                     const linhas=vencidos.map(v=>{
                         const multa_pct=v.total_valor>0?((parseFloat(v.total_multa||0)/parseFloat(v.total_valor))*100).toFixed(1):0;
+                        const whatsappBtn='<button onclick="abrirRegistroPagamentoVencido('+v.simulacao_id+',' + JSON.stringify(v.nome) + ','+v.total_em_atraso+')" style="background:#2563eb;color:white;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:bold;">💳 Registrar</button>';
                         return '<tr style="border-bottom:1px solid #e2e8f0;">'+
                             '<td style="padding:12px;"><strong>'+v.nome+'</strong></td>'+
                             '<td style="padding:12px;">'+v.cpf+'</td>'+
@@ -4173,7 +4174,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                             '<td style="padding:12px;text-align:right;font-weight:bold;color:#e74c3c;">R$ '+parseFloat(v.total_em_atraso||0).toFixed(2).replace('.',',')+'</td>'+
                             '<td style="padding:12px;text-align:center;"><span style="background:#fef3c7;color:#92400e;padding:4px 8px;border-radius:4px;font-weight:bold;">'+multa_pct+'%</span></td>'+
                             '<td style="padding:12px;text-align:center;"><span style="background:#f8f9fa;color:#666;padding:4px 8px;border-radius:4px;">'+v.max_dias_atraso+' dias</span></td>'+
-                            '<td style="padding:12px;text-align:center;"><a href="https://wa.me/'+v.whatsapp.replace(/[^0-9]/g,'')+'" target="_blank" style="background:#16a34a;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:0.85rem;cursor:pointer;font-weight:bold;margin-right:5px;">💬 WhatsApp</a><button onclick="abrirRegistroPagamentoVencido('+v.simulacao_id+`,'${v.nome}',${v.total_em_atraso})" style="background:#2563eb;color:white;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:bold;">💳 Registrar</button></td>'+
+                            '<td style="padding:12px;text-align:center;"><a href="https://wa.me/'+v.whatsapp.replace(/[^0-9]/g,'')+'" target="_blank" style="background:#16a34a;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:0.85rem;cursor:pointer;font-weight:bold;margin-right:5px;">💬 WhatsApp</a>'+whatsappBtn+'</td>'+
                         '</tr>';
                     }).join('');
                     document.getElementById('tabela-vencidos').innerHTML=linhas||'<tr><td colspan="7" style="padding:40px;text-align:center;color:#999;">Nenhum empréstimo vencido!</td></tr>';
