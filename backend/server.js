@@ -2327,43 +2327,43 @@ app.get('/simulacoes', async (req, res) => {
         ]);
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Painel AzulCrédito</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script><style>
             *{margin:0;padding:0;box-sizing:border-box;}
-            body{font-family:"Segoe UI","Helvetica Neue",sans-serif;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);min-height:100vh;padding:20px;}
-            .header{background:linear-gradient(135deg, #1e3c72 0%, #2d5a8c 100%);color:white;padding:25px 40px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 8px 32px rgba(0,0,0,0.15);position:sticky;top:0;z-index:100;border-radius:0 0 20px 20px;}
+            body{font-family:"Segoe UI","Helvetica Neue",sans-serif;background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);min-height:100vh;padding:20px;}
+            .header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:25px 40px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.15);position:sticky;top:0;z-index:100;border-radius:0;}
             .header > div:first-child{font-size:1.5rem;font-weight:800;letter-spacing:1px;}
             .container{max-width:950px;margin:40px auto;padding:0;}
-            .welcome-banner{background:white;padding:30px 40px;border-radius:20px;margin-bottom:30px;box-shadow:0 15px 40px rgba(0,0,0,0.08);border-left:5px solid #667eea;}
-            .welcome-banner h2{color:#1e3c72;font-size:2rem;margin-bottom:8px;}
-            .welcome-banner p{color:#666;font-size:0.95rem;}
-            .card{background:white;padding:40px;border-radius:20px;box-shadow:0 15px 40px rgba(0,0,0,0.08);margin-bottom:30px;transition:all 0.3s ease;border:1px solid rgba(255,255,255,0.1);}
-            .card:hover{box-shadow:0 20px 50px rgba(0,0,0,0.12);transform:translateY(-2px);}
-            .card h3{color:#1e3c72;font-size:1.5rem;margin-bottom:25px;display:flex;align-items:center;gap:10px;}
-            input,select{width:100%;padding:16px;margin:12px 0;border-radius:12px;border:2px solid #e0e7f1;font-size:0.95rem;box-sizing:border-box;transition:all 0.3s;font-family:inherit;}
-            input:focus,select:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.1);background:#fafbfc;}
-            label{display:block;font-weight:600;color:#1e3c72;margin-top:16px;margin-bottom:6px;font-size:0.9rem;}
-            .btn-blue{background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;font-weight:bold;border:none;cursor:pointer;margin-top:24px;padding:16px 40px;transition:all 0.3s;box-shadow:0 8px 20px rgba(102,126,234,0.3);font-size:1rem;}
-            .btn-blue:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(102,126,234,0.4);}
+            .welcome-banner{background:white;padding:30px 40px;border-radius:16px;margin-bottom:30px;box-shadow:0 4px 20px rgba(0,0,0,0.06);border-top:4px solid linear-gradient(90deg, #1e4d8c 0%, #2563eb 100%);}
+            .welcome-banner h2{color:#1a2e4a;font-size:2rem;margin-bottom:8px;}
+            .welcome-banner p{color:#64748b;font-size:0.95rem;}
+            .card{background:white;padding:40px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.06);margin-bottom:30px;transition:all 0.3s ease;border:none;}
+            .card:hover{box-shadow:0 8px 30px rgba(0,0,0,0.1);transform:translateY(-2px);}
+            .card h3{color:#1a2e4a;font-size:1.5rem;margin-bottom:25px;display:flex;align-items:center;gap:10px;}
+            input,select{width:100%;padding:14px;margin:12px 0;border-radius:12px;border:2px solid #e2e8f0;font-size:0.95rem;box-sizing:border-box;transition:all 0.3s;font-family:inherit;}
+            input:focus,select:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,0.1);background:#f8fafc;}
+            label{display:block;font-weight:600;color:#1a2e4a;margin-top:16px;margin-bottom:6px;font-size:0.9rem;}
+            .btn-blue{background:linear-gradient(135deg, #1e4d8c 0%, #2563eb 100%);color:white;font-weight:bold;border:none;cursor:pointer;margin-top:24px;padding:16px 40px;transition:all 0.3s;box-shadow:0 4px 15px rgba(30,77,140,0.3);font-size:1rem;border-radius:12px;}
+            .btn-blue:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(30,77,140,0.4);}
             .btn-blue:active{transform:translateY(-1px);}
-            .btn-pdf{background:#e74c3c;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:0.8rem;margin:4px;transition:all 0.3s;}
-            .btn-pdf:hover{background:#c0392b;transform:translateY(-2px);box-shadow:0 4px 12px rgba(231,76,60,0.3);}
-            .resumo-box{background:linear-gradient(135deg, #f0f7ff 0%, #e3f2fd 100%);padding:25px;border-radius:15px;margin:20px 0;border-left:4px solid #667eea;display:none;border:2px solid #bbdefb;}
-            .resumo-box strong{color:#1e3c72;font-size:1.1rem;}
+            .btn-pdf{background:#16a34a;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:0.8rem;margin:4px;transition:all 0.3s;}
+            .btn-pdf:hover{background:#15803d;transform:translateY(-2px);box-shadow:0 4px 12px rgba(22,163,74,0.3);}
+            .resumo-box{background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);padding:25px;border-radius:12px;margin:20px 0;border-left:4px solid #2563eb;display:none;border:2px solid #bae6fd;}
+            .resumo-box strong{color:#1a2e4a;font-size:1.1rem;}
             .badge{padding:8px 16px;border-radius:50px;font-size:0.85rem;font-weight:bold;display:inline-block;transition:all 0.3s;}
             .st-PAGO{background:linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);color:#166534;border:1px solid #86efac;}.st-ANÁLISE{background:linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);color:#854d0e;border:1px solid #fcd34d;}.st-REPROVADO{background:linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);color:#991b1b;border:1px solid #fca5a5;}.st-QUITADO{background:linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);color:#1e40af;border:1px solid #93c5fd;}
             table{width:100%;border-collapse:collapse;margin-top:20px;}
-            th{background:linear-gradient(135deg, #f8f9fa 0%, #f0f4f8 100%);padding:18px 12px;text-align:left;font-weight:700;color:#1e3c72;border-bottom:2px solid #e0e7f1;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.5px;}
+            th{background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);padding:18px 12px;text-align:left;font-weight:700;color:#1a2e4a;border-bottom:2px solid #e2e8f0;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.5px;}
             td{padding:18px 12px;border-bottom:1px solid #f1f5f9;color:#333;}
             tbody tr{transition:all 0.2s;}
-            tbody tr:hover{background:#f8f9fc;box-shadow:inset 0 0 10px rgba(102,126,234,0.05);}
-            .score-card-content{background:linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);padding:30px;border-radius:15px;border:2px solid #e9d5ff;}
-            .score-value{font-size:3.5rem;font-weight:900;color:#8b5cf6;text-align:center;margin:20px 0;}
-            .score-bar{width:100%;height:12px;background:#e9d5ff;border-radius:10px;margin:20px 0;overflow:hidden;}
-            .score-fill{height:100%;background:linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%);transition:width 0.5s ease;}
+            tbody tr:hover{background:#f8fafc;box-shadow:inset 0 0 10px rgba(37,99,235,0.05);}
+            .score-card-content{background:linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);padding:30px;border-radius:12px;border:2px solid #bae6fd;}
+            .score-value{font-size:3.5rem;font-weight:900;color:#1e4d8c;text-align:center;margin:20px 0;}
+            .score-bar{width:100%;height:12px;background:#bae6fd;border-radius:10px;margin:20px 0;overflow:hidden;}
+            .score-fill{height:100%;background:linear-gradient(90deg, #1e4d8c 0%, #2563eb 100%);transition:width 0.5s ease;}
             .score-info{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:20px;}
-            .score-info-item{background:white;padding:15px;border-radius:10px;text-align:center;border-left:3px solid #8b5cf6;}
-            .score-info-item strong{color:#1e3c72;display:block;margin-bottom:5px;}
-            .score-info-item span{color:#8b5cf6;font-weight:bold;font-size:1.2rem;}
+            .score-info-item{background:white;padding:15px;border-radius:10px;text-align:center;border-left:3px solid #2563eb;}
+            .score-info-item strong{color:#1a2e4a;display:block;margin-bottom:5px;}
+            .score-info-item span{color:#2563eb;font-weight:bold;font-size:1.2rem;}
         </style></head><body>
-            <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL<span style="color:#764ba2;">CRÉDITO</span></div><div style="display:flex;gap:15px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">SAIR</a></div></div>
+            <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL<span style="color:#2563eb;">CRÉDITO</span></div><div style="display:flex;gap:15px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">SAIR</a></div></div>
             <div class="container"><div class="welcome-banner"><h2>Bem-vindo, ${req.session.userName}!</h2><p>Aqui você pode simular, gerenciar e acompanhar seus empréstimos</p></div>
             <div class="card"><h3>Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
             <label>VALOR DESEJADO (MÁX <span id="max-limite" style="color:#667eea;font-weight:bold;">R$ 20.000</span>)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
@@ -2384,8 +2384,8 @@ app.get('/simulacoes', async (req, res) => {
                 const faltaPagar = totalValor - totalPago;
                 const percentualPago = ((totalPago / totalValor) * 100).toFixed(1);
                 const alertaMulta = temMultaAtiva ? `<div style="background:#fee2e2;color:#991b1b;padding:8px 12px;border-radius:8px;font-size:0.85rem;font-weight:bold;margin-bottom:8px;border-left:3px solid #dc2626;">Parcela(s) atrasada(s)</div>` : '';
-                const btnPix = r.status === 'PAGO' && totalPago < totalValor ? `<button class="btn-pdf" style="background:#0066cc;margin-right:5px;" onclick="abrirModalEscolhaPagamento(${r.id}, ${valorMensal}, ${faltaPagar})">Pagar PIX</button>` : '';
-                const btnRenegociar = r.status === 'PAGO' && temMultaAtiva && !renegStatus ? `<button class="btn-pdf" style="background:#ff9800;margin-right:5px;" onclick="abrirModalRenegociar(${r.id}, ${parcelas}, ${faltaPagar})">Renegociar</button>` : (renegStatus ? `<span style="background:#e3f2fd;color:#1e40af;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:bold;">${renegStatus === 'PENDENTE' ? 'Pendente' : renegStatus === 'APROVADA' ? 'Aprovada' : 'Rejeitada'}</span>` : '');
+                const btnPix = r.status === 'PAGO' && totalPago < totalValor ? `<button class="btn-pdf" style="background:#2563eb;margin-right:5px;" onclick="abrirModalEscolhaPagamento(${r.id}, ${valorMensal}, ${faltaPagar})">Pagar PIX</button>` : '';
+                const btnRenegociar = r.status === 'PAGO' && temMultaAtiva && !renegStatus ? `<button class="btn-pdf" style="background:#16a34a;margin-right:5px;" onclick="abrirModalRenegociar(${r.id}, ${parcelas}, ${faltaPagar})">Renegociar</button>` : (renegStatus ? `<span style="background:#dbeafe;color:#0c4a6e;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:bold;">${renegStatus === 'PENDENTE' ? 'Pendente' : renegStatus === 'APROVADA' ? 'Aprovada' : 'Rejeitada'}</span>` : '');
                 return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td>${alertaMulta}${btnPix}${btnRenegociar}<button class="btn-pdf" style="background:#27ae60;" onclick="verHistorico(${r.id})">Histórico</button></td></tr>`;
             }).join('')}
             </tbody></table></div></div>
@@ -2393,7 +2393,7 @@ app.get('/simulacoes', async (req, res) => {
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
                 <div style="background:white;padding:30px;border-radius:15px;width:min(600px,90%);margin:30px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                        <h3 style="margin:0;color:#1e3c72;">Histórico de Pagamentos</h3>
+                        <h3 style="margin:0;color:#1a2e4a;">Histórico de Pagamentos</h3>
                         <button onclick="fecharModalPagamentos()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">✕</button>
                     </div>
                     <div id="pagamentos-container" style="max-height:400px;overflow-y:auto;"></div>
@@ -2404,28 +2404,28 @@ app.get('/simulacoes', async (req, res) => {
                 <div style="background:white;padding:30px;border-radius:15px;width:min(500px,90%);margin:30px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);position:relative;">
                     <button onclick="fecharModalEscolha()" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:28px;cursor:pointer;color:#999;width:35px;height:35px;display:flex;align-items:center;justify-content:center;">✕</button>
                     <div style="margin-bottom:20px;">
-                        <h3 style="margin:0;color:#1e3c72;">💙 Escolha o Valor a Pagar</h3>
+                        <h3 style="margin:0;color:#1a2e4a;">💙 Escolha o Valor a Pagar</h3>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:15px;">
-                        <div id="opcao-parcela" style="padding:20px;border:2px solid #0066cc;border-radius:12px;cursor:pointer;background:#f0f7ff;transition:all 0.3s;" onclick="selecionarOpcao('parcela')">
-                            <p style="margin:0;font-weight:bold;color:#1e3c72;font-size:1.2rem;margin-bottom:5px;">📅 Pagar Parcela do Mês</p>
-                            <p style="margin:0;color:#666;font-size:0.9rem;">Valor: <span id="valor-parcela" style="font-weight:bold;color:#0066cc;"></span></p>
+                        <div id="opcao-parcela" style="padding:20px;border:2px solid #2563eb;border-radius:12px;cursor:pointer;background:#f0f9ff;transition:all 0.3s;" onclick="selecionarOpcao('parcela')">
+                            <p style="margin:0;font-weight:bold;color:#1a2e4a;font-size:1.2rem;margin-bottom:5px;">📅 Pagar Parcela do Mês</p>
+                            <p style="margin:0;color:#666;font-size:0.9rem;">Valor: <span id="valor-parcela" style="font-weight:bold;color:#2563eb;"></span></p>
                             <p style="margin:5px 0 0 0;color:#999;font-size:0.8rem;">Você ainda terá <span id="parcelas-restantes"></span> parcelas</p>
                         </div>
-                        <div id="opcao-total" style="padding:20px;border:2px solid #27ae60;border-radius:12px;cursor:pointer;background:#f0fdf4;transition:all 0.3s;" onclick="selecionarOpcao('total')">
+                        <div id="opcao-total" style="padding:20px;border:2px solid #16a34a;border-radius:12px;cursor:pointer;background:#f0fdf4;transition:all 0.3s;" onclick="selecionarOpcao('total')">
                             <p style="margin:0;font-weight:bold;color:#166534;font-size:1.2rem;margin-bottom:5px;">🎁 Pagar Tudo com 10% de Desconto!</p>
                             <p style="margin:0;color:#666;font-size:0.9rem;">Valor Total: <span id="valor-total-original" style="text-decoration:line-through;color:#999;"></span></p>
-                            <p style="margin:5px 0 0 0;color:#166534;font-size:1rem;font-weight:bold;">Com Desconto: <span id="valor-total-desconto" style="color:#2ecc71;font-size:1.3rem;"></span></p>
+                            <p style="margin:5px 0 0 0;color:#166534;font-size:1rem;font-weight:bold;">Com Desconto: <span id="valor-total-desconto" style="color:#16a34a;font-size:1.3rem;"></span></p>
                         </div>
                     </div>
-                    <div style="margin-top:25px;padding:20px;background:linear-gradient(135deg, #f0f9ff 0%, #e3f2fd 100%);border-radius:15px;border:2px solid #0066cc;box-shadow:0 4px 12px rgba(0,102,204,0.1);">
+                    <div style="margin-top:25px;padding:20px;background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border-radius:12px;border:2px solid #2563eb;box-shadow:0 4px 12px rgba(37,99,235,0.1);">
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
                             <span style="font-size:24px;">🎟️</span>
-                            <p style="margin:0;color:#1e3c72;font-weight:bold;font-size:1.1rem;">Cupom de Desconto</p>
+                            <p style="margin:0;color:#1a2e4a;font-weight:bold;font-size:1.1rem;">Cupom de Desconto</p>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 110px 40px;gap:10px;">
-                            <input type="text" id="campo-cupom" placeholder="OFF5" style="padding:14px 16px;border:2px solid #0066cc;border-radius:10px;font-size:1rem;font-weight:bold;box-sizing:border-box;background:white;color:#1e3c72;" maxlength="20">
-                            <button onclick="aplicarCupom()" id="btn-aplicar-cupom" style="padding:14px 20px;background:linear-gradient(135deg, #0066cc 0%, #003d99 100%);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:0.9rem;transition:all 0.3s;box-shadow:0 4px 8px rgba(0,102,204,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 12px rgba(0,102,204,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 8px rgba(0,102,204,0.3)'">
+                            <input type="text" id="campo-cupom" placeholder="OFF5" style="padding:14px 16px;border:2px solid #2563eb;border-radius:10px;font-size:1rem;font-weight:bold;box-sizing:border-box;background:white;color:#1a2e4a;" maxlength="20">
+                            <button onclick="aplicarCupom()" id="btn-aplicar-cupom" style="padding:14px 20px;background:linear-gradient(135deg, #1e4d8c 0%, #2563eb 100%);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:0.9rem;transition:all 0.3s;box-shadow:0 4px 8px rgba(37,99,235,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 12px rgba(37,99,235,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 8px rgba(37,99,235,0.3)'">
                                 Aplicar
                             </button>
                         </div>
@@ -2435,34 +2435,34 @@ app.get('/simulacoes', async (req, res) => {
             </div>
 
             <div id="modalRenegociar" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10001;justify-content:center;align-items:center;overflow-y:auto;">
-                <div style="background:white;padding:30px;border-radius:15px;width:min(500px,90%);margin:30px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+                <div style="background:white;padding:30px;border-radius:16px;width:min(500px,90%);margin:30px auto;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                        <h3 style="margin:0;color:#ff9800;">📝 Solicitar Renegociação</h3>
+                        <h3 style="margin:0;color:#1a2e4a;">📝 Solicitar Renegociação</h3>
                         <button onclick="fecharModalRenegociar()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">✕</button>
                     </div>
                     <div id="reneg-resultado" style="margin-bottom:15px;"></div>
-                    <div style="background:#fff3e0;padding:12px;border-radius:8px;margin-bottom:15px;border-left:3px solid #ff9800;font-size:0.9rem;color:#e65100;">
+                    <div style="background:#eff6ff;padding:12px;border-radius:8px;margin-bottom:15px;border-left:3px solid #2563eb;font-size:0.9rem;color:#0c4a6e;">
                         <strong>ℹ️ Informação:</strong> Você pode aumentar o prazo para reduzir as parcelas mensais.
                     </div>
-                    <label style="font-weight:bold;color:#333;display:block;margin-bottom:5px;">Novo Prazo (parcelas)</label>
-                    <input type="number" id="reneg-novo-prazo" placeholder="Ex: 15" min="1" max="60" style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;margin-bottom:15px;box-sizing:border-box;">
-                    <label style="font-weight:bold;color:#333;display:block;margin-bottom:5px;">Motivo (opcional)</label>
-                    <textarea id="reneg-motivo" placeholder="Explique brevemente o motivo da solicitação..." style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;margin-bottom:15px;box-sizing:border-box;height:100px;font-family:inherit;"></textarea>
-                    <button onclick="enviarSolicitacaoRenegociacao()" style="width:100%;padding:12px;background:#ff9800;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:1rem;">📤 Enviar Solicitação</button>
+                    <label style="font-weight:bold;color:#1a2e4a;display:block;margin-bottom:5px;">Novo Prazo (parcelas)</label>
+                    <input type="number" id="reneg-novo-prazo" placeholder="Ex: 15" min="1" max="60" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:15px;box-sizing:border-box;">
+                    <label style="font-weight:bold;color:#1a2e4a;display:block;margin-bottom:5px;">Motivo (opcional)</label>
+                    <textarea id="reneg-motivo" placeholder="Explique brevemente o motivo da solicitação..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:15px;box-sizing:border-box;height:100px;font-family:inherit;"></textarea>
+                    <button onclick="enviarSolicitacaoRenegociacao()" style="width:100%;padding:12px;background:linear-gradient(135deg, #1e4d8c 0%, #2563eb 100%);color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:1rem;">📤 Enviar Solicitação</button>
                 </div>
             </div>
 
             <div id="modalPix" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;overflow-y:auto;padding:10px;">
-                <div style="background:linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);padding:20px;border-radius:16px;width:min(480px,98%);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;position:relative;">
+                <div style="background:linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);padding:20px;border-radius:16px;width:min(480px,98%);max-height:90vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.06);text-align:center;position:relative;">
                     <button onclick="fecharModalPixSemPagamento()" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:28px;cursor:pointer;color:#666;width:35px;height:35px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;">✕</button>
-                    <h3 style="margin:0 0 20px 0;color:#1e3c72;font-size:20px;font-weight:bold;">💙 Pagar via PIX</h3>
-                    <div id="pix-container" style="padding:15px;background:white;border-radius:12px;margin:15px 0;border:2px solid #f0f7ff;">
+                    <h3 style="margin:0 0 20px 0;color:#1a2e4a;font-size:20px;font-weight:bold;">💙 Pagar via PIX</h3>
+                    <div id="pix-container" style="padding:15px;background:white;border-radius:12px;margin:15px 0;border:2px solid #e0f2fe;">
                         <p style="color:#666;margin:15px 0;">Carregando QR Code...</p>
                     </div>
-                    <div style="background:#f9fafb;padding:12px;border-radius:10px;margin:12px 0;border-left:4px solid #2ecc71;">
-                        <p style="margin:0;font-size:12px;color:#666;">⏰ Válido por <span id="timer" style="font-weight:bold;color:#1e3c72;">30:00</span></p>
+                    <div style="background:#f8fafc;padding:12px;border-radius:10px;margin:12px 0;border-left:4px solid #16a34a;">
+                        <p style="margin:0;font-size:12px;color:#666;">⏰ Válido por <span id="timer" style="font-weight:bold;color:#1a2e4a;">30:00</span></p>
                     </div>
-                    <button onclick="confirmarPagamentoPix()" style="width:100%;padding:12px;background:linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;margin-top:12px;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 25px rgba(46,204,113,0.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+                    <button onclick="confirmarPagamentoPix()" style="width:100%;padding:12px;background:linear-gradient(135deg, #16a34a 0%, #15803d 100%);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;margin-top:12px;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 25px rgba(22,163,74,0.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
                         ✅ Já fiz o Pagamento PIX
                     </button>
                     <p style="font-size:11px;color:#999;margin-top:12px;margin-bottom:0;">Admin será notificado para validar</p>
