@@ -854,8 +854,11 @@ function calcularParcelasSimulacao(sim, totalPagoAcumulado) {
     const resultado = [];
 
     for (let n = 1; n <= parcelas; n++) {
-        const venc = new Date(aprovadoEm);
-        venc.setDate(aprovadoEm.getDate() + (n * 30));
+        // Calcular vencimento: dia 10 do mês correspondente
+        const mesVencimento = aprovadoEm.getMonth() + n;
+        const anoVencimento = aprovadoEm.getFullYear() + Math.floor(mesVencimento / 12);
+        const mesAjustado = mesVencimento % 12;
+        const venc = new Date(anoVencimento, mesAjustado, 10);
         const vencStr = venc.toISOString().split('T')[0];
 
         let statusParcela;
