@@ -3850,32 +3850,32 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
 
         res.send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Admin AzulCrédito</title><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>
             body{font-family:"Segoe UI",sans-serif;background:#f1f5f9;padding:20px;}
-            .header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:20px;border-radius:10px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:center;}
+            .header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:20px;border-radius:12px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.15);}
             .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:40px;}
-            .stat-card{background:white;padding:25px;border-radius:15px;border-left:5px solid #1e3c72;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
+            .stat-card{background:white;padding:25px;border-radius:16px;border-left:5px solid #2563eb;box-shadow:0 4px 20px rgba(0,0,0,0.06);}
             .stat-card h3{margin:0;font-size:0.9rem;color:#666;text-transform:uppercase;}
-            .stat-card .valor{font-size:2rem;font-weight:bold;color:#1e3c72;margin-top:10px;}
-            .stat-card.sucesso{border-left-color:#2ecc71;}.stat-card.sucesso .valor{color:#2ecc71;}
+            .stat-card .valor{font-size:2rem;font-weight:bold;color:#1a2e4a;margin-top:10px;}
+            .stat-card.sucesso{border-left-color:#16a34a;}.stat-card.sucesso .valor{color:#16a34a;}
             .stat-card.analise{border-left-color:#f39c12;}.stat-card.analise .valor{color:#f39c12;}
             .stat-card.reprovado{border-left-color:#e74c3c;}.stat-card.reprovado .valor{color:#e74c3c;}
             .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:30px;margin-bottom:40px;}
-            .chart-container{background:white;padding:25px;border-radius:15px;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
-            .chart-container h3{margin-top:0;color:#1e3c72;}
+            .chart-container{background:white;padding:25px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.06);}
+            .chart-container h3{margin-top:0;color:#1a2e4a;}
             canvas{max-height:300px;}
-            .top-clientes{background:white;padding:25px;border-radius:15px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-bottom:40px;}
-            .top-clientes h3{margin-top:0;color:#1e3c72;}
+            .top-clientes{background:white;padding:25px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.06);margin-bottom:40px;}
+            .top-clientes h3{margin-top:0;color:#1a2e4a;}
             table{width:100%;border-collapse:collapse;font-size:0.9rem;}
-            table th{background:#f8f9fa;padding:12px;text-align:left;font-weight:600;color:#333;}
-            table td{padding:12px;border-bottom:1px solid #f1f3f5;}
-            .profile-card{background:white;border-radius:15px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);overflow:hidden;}
+            table th{background:#f8fafc;padding:12px;text-align:left;font-weight:600;color:#1a2e4a;}
+            table td{padding:12px;border-bottom:1px solid #e2e8f0;}
+            .profile-card{background:white;border-radius:16px;margin-bottom:20px;box-shadow:0 4px 20px rgba(0,0,0,0.06);overflow:hidden;}
             .profile-header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:15px 25px;display:flex;justify-content:space-between;align-items:center;}
-            .btn-whatsapp{background:#25d366;color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:0.8rem;}
+            .btn-whatsapp{background:#16a34a;color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:0.8rem;}
             .badge{padding:4px 12px;border-radius:50px;font-size:0.7rem;font-weight:bold;}
-            .st-pago{background:#d4edda;color:#155724;}.st-analise{background:#fff3cd;color:#856404;}.st-reprovado{background:#f8d7da;color:#721c24;}.st-quitado{background:#dbeafe;color:#1e40af;}
-            .doc-link{text-decoration:none;font-weight:bold;color:#3498db;margin-right:10px;}
-            select,button{padding:6px 10px;border:2px solid #e2e8f0;border-radius:6px;cursor:pointer;}
-            button{background:#3a7bd5;color:white;border:none;font-weight:bold;}
-            button:hover{background:#2a5fa5;}
+            .st-pago{background:#dcfce7;color:#166534;}.st-analise{background:#fef9c3;color:#854d0e;}.st-reprovado{background:#fee2e2;color:#991b1b;}.st-quitado{background:#dbeafe;color:#0c4a6e;}
+            .doc-link{text-decoration:none;font-weight:bold;color:#2563eb;margin-right:10px;}
+            select,button{padding:6px 10px;border:2px solid #e2e8f0;border-radius:8px;cursor:pointer;}
+            button{background:linear-gradient(135deg, #1e4d8c 0%, #2563eb 100%);color:white;border:none;font-weight:bold;}
+            button:hover{box-shadow:0 4px 12px rgba(30,77,140,0.3);transform:translateY(-2px);}
         </style></head><body data-admin-role="${req.session.adminRole || 'admin'}">
             <div class="header">
                 <h1 style="margin:0;">📊 Painel de Gestão - AzulCrédito</h1>
