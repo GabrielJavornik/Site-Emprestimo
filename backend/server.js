@@ -399,29 +399,32 @@ async function enviarWhatsAppLembrete(numero, nome, valorParcela, dataVencimento
     }
 }
 
-// Calcular o quinto dia útil do mês seguinte (para primeira parcela)
-function calcularQuintoDiaUtil(dataAtual) {
-    // Pega o primeiro dia do próximo mês
-    const ano = dataAtual.getMonth() === 11 ? dataAtual.getFullYear() + 1 : dataAtual.getFullYear();
-    const mes = dataAtual.getMonth() === 11 ? 0 : dataAtual.getMonth() + 1;
+// Calcular o quinto dia útil de um mês específico
+function calcularQuintoDiaUtilDoMes(ano, mes) {
     const primeiroDia = new Date(ano, mes, 1);
-
     let diasUteis = 0;
-    let dataAtual2 = new Date(primeiroDia);
+    let dataAtual = new Date(primeiroDia);
 
     // Contar até o 5º dia útil (segunda a sexta)
     while (diasUteis < 5) {
-        const diaSemana = dataAtual2.getDay();
+        const diaSemana = dataAtual.getDay();
         if (diaSemana !== 0 && diaSemana !== 6) { // 0=domingo, 6=sábado
             diasUteis++;
             if (diasUteis === 5) {
-                return dataAtual2;
+                return dataAtual;
             }
         }
-        dataAtual2.setDate(dataAtual2.getDate() + 1);
+        dataAtual.setDate(dataAtual.getDate() + 1);
     }
 
-    return dataAtual2;
+    return dataAtual;
+}
+
+// Calcular o quinto dia útil do mês seguinte (para primeira parcela)
+function calcularQuintoDiaUtil(dataAtual) {
+    const ano = dataAtual.getMonth() === 11 ? dataAtual.getFullYear() + 1 : dataAtual.getFullYear();
+    const mes = dataAtual.getMonth() === 11 ? 0 : dataAtual.getMonth() + 1;
+    return calcularQuintoDiaUtilDoMes(ano, mes);
 }
 
 // Função principal para verificar vencimentos
@@ -461,10 +464,12 @@ async function verificarVencimentos() {
                 continue;
             }
 
-            // Calcular próximo vencimento: aprovado_em + (parcPagas + 1) * 30 dias
+            // Calcular próximo vencimento: 5º dia útil do mês (parcPagas + 1) meses à frente
             const aprovadoEm = new Date(sim.aprovado_em);
-            const proximoVencimento = new Date(aprovadoEm);
-            proximoVencimento.setDate(aprovadoEm.getDate() + ((parcPagas + 1) * 30));
+            const mesVencimento = aprovadoEm.getMonth() + (parcPagas + 1);
+            const anoVencimento = aprovadoEm.getFullYear() + Math.floor(mesVencimento / 12);
+            const mesAjustado = mesVencimento % 12;
+            const proximoVencimento = calcularQuintoDiaUtilDoMes(anoVencimento, mesAjustado);
             const vencStr = proximoVencimento.toISOString().split('T')[0];
 
             // Verificar se faltam exatamente 3 dias para este vencimento
@@ -4096,8 +4101,10 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     let proximaVencimentoStr = '-';
                     if (ped.aprovado_em && parcelasRestantes > 0) {
                         const aprovadoEm = new Date(ped.aprovado_em);
-                        const proximaVenc = new Date(aprovadoEm);
-                        proximaVenc.setDate(aprovadoEm.getDate() + ((parcelasPagas + 1) * 30));
+                        const mesVencimento = aprovadoEm.getMonth() + (parcelasPagas + 1);
+                        const anoVencimento = aprovadoEm.getFullYear() + Math.floor(mesVencimento / 12);
+                        const mesAjustado = mesVencimento % 12;
+                        const proximaVenc = calcularQuintoDiaUtilDoMes(anoVencimento, mesAjustado);
                         proximaVencimentoStr = proximaVenc.toLocaleDateString('pt-BR');
                     }
                     return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="font-size:0.85rem;"><strong>${ultimaPagaNum}</strong><br><small style="color:#666;">${ultimaPagaDate}</small></td><td style="font-size:0.85rem;font-weight:bold;color:#0066cc;">${proximaVencimentoStr}</td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td style="min-width:320px;"><div style="display:flex;flex-direction:column;gap:8px;"><div style="display:flex;gap:6px;align-items:center;"><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}" ${isQuitado ? 'disabled' : ''} style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:white;color:#1e293b;font-weight:500;font-size:0.85rem;cursor:pointer;"><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option><option value="QUITADO" ${ped.status==='QUITADO'?'selected':''}>Quitado</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} style="padding:6px 14px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;transition:all 0.2s;">✅ OK</button></div><div style="display:flex;gap:6px;"><button style="flex:1;padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;transition:all 0.2s;hover{background:#2563eb;}" onclick="abrirModalVerPagamentos(${ped.id})">📋 Pagamentos</button><button style="flex:1;padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;transition:all 0.2s;" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Registrar</button></div></div></td></tr>`;
