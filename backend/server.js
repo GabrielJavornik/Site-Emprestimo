@@ -399,32 +399,16 @@ async function enviarWhatsAppLembrete(numero, nome, valorParcela, dataVencimento
     }
 }
 
-// Calcular o quinto dia útil de um mês específico
-function calcularQuintoDiaUtilDoMes(ano, mes) {
-    const primeiroDia = new Date(ano, mes, 1);
-    let diasUteis = 0;
-    let dataAtual = new Date(primeiroDia);
-
-    // Contar até o 5º dia útil (segunda a sexta)
-    while (diasUteis < 5) {
-        const diaSemana = dataAtual.getDay();
-        if (diaSemana !== 0 && diaSemana !== 6) { // 0=domingo, 6=sábado
-            diasUteis++;
-            if (diasUteis === 5) {
-                return dataAtual;
-            }
-        }
-        dataAtual.setDate(dataAtual.getDate() + 1);
-    }
-
-    return dataAtual;
+// Calcular o dia 10 de um mês específico
+function calcularDia10DoMes(ano, mes) {
+    return new Date(ano, mes, 10);
 }
 
-// Calcular o quinto dia útil do mês seguinte (para primeira parcela)
-function calcularQuintoDiaUtil(dataAtual) {
+// Calcular o dia 10 do mês seguinte (para primeira parcela)
+function calcularPrimeiraDataVencimento(dataAtual) {
     const ano = dataAtual.getMonth() === 11 ? dataAtual.getFullYear() + 1 : dataAtual.getFullYear();
     const mes = dataAtual.getMonth() === 11 ? 0 : dataAtual.getMonth() + 1;
-    return calcularQuintoDiaUtilDoMes(ano, mes);
+    return calcularDia10DoMes(ano, mes);
 }
 
 // Função principal para verificar vencimentos
@@ -464,12 +448,12 @@ async function verificarVencimentos() {
                 continue;
             }
 
-            // Calcular próximo vencimento: 5º dia útil do mês (parcPagas + 1) meses à frente
+            // Calcular próximo vencimento: dia 10 do mês (parcPagas + 1) meses à frente
             const aprovadoEm = new Date(sim.aprovado_em);
             const mesVencimento = aprovadoEm.getMonth() + (parcPagas + 1);
             const anoVencimento = aprovadoEm.getFullYear() + Math.floor(mesVencimento / 12);
             const mesAjustado = mesVencimento % 12;
-            const proximoVencimento = calcularQuintoDiaUtilDoMes(anoVencimento, mesAjustado);
+            const proximoVencimento = calcularDia10DoMes(anoVencimento, mesAjustado);
             const vencStr = proximoVencimento.toISOString().split('T')[0];
 
             // Verificar se faltam exatamente 3 dias para este vencimento
@@ -4104,7 +4088,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         const mesVencimento = aprovadoEm.getMonth() + (parcelasPagas + 1);
                         const anoVencimento = aprovadoEm.getFullYear() + Math.floor(mesVencimento / 12);
                         const mesAjustado = mesVencimento % 12;
-                        const proximaVenc = calcularQuintoDiaUtilDoMes(anoVencimento, mesAjustado);
+                        const proximaVenc = calcularDia10DoMes(anoVencimento, mesAjustado);
                         proximaVencimentoStr = proximaVenc.toLocaleDateString('pt-BR');
                     }
                     return `<tr><td>${new Date(ped.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(ped.valor)}</td><td style="font-weight:bold;">${formatarMoeda(totalValor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="font-size:0.85rem;"><strong>${ultimaPagaNum}</strong><br><small style="color:#666;">${ultimaPagaDate}</small></td><td style="font-size:0.85rem;font-weight:bold;color:#0066cc;">${proximaVencimentoStr}</td><td><a href="/ver-arquivo/${ped.documento_path}" target="_blank" class="doc-link">🗂️</a><a href="/ver-arquivo/${ped.renda_path}" target="_blank" class="doc-link">📄</a></td><td style="min-width:320px;"><div style="display:flex;flex-direction:column;gap:8px;"><div style="display:flex;gap:6px;align-items:center;"><span class="badge ${st}">${ped.status}</span><select id="st-${ped.id}" ${isQuitado ? 'disabled' : ''} style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:white;color:#1e293b;font-weight:500;font-size:0.85rem;cursor:pointer;"><option value="EM ANÁLISE" ${ped.status==='EM ANÁLISE'?'selected':''}>Análise</option><option value="PAGO" ${ped.status==='PAGO'?'selected':''}>Aprovar</option><option value="REPROVADO" ${ped.status==='REPROVADO'?'selected':''}>Reprovar</option><option value="QUITADO" ${ped.status==='QUITADO'?'selected':''}>Quitado</option></select><button onclick="salvar(${ped.id},'${p.whatsapp}','${p.nome}')" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} style="padding:6px 14px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;transition:all 0.2s;">✅ OK</button></div><div style="display:flex;gap:6px;"><button style="flex:1;padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;transition:all 0.2s;hover{background:#2563eb;}" onclick="abrirModalVerPagamentos(${ped.id})">📋 Pagamentos</button><button style="flex:1;padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;transition:all 0.2s;" ${isQuitado ? 'disabled style="opacity:0.5;"' : ''} onclick="abrirModalPagamento(${ped.id},'${formatarMoeda(ped.valor)}','${formatarMoeda(ped.total)}')">💰 Registrar</button></div></div></td></tr>`;
@@ -4720,10 +4704,10 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
         console.log('📋 Atualizando status da simulação:', { id, status });
         const cli = await pool.query('SELECT nome, email, cpf, valor FROM SIMULACOES WHERE ID = $1', [id]);
 
-        // Se status é 'PAGO', salvar a data da primeira parcela (quinto dia útil do próximo mês)
+        // Se status é 'PAGO', salvar a data da primeira parcela (dia 10 do próximo mês)
         if (status === 'PAGO') {
-            const quintoDiaUtil = calcularQuintoDiaUtil(new Date());
-            await pool.query('UPDATE SIMULACOES SET STATUS = $1, aprovado_em = $3 WHERE ID = $2', [status, id, quintoDiaUtil]);
+            const primeiraDataVencimento = calcularPrimeiraDataVencimento(new Date());
+            await pool.query('UPDATE SIMULACOES SET STATUS = $1, aprovado_em = $3 WHERE ID = $2', [status, id, primeiraDataVencimento]);
         } else {
             await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE ID = $2', [status, id]);
         }
