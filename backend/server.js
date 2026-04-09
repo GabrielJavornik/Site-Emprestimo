@@ -3876,6 +3876,7 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                         <div style="font-size:28px;transition:transform 0.2s;">🔔</div>
                         <div id="badge-notificacoes" style="position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;display:none;">0</div>
                     </div>
+                    ${req.session.adminRole === 'superadmin' ? '<button onclick="abrirModalVencidos()" style="background:#f59e0b;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">⚠️ Vencidos</button>' : ''}
                     ${req.session.adminRole === 'superadmin' ? '<button onclick="abrirModalLimparDados()" style="background:#e74c3c;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ Limpar Dados</button>' : ''}
                     ${req.session.adminRole === 'superadmin' ? '<button onclick="abrirModalGerenciarCupons()" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #2563eb;background:#2563eb;padding:8px 16px;border-radius:8px;cursor:pointer;">🎟️ Cupons</button>' : ''}
                     ${req.session.adminRole === 'superadmin' ? '<a href="/admin-gerenciar" style="color:white;text-decoration:none;font-weight:bold;border:1px solid #f39c12;background:#f39c12;padding:8px 16px;border-radius:8px;">👨‍💼 Gerenciar Admins</a>' : ''}
@@ -4148,6 +4149,55 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
             async function deletarPagamento(pagId){if(!confirm('Deseja deletar este pagamento? Esta ação é IRREVERSÍVEL!')){return;}const resp=await fetch('/deletar-pagamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pagamento_id:pagId})});const json=await resp.json();if(json.ok){alert(json.msg);location.reload();}else{alert('❌ '+json.msg);}}
             function abrirModalLimparDados(){document.getElementById('modalLimparDados').style.display='flex';}function fecharModalLimparDados(){document.getElementById('modalLimparDados').style.display='none';}async function executarLimpeza(){const usuarios=document.getElementById('ckUsuarios').checked;const simulacoes=document.getElementById('ckSimulacoes').checked;const pagamentos=document.getElementById('ckPagamentos').checked;if(!usuarios&&!simulacoes&&!pagamentos){alert('⚠️ Selecione pelo menos uma tabela para limpar');return;}if(!confirm('⚠️ ATENÇÃO!\\n\\nVocê vai deletar os dados selecionados.\\n\\nEsta ação é IRREVERSÍVEL!')){return;}const resp=await fetch('/admin-limpar-dados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuarios,simulacoes,pagamentos})});const json=await resp.json();if(json.ok){alert('✅ '+json.msg);fecharModalLimparDados();location.reload();}else{alert('❌ '+json.msg);}}
             function abrirModalGerenciarCupons(){document.getElementById('modalGerenciarCupons').style.display='flex';carregarCupons();}function fecharModalGerenciarCupons(){document.getElementById('modalGerenciarCupons').style.display='none';}async function carregarCupons(){const resp=await fetch('/admin-listar-cupons');const json=await resp.json();const lista=document.getElementById('listaCupons');if(json.ok&&json.cupons.length>0){lista.innerHTML=json.cupons.map(c=>'<div style="padding:15px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;"><div><strong>'+c.codigo+'</strong><br><small style="color:#666;">'+c.desconto+'% de desconto</small></div><button onclick="deletarCupom('+c.id+')" style="background:#e74c3c;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:0.85rem;">🗑️</button></div>').join('');}else{lista.innerHTML='<p style="padding:20px;text-align:center;color:#999;">Nenhum cupom criado</p>';}}async function criarCupom(){const codigo=document.getElementById('cupomCodigo').value.trim();const desconto=parseInt(document.getElementById('cupomDesconto').value);if(!codigo||!desconto||desconto<=0||desconto>100){alert('❌ Código e desconto válidos são obrigatórios');return;}const resp=await fetch('/admin-criar-cupom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codigo,desconto})});const json=await resp.json();if(json.ok){alert(json.msg);document.getElementById('cupomCodigo').value='';document.getElementById('cupomDesconto').value='';carregarCupons();}else{alert('❌ '+json.msg);}}async function deletarCupom(cupId){if(!confirm('Deletar este cupom?')){return;}const resp=await fetch('/admin-deletar-cupom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cupom_id:cupId})});const json=await resp.json();if(json.ok){alert(json.msg);carregarCupons();}else{alert('❌ '+json.msg);}}
+
+            // Funções para Modal de Vencidos
+            function abrirModalVencidos(){document.getElementById('modalVencidos').style.display='flex';carregarVencidos();}
+            function fecharModalVencidos(){document.getElementById('modalVencidos').style.display='none';}
+            function fecharModalRegistrarVencido(){document.getElementById('modalRegistrarPagamentoVencido').style.display='none';}
+
+            async function carregarVencidos(){
+                try{
+                    const resp=await fetch('/api/admin/vencidos');
+                    const json=await resp.json();
+                    if(!json.ok||!json.vencidos){alert('Erro ao carregar dados');return;}
+                    const vencidos=json.vencidos;
+                    document.getElementById('total-inadimplentes').textContent=vencidos.length;
+                    document.getElementById('total-atraso').textContent='R$ '+vencidos.reduce((acc,v)=>acc+parseFloat(v.total_em_atraso||0),0).toFixed(2).replace('.',',');
+                    document.getElementById('max-atraso').textContent=vencidos.length>0?Math.max(...vencidos.map(v=>parseInt(v.max_dias_atraso))):0+' dias';
+                    const linhas=vencidos.map(v=>{
+                        const multa_pct=v.total_valor>0?((parseFloat(v.total_multa||0)/parseFloat(v.total_valor))*100).toFixed(1):0;
+                        return '<tr style="border-bottom:1px solid #e2e8f0;">'+
+                            '<td style="padding:12px;"><strong>'+v.nome+'</strong></td>'+
+                            '<td style="padding:12px;">'+v.cpf+'</td>'+
+                            '<td style="padding:12px;text-align:center;"><span style="background:#fee2e2;color:#991b1b;padding:4px 8px;border-radius:4px;font-weight:bold;">'+v.qtd_parcelas_atrasadas+' parcelas</span></td>'+
+                            '<td style="padding:12px;text-align:right;font-weight:bold;color:#e74c3c;">R$ '+parseFloat(v.total_em_atraso||0).toFixed(2).replace('.',',')+'</td>'+
+                            '<td style="padding:12px;text-align:center;"><span style="background:#fef3c7;color:#92400e;padding:4px 8px;border-radius:4px;font-weight:bold;">'+multa_pct+'%</span></td>'+
+                            '<td style="padding:12px;text-align:center;"><span style="background:#f8f9fa;color:#666;padding:4px 8px;border-radius:4px;">'+v.max_dias_atraso+' dias</span></td>'+
+                            '<td style="padding:12px;text-align:center;"><a href="https://wa.me/'+v.whatsapp.replace(/[^0-9]/g,'')+'" target="_blank" style="background:#16a34a;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:0.85rem;cursor:pointer;font-weight:bold;margin-right:5px;">💬 WhatsApp</a><button onclick="abrirRegistroPagamentoVencido('+v.simulacao_id+`,'${v.nome}',${v.total_em_atraso})" style="background:#2563eb;color:white;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:bold;">💳 Registrar</button></td>'+
+                        '</tr>';
+                    }).join('');
+                    document.getElementById('tabela-vencidos').innerHTML=linhas||'<tr><td colspan="7" style="padding:40px;text-align:center;color:#999;">Nenhum empréstimo vencido!</td></tr>';
+                }catch(e){console.error(e);alert('Erro ao carregar vencidos');}
+            }
+
+            function abrirRegistroPagamentoVencido(simId,nome,totalDevido){
+                window.currentVencidoId=simId;
+                document.getElementById('pagto-vencido-cliente').value=nome;
+                document.getElementById('pagto-vencido-valor').value=totalDevido.toFixed(2);
+                const hoje=new Date().toISOString().split('T')[0];
+                document.getElementById('pagto-vencido-data').value=hoje;
+                document.getElementById('modalRegistrarPagamentoVencido').style.display='flex';
+            }
+
+            async function registrarPagamentoVencido(){
+                const simId=window.currentVencidoId;
+                const valor=parseFloat(document.getElementById('pagto-vencido-valor').value);
+                const data=document.getElementById('pagto-vencido-data').value;
+                if(!valor||valor<=0||!data){alert('Preencha todos os campos');return;}
+                const resp=await fetch('/registrar-pagamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({simulacao_id:simId,valor,data_pagamento:data})});
+                const json=await resp.json();
+                if(json.ok){alert('✅ Pagamento registrado com sucesso');fecharModalRegistrarVencido();carregarVencidos();}else{alert('❌ '+json.msg);}
+            }
             async function salvar(id,whats,nome){const st=document.getElementById('st-'+id).value;await fetch('/atualizar-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:st})});if(st==='PAGO'){window.open("https://wa.me/"+whats+"?text="+encodeURIComponent("Olá "+nome+"! Seu empréstimo foi APROVADO! 🚀"),"_blank");}location.reload();}
 
             // Gráfico de Status
@@ -4694,6 +4744,77 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                     </div>
 
                     <button onclick="fecharModalGerenciarCupons()" style="width:100%;margin-top:20px;padding:12px;background:#95a5a6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✕ Fechar</button>
+                </div>
+            </div>
+
+            <!-- Modal de Vencidos -->
+            <div id="modalVencidos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;padding:20px;">
+                <div style="background:white;border-radius:16px;width:min(1200px,95%);max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);padding:30px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:25px;">
+                        <h2 style="margin:0;color:#1a2e4a;">⚠️ Empréstimos Vencidos</h2>
+                        <button onclick="fecharModalVencidos()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#666;">✕</button>
+                    </div>
+
+                    <!-- Resumo em Cards -->
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;margin-bottom:30px;">
+                        <div style="background:linear-gradient(135deg, #f59e0b 0%, #f97316 100%);padding:20px;border-radius:12px;color:white;">
+                            <p style="margin:0;font-size:0.9rem;opacity:0.9;">Clientes Inadimplentes</p>
+                            <h3 style="margin:10px 0 0 0;font-size:2rem;" id="total-inadimplentes">-</h3>
+                        </div>
+                        <div style="background:linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);padding:20px;border-radius:12px;color:white;">
+                            <p style="margin:0;font-size:0.9rem;opacity:0.9;">Total em Atraso</p>
+                            <h3 style="margin:10px 0 0 0;font-size:2rem;" id="total-atraso">-</h3>
+                        </div>
+                        <div style="background:linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);padding:20px;border-radius:12px;color:white;">
+                            <p style="margin:0;font-size:0.9rem;opacity:0.9;">Maior Tempo de Atraso</p>
+                            <h3 style="margin:10px 0 0 0;font-size:2rem;" id="max-atraso">-</h3>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Vencidos -->
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+                            <thead>
+                                <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0;">
+                                    <th style="padding:12px;text-align:left;font-weight:700;color:#1a2e4a;">Cliente</th>
+                                    <th style="padding:12px;text-align:left;font-weight:700;color:#1a2e4a;">CPF</th>
+                                    <th style="padding:12px;text-align:center;font-weight:700;color:#1a2e4a;">Parcelas Atrasadas</th>
+                                    <th style="padding:12px;text-align:right;font-weight:700;color:#1a2e4a;">Total Devido</th>
+                                    <th style="padding:12px;text-align:center;font-weight:700;color:#1a2e4a;">Multa %</th>
+                                    <th style="padding:12px;text-align:center;font-weight:700;color:#1a2e4a;">Atraso (dias)</th>
+                                    <th style="padding:12px;text-align:center;font-weight:700;color:#1a2e4a;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-vencidos">
+                                <tr><td colspan="7" style="padding:40px;text-align:center;color:#999;">Carregando dados...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button onclick="fecharModalVencidos()" style="width:100%;margin-top:20px;padding:12px;background:#95a5a6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✕ Fechar</button>
+                </div>
+            </div>
+
+            <!-- Sub-modal de Registrar Pagamento para Vencidos -->
+            <div id="modalRegistrarPagamentoVencido" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;">
+                <div style="background:white;padding:30px;border-radius:15px;width:min(400px,90%);box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+                    <h3 style="margin-top:0;color:#1a2e4a;">💰 Registrar Pagamento</h3>
+                    <div style="margin:15px 0;">
+                        <label style="display:block;font-weight:bold;margin-bottom:5px;color:#1a2e4a;">Cliente</label>
+                        <input type="text" id="pagto-vencido-cliente" disabled style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;background:#f5f5f5;box-sizing:border-box;">
+                    </div>
+                    <div style="margin:15px 0;">
+                        <label style="display:block;font-weight:bold;margin-bottom:5px;color:#1a2e4a;">Valor do Pagamento</label>
+                        <input type="number" id="pagto-vencido-valor" placeholder="Ex: 100.00" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;box-sizing:border-box;" step="0.01" min="0">
+                    </div>
+                    <div style="margin:15px 0;">
+                        <label style="display:block;font-weight:bold;margin-bottom:5px;color:#1a2e4a;">Data do Pagamento</label>
+                        <input type="date" id="pagto-vencido-data" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;box-sizing:border-box;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:25px;">
+                        <button onclick="registrarPagamentoVencido()" style="flex:1;background:#16a34a;color:white;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✅ Registrar</button>
+                        <button onclick="fecharModalRegistrarVencido()" style="flex:1;background:#95a5a6;color:white;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✕ Cancelar</button>
+                    </div>
                 </div>
             </div>
 
@@ -5440,6 +5561,37 @@ app.post('/admin-deletar-cupom', superadminAuth, async (req, res) => {
     } catch (err) {
         console.error('❌ Erro ao deletar cupom:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao deletar cupom' });
+    }
+});
+
+// --- LISTAR EMPRÉSTIMOS VENCIDOS (SUPERADMIN) ---
+app.get('/api/admin/vencidos', superadminAuth, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT s.id as simulacao_id, s.nome, s.cpf, s.whatsapp, s.email,
+                   s.valor, s.total as total_valor, s.parcelas, s.aprovado_em,
+                   COUNT(m.id) as qtd_parcelas_atrasadas,
+                   SUM(m.total_devido) as total_em_atraso,
+                   MAX(m.dias_atraso) as max_dias_atraso,
+                   SUM(m.multa) as total_multa,
+                   SUM(m.juros) as total_juros,
+                   COALESCE(pag.total_pago, 0) as total_pago
+            FROM MULTAS m
+            JOIN SIMULACOES s ON s.id = m.simulacao_id
+            LEFT JOIN (
+                SELECT simulacao_id, SUM(valor) as total_pago
+                FROM PAGAMENTOS WHERE status = 'CONFIRMADO'
+                GROUP BY simulacao_id
+            ) pag ON pag.simulacao_id = s.id
+            WHERE m.status = 'ATIVA'
+            GROUP BY s.id, s.nome, s.cpf, s.whatsapp, s.email, s.valor, s.total, s.parcelas, s.aprovado_em, pag.total_pago
+            ORDER BY max_dias_atraso DESC
+        `);
+
+        res.json({ ok: true, vencidos: result.rows });
+    } catch (err) {
+        console.error('❌ Erro ao listar vencidos:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao listar vencidos', vencidos: [] });
     }
 });
 
