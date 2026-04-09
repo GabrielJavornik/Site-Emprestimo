@@ -3,15 +3,19 @@ html {
 }
 
 :root {
-    --primary-color: #003b5c;   /* Navy Blue profissional */
-    --secondary-color: #0078d7; /* Royal Blue */
-    --accent-color: #00a8ff;    /* Sky Blue */
-    --success-color: #25d366;   /* Verde WhatsApp */
-    --bg-light: #f8fbff;
-    --text-main: #2c3e50;
+    --primary-dark: #1a2e4a;    /* Azul Escuro - Headers */
+    --primary-color: #1e4d8c;   /* Azul Principal - Botões */
+    --secondary-color: #2563eb; /* Azul Médio - Links */
+    --accent-color: #2563eb;    /* Azul Ação */
+    --success-color: #16a34a;   /* Verde Sucesso */
+    --bg-light: #f1f5f9;
+    --bg-card: #ffffff;
+    --text-main: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
     --white: #ffffff;
-    --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.05);
-    --shadow-strong: 0 20px 40px rgba(0, 0, 0, 0.15);
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.06);
+    --shadow-strong: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 * { 
@@ -35,12 +39,12 @@ body {
 
 /* 2. HEADER E NAVEGAÇÃO */
 .topo {
-    background: var(--primary-color);
-    padding: 1rem 0;
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+    padding: 1.2rem 0;
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 
 /* Header padrão para painel cliente e admin */
@@ -173,16 +177,16 @@ nav a:hover {
 }
 
 .btn-principal-grande {
-    background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
     border: none;
-    padding: 22px 45px;
-    font-size: 1.4rem;
+    padding: 18px 45px;
+    font-size: 1.2rem;
     font-weight: 800;
-    border-radius: 50px;
+    border-radius: 14px;
     cursor: pointer;
-    transition: 0.3s;
-    box-shadow: 0 0 20px rgba(0, 210, 255, 0.6);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(30, 77, 140, 0.3);
     text-transform: uppercase;
     letter-spacing: 1px;
     display: inline-block;
@@ -190,9 +194,8 @@ nav a:hover {
 }
 
 .btn-principal-grande:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 35px rgba(0, 210, 255, 0.9);
-    filter: brightness(1.2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(30, 77, 140, 0.4);
 }
 
 /* 4. STATS E BENEFÍCIOS */
@@ -372,44 +375,45 @@ nav a:hover {
 .campo input,
 .campo textarea {
     width: 100%;
-    padding: 14px 16px;
-    border: 2px solid #e8eef5;
-    border-radius: 14px;
+    padding: 12px 14px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
     font-size: 1rem;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    background: #f8fbfc;
+    transition: all 0.3s ease;
+    background: #f9fafb;
     font-family: inherit;
+    color: var(--text-main);
 }
 
 .campo input:focus,
 .campo textarea:focus {
-    border-color: #667eea;
+    border-color: var(--secondary-color);
     outline: none;
-    background: #fff;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-    transform: translateY(-2px);
+    background: var(--white);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    transform: translateY(-1px);
 }
 
 .btn-azul {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
     border: none;
-    padding: 16px 32px;
-    border-radius: 14px;
+    padding: 14px 32px;
+    border-radius: 12px;
     cursor: pointer;
     width: 100%;
     font-weight: 700;
-    font-size: 1.05rem;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-size: 1rem;
+    transition: all 0.3s ease;
     margin-top: 15px;
-    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 4px 15px rgba(30, 77, 140, 0.25);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .btn-azul:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.45);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(30, 77, 140, 0.35);
 }
 
 .btn-azul:active {

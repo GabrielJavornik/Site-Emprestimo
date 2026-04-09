@@ -399,6 +399,31 @@ async function enviarWhatsAppLembrete(numero, nome, valorParcela, dataVencimento
     }
 }
 
+// Calcular o quinto dia útil do mês seguinte (para primeira parcela)
+function calcularQuintoDiaUtil(dataAtual) {
+    // Pega o primeiro dia do próximo mês
+    const ano = dataAtual.getMonth() === 11 ? dataAtual.getFullYear() + 1 : dataAtual.getFullYear();
+    const mes = dataAtual.getMonth() === 11 ? 0 : dataAtual.getMonth() + 1;
+    const primeiroDia = new Date(ano, mes, 1);
+
+    let diasUteis = 0;
+    let dataAtual2 = new Date(primeiroDia);
+
+    // Contar até o 5º dia útil (segunda a sexta)
+    while (diasUteis < 5) {
+        const diaSemana = dataAtual2.getDay();
+        if (diaSemana !== 0 && diaSemana !== 6) { // 0=domingo, 6=sábado
+            diasUteis++;
+            if (diasUteis === 5) {
+                return dataAtual2;
+            }
+        }
+        dataAtual2.setDate(dataAtual2.getDate() + 1);
+    }
+
+    return dataAtual2;
+}
+
 // Função principal para verificar vencimentos
 async function verificarVencimentos() {
     try {
@@ -4688,9 +4713,10 @@ app.post('/atualizar-status', adminAuth, async (req, res) => {
         console.log('📋 Atualizando status da simulação:', { id, status });
         const cli = await pool.query('SELECT nome, email, cpf, valor FROM SIMULACOES WHERE ID = $1', [id]);
 
-        // Se status é 'PAGO', salvar data de aprovação para cálculo de vencimentos
+        // Se status é 'PAGO', salvar a data da primeira parcela (quinto dia útil do próximo mês)
         if (status === 'PAGO') {
-            await pool.query('UPDATE SIMULACOES SET STATUS = $1, aprovado_em = NOW() WHERE ID = $2', [status, id]);
+            const quintoDiaUtil = calcularQuintoDiaUtil(new Date());
+            await pool.query('UPDATE SIMULACOES SET STATUS = $1, aprovado_em = $3 WHERE ID = $2', [status, id, quintoDiaUtil]);
         } else {
             await pool.query('UPDATE SIMULACOES SET STATUS = $1 WHERE ID = $2', [status, id]);
         }
