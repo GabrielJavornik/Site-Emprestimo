@@ -33,9 +33,10 @@ function exibirNotificacaoCadastroSucesso() {
     notif.innerHTML = `
         <div style="display: flex; gap: 15px; align-items: flex-start;">
             <div style="font-size: 32px; min-width: 40px; text-align: center;">✅</div>
-            <div>
+            <div style="flex: 1;">
                 <h4 style="margin: 0 0 5px 0; font-size: 18px; color: white;">Conta Criada com Sucesso!</h4>
-                <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.95);">Verifique seu email para confirmar sua conta</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: rgba(255,255,255,0.95);">Verifique seu email para confirmar sua conta</p>
+                <a onclick="abrirModalAlterarEmail()" style="color: #fff; text-decoration: underline; font-size: 12px; cursor: pointer; font-weight: 600;">Email errado? Clique aqui</a>
             </div>
         </div>
     `;
@@ -358,6 +359,10 @@ if (formCad) {
 
             const json = await resp.json();
             if (json.ok) {
+                // Capturar CPF antes de limpar o form (para usar no modal de alterar email)
+                const cpfCadastrado = document.getElementById('cad-cpf').value.replace(/\D/g, '');
+                window._ultimoCpfCadastrado = cpfCadastrado;
+
                 // Exibir notificação bonita
                 exibirNotificacaoCadastroSucesso();
                 // Limpar formulário

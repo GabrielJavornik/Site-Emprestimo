@@ -746,6 +746,11 @@ pool.query(`
     ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS pix_email VARCHAR(100)
 `).catch(err => console.error('⚠️ Erro ao adicionar coluna pix_email:', err.message));
 
+// Coluna para armazenar email pendente de confirmação (quando usuário quer alterar email antes de confirmar)
+pool.query(`
+    ALTER TABLE USUARIOS ADD COLUMN IF NOT EXISTS novo_email VARCHAR(150)
+`).catch(err => console.error('⚠️ Erro ao adicionar coluna novo_email:', err.message));
+
 // Tabela para controlar lembretes enviados
 pool.query(`
     CREATE TABLE IF NOT EXISTS LEMBRETES_ENVIADOS (
@@ -1453,6 +1458,79 @@ app.post('/api/reenviar-email-confirmacao', async (req, res) => {
     }
 });
 
+// --- ALTERAR EMAIL ANTES DA CONFIRMAÇÃO ---
+app.post('/api/alterar-email-pendente', async (req, res) => {
+    try {
+        const cpfLimpo = soNumeros(req.body.cpf);
+        const novoEmail = req.body.novoEmail?.trim();
+
+        // Validações básicas
+        if (!cpfLimpo || !novoEmail) {
+            return res.status(400).json({ ok: false, msg: '❌ CPF e email são obrigatórios.' });
+        }
+
+        // Buscar usuário por CPF
+        const userResult = await pool.query('SELECT id, cpf, email, nome, email_verificado FROM USUARIOS WHERE cpf = $1', [cpfLimpo]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ ok: false, msg: '❌ CPF não encontrado no sistema.' });
+        }
+
+        const usuario = userResult.rows[0];
+
+        // Validação: se já verificado, não permitir alteração
+        if (usuario.email_verificado) {
+            return res.status(400).json({ ok: false, msg: '❌ Email já confirmado. Use as configurações da sua conta para alterar.' });
+        }
+
+        // Validação: novo email é igual ao atual?
+        if (novoEmail === usuario.email) {
+            return res.status(400).json({ ok: false, msg: '⚠️ Este já é o seu email atual.' });
+        }
+
+        // Validação: novo email já está em uso?
+        const emailCheck = await pool.query(
+            'SELECT id FROM USUARIOS WHERE (email = $1 OR novo_email = $1) AND cpf != $2',
+            [novoEmail, cpfLimpo]
+        );
+
+        if (emailCheck.rows.length > 0) {
+            return res.status(400).json({ ok: false, msg: '❌ Este email já está em uso.' });
+        }
+
+        // Gerar novo token
+        const novoToken = require('crypto').randomBytes(32).toString('hex');
+
+        // Atualizar novo_email e token
+        await pool.query(
+            'UPDATE USUARIOS SET novo_email = $1, token_email = $2 WHERE cpf = $3',
+            [novoEmail, novoToken, cpfLimpo]
+        );
+
+        // Enviar email de confirmação para o novo endereço
+        const linkConfirmacao = `${BASE_URL}/confirmar-email/${novoToken}`;
+        sgMail.send({
+            to: novoEmail,
+            from: `AzulCrédito <${EMAIL_REMETENTE}>`,
+            subject: '✅ Confirme seu novo email - AzulCrédito',
+            html: `<div style="font-family:sans-serif;color:#333;max-width:500px;border:1px solid #eee;padding:25px;border-radius:15px;background-color:#fcfdfe;">
+                    <h2 style="color:#1e3c72;">Olá ${usuario.nome}! 👋</h2>
+                    <p>Você solicitou a alteração do seu email na AzulCrédito.</p>
+                    <p>Clique no botão abaixo para confirmar seu novo email:</p>
+                    <a href="${linkConfirmacao}" style="background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">CONFIRMAR NOVO EMAIL</a>
+                    <p style="font-size:0.9rem;color:#666;">Ou copie este link: ${linkConfirmacao}</p>
+                    <p style="font-size:0.85rem;color:#999;">Este link expira em 24 horas.</p>
+                    <p style="font-size:0.85rem;color:#999;">Se você não solicitou esta alteração, ignore este email.</p></div>`
+        }).catch(e => console.error('⚠️ Erro ao enviar email de alteração:', e.message));
+
+        console.log(`✅ Email de alteração enviado para ${novoEmail} (usuário: ${usuario.nome})`);
+        res.json({ ok: true, msg: '✅ Email atualizado! Verifique a caixa de entrada do novo email para confirmar.' });
+    } catch (err) {
+        console.error('❌ Erro ao alterar email:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao alterar email' });
+    }
+});
+
 app.post('/solicitar-reset-senha', async (req, res) => {
     try {
         const cpfLimpo = soNumeros(req.body.cpf);
@@ -1634,7 +1712,11 @@ app.get('/confirmar-email/:token', async (req, res) => {
             return res.send('<h2 style="color:red;text-align:center;margin-top:50px;">❌ Token inválido ou expirado!</h2>');
         }
 
-        await pool.query('UPDATE USUARIOS SET email_verificado = true, token_email = NULL WHERE token_email = $1', [token]);
+        // Atualizar email se novo_email estiver pendente (usuário alterou o email antes de confirmar)
+        await pool.query(
+            'UPDATE USUARIOS SET email_verificado = true, token_email = NULL, email = COALESCE(novo_email, email), novo_email = NULL WHERE token_email = $1',
+            [token]
+        );
         console.log('✅ Email confirmado para usuário:', result.rows[0].nome);
 
         res.send(`<div style="text-align:center;margin-top:50px;">

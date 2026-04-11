@@ -407,7 +407,44 @@
 
       <div id="msg-reenviar" style="margin-top: 15px; font-weight: bold; font-size: 0.9rem;"></div>
 
+      <p style="text-align: center; margin-top: 15px; font-size: 0.85rem; color: #666;">
+        Email errado? <a onclick="fecharModalReenviarEmail(); abrirModalAlterarEmail();" style="color: #2563eb; font-weight: bold; cursor: pointer; text-decoration: none;">Alterar email</a>
+      </p>
+
       <button type="button" onclick="fecharModalReenviarEmail()" class="btn-azul" style="background: #999; margin-top: 10px;">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal para Alterar Email -->
+  <div id="modalAlterarEmail" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+      <span class="close" onclick="fecharModalAlterarEmail()">&times;</span>
+
+      <div style="text-align: center; margin-bottom: 25px;">
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">✏️</div>
+        <h2 style="color: #1e3c72; margin: 0 0 10px 0;">Alterar Email</h2>
+        <p style="color: #666; font-size: 0.9rem; margin: 0;">Informe seu CPF e o novo email para receber um link de confirmação</p>
+      </div>
+
+      <div class="campo">
+        <label style="color: #1e3c72; font-weight: bold;">CPF</label>
+        <input type="text" id="cpf-alterar-email" placeholder="000.000.000-00" style="font-size: 1.1rem; padding: 14px;">
+      </div>
+
+      <div class="campo">
+        <label style="color: #1e3c72; font-weight: bold;">Novo Email</label>
+        <input type="email" id="novo-email-input" placeholder="seu.novo@email.com" style="font-size: 1.1rem; padding: 14px;">
+      </div>
+
+      <button type="button" onclick="alterarEmail()" class="btn-azul" style="margin-top: 20px;">
+        📧 Enviar Confirmação
+      </button>
+
+      <div id="msg-alterar-email" style="margin-top: 15px; font-weight: bold; font-size: 0.9rem;"></div>
+
+      <button type="button" onclick="fecharModalAlterarEmail()" class="btn-azul" style="background: #999; margin-top: 10px;">
         Cancelar
       </button>
     </div>
@@ -661,6 +698,99 @@
             } else {
                 msgDiv.style.color = '#e74c3c';
                 msgDiv.innerText = '❌ ' + (dados.msg || 'Erro ao reenviar email');
+            }
+        } catch (e) {
+            console.error('❌ Erro:', e);
+            msgDiv.style.color = '#e74c3c';
+            msgDiv.innerText = '❌ Erro ao conectar com o servidor';
+        }
+    }
+
+    // === ALTERAR EMAIL ===
+    // Abrir modal de alterar email
+    function abrirModalAlterarEmail() {
+        document.getElementById('modalAlterarEmail').style.display = 'flex';
+        document.getElementById('cpf-alterar-email').focus();
+        // Pré-preencher CPF se disponível da última tentativa de cadastro
+        if (window._ultimoCpfCadastrado) {
+            document.getElementById('cpf-alterar-email').value = window._ultimoCpfCadastrado;
+            document.getElementById('novo-email-input').focus();
+        }
+        document.getElementById('msg-alterar-email').innerText = '';
+    }
+
+    // Fechar modal de alterar email
+    function fecharModalAlterarEmail() {
+        document.getElementById('modalAlterarEmail').style.display = 'none';
+        document.getElementById('cpf-alterar-email').value = '';
+        document.getElementById('novo-email-input').value = '';
+        document.getElementById('msg-alterar-email').innerText = '';
+    }
+
+    // Formatar CPF e email no modal de alterar email
+    document.addEventListener('DOMContentLoaded', function() {
+        const cpfInput = document.getElementById('cpf-alterar-email');
+        const emailInput = document.getElementById('novo-email-input');
+
+        if (cpfInput) {
+            cpfInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 11) value = value.slice(0, 11);
+                e.target.value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+                    .replace(/\.$/, '').replace(/-$/, '');
+            });
+            cpfInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') document.getElementById('novo-email-input').focus();
+            });
+        }
+
+        if (emailInput) {
+            emailInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') alterarEmail();
+            });
+        }
+    });
+
+    // Alterar email
+    async function alterarEmail() {
+        const cpfRaw = document.getElementById('cpf-alterar-email').value;
+        const cpf = cpfRaw.replace(/\D/g, '');
+        const novoEmail = document.getElementById('novo-email-input').value.trim();
+        const msgDiv = document.getElementById('msg-alterar-email');
+
+        if (cpf.length !== 11) {
+            msgDiv.style.color = '#e74c3c';
+            msgDiv.innerText = '❌ CPF deve ter 11 números!';
+            return;
+        }
+
+        if (!novoEmail || !novoEmail.includes('@')) {
+            msgDiv.style.color = '#e74c3c';
+            msgDiv.innerText = '❌ Email inválido!';
+            return;
+        }
+
+        msgDiv.style.color = '#f39c12';
+        msgDiv.innerText = '⏳ Processando...';
+
+        try {
+            const res = await fetch('/api/alterar-email-pendente', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cpf, novoEmail })
+            });
+
+            const dados = await res.json();
+
+            if (dados.ok) {
+                msgDiv.style.color = '#2ecc71';
+                msgDiv.innerText = '✅ ' + dados.msg;
+                setTimeout(() => {
+                    fecharModalAlterarEmail();
+                }, 2500);
+            } else {
+                msgDiv.style.color = '#e74c3c';
+                msgDiv.innerText = '❌ ' + (dados.msg || 'Erro ao alterar email');
             }
         } catch (e) {
             console.error('❌ Erro:', e);
