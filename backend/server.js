@@ -1595,9 +1595,9 @@ app.post('/cadastro', async (req, res) => {
         await pool.query('INSERT INTO USUARIOS (nome, cpf, senha, email, whatsapp, email_verificado, token_email, cep, rua, bairro, cidade, estado, numero_casa) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
         [nome, cpfLimpo, senha, email, soNumeros(whatsapp), false, tokenEmail, cep || null, rua || null, bairro || null, cidade || null, estado || null, numero_casa || null]);
 
-        // Enviar email de confirmação
+        // Enviar email de confirmação (ASSÍNCRONO - sem bloquear resposta)
         const linkConfirmacao = `${BASE_URL}/confirmar-email/${tokenEmail}`;
-        await sgMail.send({
+        sgMail.send({
             to: email,
             from: `AzulCrédito <${EMAIL_REMETENTE}>`,
             subject: '✅ Confirme seu email - AzulCrédito',
@@ -1607,8 +1607,9 @@ app.post('/cadastro', async (req, res) => {
                     <a href="${linkConfirmacao}" style="background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:12px 30px;text-decoration:none;border-radius:8px;display:inline-block;margin:20px 0;font-weight:bold;">CONFIRMAR EMAIL</a>
                     <p style="font-size:0.9rem;color:#666;">Ou copie este link: ${linkConfirmacao}</p>
                     <p style="font-size:0.85rem;color:#999;">Este link expira em 24 horas.</p></div>`
-        }).catch(e => console.error('Erro ao enviar email de confirmação:', e.message));
+        }).catch(e => console.error('⚠️ Erro ao enviar email de confirmação:', e.message));
 
+        // Responde imediatamente sem esperar o email ser enviado
         res.json({ ok: true, msg: 'Verifique seu email para confirmar a conta!' });
     } catch (err) {
         console.error('❌ Erro no cadastro:', err.message);
