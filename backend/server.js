@@ -2293,6 +2293,11 @@ app.get('/perfil', async (req, res) => {
                         const json = await resp.json();
                         if (json.ok) {
                             resultado.innerHTML = '<p style="color:#27ae60;font-weight:bold;padding:12px;background:#dcfce7;border-radius:8px;border-left:3px solid #27ae60;">✅ Chave PIX salva com sucesso!</p>';
+                            // Limpar todos os campos após salvar
+                            document.getElementById('pix-cpf').value = '';
+                            document.getElementById('pix-cnpj').value = '';
+                            document.getElementById('pix-telefone').value = '';
+                            document.getElementById('pix-email').value = '';
                         } else {
                             resultado.innerHTML = '<p style="color:#e74c3c;font-weight:bold;padding:12px;background:#fee2e2;border-radius:8px;border-left:3px solid #e74c3c;">❌ ' + (json.msg || 'Erro ao salvar') + '</p>';
                         }
