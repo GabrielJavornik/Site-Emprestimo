@@ -1832,8 +1832,12 @@ app.get('/perfil', async (req, res) => {
 
 
                 <div class="card" style="background:linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);border-left:5px solid #2563eb;">
-                    <h2 style="color:#1a2e4a;border-bottom-color:#2563eb;">Dados Pessoais</h2>
+                    <h2 style="color:#1a2e4a;border-bottom-color:#2563eb;">👤 Dados Pessoais</h2>
                     <div id="resultado-perfil"></div>
+
+                    <label style="font-weight:bold;color:#64748b;margin-top:15px;margin-bottom:6px;display:block;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.4px;">CPF (não editável)</label>
+                    <input type="text" value="${cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}" readonly style="border:2px solid #e2e8f0;padding:12px;border-radius:10px;font-size:1rem;background:#f1f5f9;color:#94a3b8;cursor:not-allowed;">
+
                     <label style="font-weight:bold;color:#1a2e4a;margin-top:15px;margin-bottom:6px;display:block;">Nome Completo</label>
                     <input type="text" id="nome" value="${user.nome}" placeholder="Seu nome completo" style="border:2px solid #e2e8f0;padding:12px;border-radius:10px;font-size:1rem;">
 
@@ -1841,18 +1845,19 @@ app.get('/perfil', async (req, res) => {
                     <input type="email" id="email" value="${user.email}" placeholder="seu@email.com" style="border:2px solid #e2e8f0;padding:12px;border-radius:10px;font-size:1rem;">
 
                     <label style="font-weight:bold;color:#1a2e4a;margin-top:15px;margin-bottom:6px;display:block;">WhatsApp</label>
-                    <input type="tel" id="whatsapp" value="${user.whatsapp || ''}" placeholder="55 xx 99999-9999" style="border:2px solid #e2e8f0;padding:12px;border-radius:10px;font-size:1rem;">
+                    <input type="tel" id="whatsapp" value="${user.whatsapp || ''}" placeholder="(54) 99999-9999" oninput="mascaraWhatsApp(this)" style="border:2px solid #e2e8f0;padding:12px;border-radius:10px;font-size:1rem;">
 
-                    <button onclick="atualizarPerfil()" style="background:linear-gradient(135deg, #1e4d8c 0%, #2563eb 100%);margin-top:20px;color:white;border:none;padding:12px 24px;border-radius:12px;font-weight:bold;cursor:pointer;transition:all 0.3s;width:100%;box-shadow:0 4px 15px rgba(30,77,140,0.3);">Salvar Alterações</button>
+                    <button onclick="atualizarPerfil()" style="background:linear-gradient(135deg, #1e4d8c 0%, #2563eb 100%);margin-top:20px;color:white;border:none;padding:14px 24px;border-radius:12px;font-weight:bold;cursor:pointer;transition:all 0.3s;width:100%;box-shadow:0 4px 15px rgba(30,77,140,0.3);font-size:1rem;">💾 Salvar Dados Pessoais</button>
                 </div>
 
                 <div class="card" style="background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border-left:5px solid #2563eb;">
-                    <h2 style="color:#1a2e4a;border-bottom-color:#2563eb;">Chave PIX</h2>
+                    <h2 style="color:#1a2e4a;border-bottom-color:#2563eb;">💳 Chave PIX</h2>
                     <div id="resultado-banco"></div>
 
-                    <div style="background:linear-gradient(135deg, #e0f2fe 0%, #dff1f7 100%);padding:18px;border-radius:12px;border-left:5px solid #2563eb;margin-bottom:25px;">
-                        <strong style="color:#1e4d8c;font-size:1.05rem;">Chave PIX Obrigatória</strong>
-                        <p style="margin:8px 0;color:#1a2e4a;font-size:0.95rem;">Informe sua chave PIX para receber empréstimos de forma rápida e segura. Só números.</p>
+                    <div id="pix-selecionado" style="display:none;background:#dcfce7;border:2px solid #86efac;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+                        <span style="background:#16a34a;color:white;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:bold;" id="pix-icon">CPF</span>
+                        <span style="color:#166534;font-weight:600;" id="pix-label">CPF selecionado</span>
+                        <span style="margin-left:auto;color:#166534;font-size:1.1rem;">✅</span>
                     </div>
 
                     <div style="margin-bottom:25px;">
@@ -1889,8 +1894,8 @@ app.get('/perfil', async (req, res) => {
                     </div>
                 </div>
 
-                <div class="card" style="background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border:none;box-shadow:0 4px 20px rgba(37,99,235,0.06);">
-                    <h2 style="color:#1a2e4a;border-bottom:3px solid #2563eb;padding-bottom:15px;margin-bottom:25px;font-size:1.8rem;">Meu Endereço</h2>
+                <div class="card" style="background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border-left:5px solid #2563eb;box-shadow:0 4px 20px rgba(37,99,235,0.06);">
+                    <h2 style="color:#1a2e4a;border-bottom:3px solid #2563eb;padding-bottom:15px;margin-bottom:25px;font-size:1.8rem;">📍 Meu Endereço</h2>
                     <div id="resultado-endereco"></div>
 
                     <div style="background:linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(37,99,235,0.05) 100%);padding:20px;border-radius:16px;border-left:5px solid #2563eb;margin-bottom:30px;border:2px dashed #bae6fd;">
@@ -1912,9 +1917,13 @@ app.get('/perfil', async (req, res) => {
                             <input type="text" id="numero_casa" placeholder="123" style="border:2px solid #2563eb;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;background:white;">
                         </div>
                         <div>
-                            <label style="font-weight:bold;color:#1a2e4a;margin-bottom:8px;display:block;font-size:0.95rem;">Bairro</label>
-                            <input type="text" id="bairro" placeholder="Centro" style="border:2px solid #2563eb;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;background:white;">
+                            <label style="font-weight:bold;color:#1a2e4a;margin-bottom:8px;display:block;font-size:0.95rem;">Complemento <span style="font-weight:normal;color:#94a3b8;">(opcional)</span></label>
+                            <input type="text" id="complemento" placeholder="Apto 12, Bloco B" style="border:2px solid #2563eb;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;background:white;">
                         </div>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="font-weight:bold;color:#1a2e4a;margin-bottom:8px;display:block;font-size:0.95rem;">Bairro</label>
+                        <input type="text" id="bairro" placeholder="Centro" style="border:2px solid #2563eb;width:100%;padding:14px;border-radius:10px;font-size:1rem;box-sizing:border-box;background:white;">
                     </div>
 
                     <div style="display:grid;grid-template-columns:2fr 1fr;gap:15px;margin-bottom:25px;">
@@ -1936,31 +1945,42 @@ app.get('/perfil', async (req, res) => {
                     </div>
                 </div>
 
-                <div class="card">
-                    <h2 style="color:#1a2e4a;">Trocar Senha</h2>
+                <div class="card" style="background:linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);border-left:5px solid #2563eb;">
+                    <h2 style="color:#1a2e4a;border-bottom-color:#2563eb;">🔒 Trocar Senha</h2>
                     <div id="resultado-senha"></div>
-                    <label style="color:#1a2e4a;">Senha Atual</label>
-                    <input type="password" id="senha-atual" placeholder="Digite sua senha atual">
 
-                    <label style="color:#1a2e4a;">Nova Senha</label>
-                    <input type="password" id="nova-senha" placeholder="Digite a nova senha">
-
-                    <label style="color:#1a2e4a;">Confirmar Nova Senha</label>
-                    <input type="password" id="confirmar-senha" placeholder="Confirme a nova senha">
-
-                    <button onclick="trocarSenha()">Trocar Senha</button>
-
-                    <div class="info" style="background:#f0f9ff;border-left-color:#2563eb;">
-                        <strong style="color:#1a2e4a;">Requisitos de Senha Forte:</strong>
-                        <ul style="margin:10px 0;padding-left:20px;color:#333;">
-                            <li>Mínimo 8 caracteres</li>
-                            <li>Pelo menos 1 LETRA MAIÚSCULA (A-Z)</li>
-                            <li>Pelo menos 1 letra minúscula (a-z)</li>
-                            <li>Pelo menos 1 número (0-9)</li>
-                            <li>Pelo menos 1 caractere especial (!@#$%^&*)</li>
-                            <li>Sem sequências óbvias (123, abc, 111...)</li>
-                        </ul>
+                    <label style="color:#1a2e4a;font-weight:bold;margin-top:15px;margin-bottom:6px;display:block;">Senha Atual</label>
+                    <div style="position:relative;">
+                        <input type="password" id="senha-atual" placeholder="Digite sua senha atual" style="padding-right:50px;">
+                        <button type="button" onclick="toggleSenha('senha-atual', this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:1.1rem;width:auto;margin:0;padding:4px;">👁</button>
                     </div>
+
+                    <label style="color:#1a2e4a;font-weight:bold;margin-top:15px;margin-bottom:6px;display:block;">Nova Senha</label>
+                    <div style="position:relative;">
+                        <input type="password" id="nova-senha" placeholder="Digite a nova senha" oninput="avaliarForcaSenha(this.value)" style="padding-right:50px;">
+                        <button type="button" onclick="toggleSenha('nova-senha', this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:1.1rem;width:auto;margin:0;padding:4px;">👁</button>
+                    </div>
+
+                    <!-- Força da senha -->
+                    <div id="forca-wrapper" style="display:none;margin:10px 0;">
+                        <div style="display:flex;gap:4px;margin-bottom:6px;">
+                            <div id="bar1" style="flex:1;height:5px;border-radius:3px;background:#e2e8f0;transition:background 0.3s;"></div>
+                            <div id="bar2" style="flex:1;height:5px;border-radius:3px;background:#e2e8f0;transition:background 0.3s;"></div>
+                            <div id="bar3" style="flex:1;height:5px;border-radius:3px;background:#e2e8f0;transition:background 0.3s;"></div>
+                            <div id="bar4" style="flex:1;height:5px;border-radius:3px;background:#e2e8f0;transition:background 0.3s;"></div>
+                        </div>
+                        <div id="forca-label" style="font-size:0.8rem;font-weight:600;"></div>
+                        <div id="forca-hints" style="margin-top:8px;font-size:0.8rem;color:#64748b;"></div>
+                    </div>
+
+                    <label style="color:#1a2e4a;font-weight:bold;margin-top:15px;margin-bottom:6px;display:block;">Confirmar Nova Senha</label>
+                    <div style="position:relative;">
+                        <input type="password" id="confirmar-senha" placeholder="Confirme a nova senha" oninput="verificarConfirmacao()" style="padding-right:50px;">
+                        <button type="button" onclick="toggleSenha('confirmar-senha', this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:1.1rem;width:auto;margin:0;padding:4px;">👁</button>
+                    </div>
+                    <div id="confirmacao-msg" style="font-size:0.82rem;margin-top:4px;font-weight:600;"></div>
+
+                    <button onclick="trocarSenha()" style="background:linear-gradient(135deg, #1e4d8c 0%, #2563eb 100%);margin-top:20px;color:white;border:none;padding:14px 24px;border-radius:12px;font-weight:bold;cursor:pointer;transition:all 0.3s;width:100%;box-shadow:0 4px 15px rgba(30,77,140,0.3);font-size:1rem;">🔑 Trocar Senha</button>
                 </div>
             </div>
 
@@ -2053,6 +2073,9 @@ app.get('/perfil', async (req, res) => {
                 window.addEventListener('load', () => {
                     carregarDadosPix();
                     carregarDadosEndereco();
+                    // Aplicar máscara no WhatsApp já preenchido
+                    const wpp = document.getElementById('whatsapp');
+                    if (wpp && wpp.value) mascaraWhatsApp(wpp);
                 });
 
                 async function salvarDadosBancarios() {
@@ -2147,11 +2170,15 @@ app.get('/perfil', async (req, res) => {
                         }
                     });
 
-                    // Esconder todos os inputs
+                    // Esconder todos os inputs e limpar valores
                     document.getElementById('pix-cpf').style.display = 'none';
+                    document.getElementById('pix-cpf').value = '';
                     document.getElementById('pix-cnpj').style.display = 'none';
+                    document.getElementById('pix-cnpj').value = '';
                     document.getElementById('pix-telefone').style.display = 'none';
+                    document.getElementById('pix-telefone').value = '';
                     document.getElementById('pix-email').style.display = 'none';
+                    document.getElementById('pix-email').value = '';
 
                     // Mostrar input selecionado e atualizar label
                     const labels = {
@@ -2275,6 +2302,71 @@ app.get('/perfil', async (req, res) => {
                     }
                 }
 
+                // Máscara WhatsApp: (XX) XXXXX-XXXX
+                function mascaraWhatsApp(input) {
+                    let v = input.value.replace(/\\D/g, '').slice(0, 11);
+                    if (v.length > 6) v = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+                    else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
+                    input.value = v;
+                }
+
+                // Show/hide password toggle
+                function toggleSenha(id, btn) {
+                    const input = document.getElementById(id);
+                    const show = input.type === 'password';
+                    input.type = show ? 'text' : 'password';
+                    btn.textContent = show ? '🙈' : '👁';
+                }
+
+                // Verificar se senhas coincidem
+                function verificarConfirmacao() {
+                    const nova = document.getElementById('nova-senha').value;
+                    const conf = document.getElementById('confirmar-senha').value;
+                    const msg = document.getElementById('confirmacao-msg');
+                    if (!conf) { msg.textContent = ''; return; }
+                    if (nova === conf) {
+                        msg.style.color = '#16a34a';
+                        msg.textContent = '✅ Senhas coincidem';
+                    } else {
+                        msg.style.color = '#dc2626';
+                        msg.textContent = '❌ Senhas não coincidem';
+                    }
+                }
+
+                // Avaliador de força de senha
+                function avaliarForcaSenha(senha) {
+                    const wrapper = document.getElementById('forca-wrapper');
+                    if (!senha) { wrapper.style.display = 'none'; return; }
+                    wrapper.style.display = 'block';
+
+                    const checks = [
+                        { test: senha.length >= 8, msg: '8+ caracteres' },
+                        { test: /[A-Z]/.test(senha), msg: 'Maiúscula' },
+                        { test: /[a-z]/.test(senha), msg: 'Minúscula' },
+                        { test: /[0-9]/.test(senha), msg: 'Número' },
+                        { test: /[!@#$%^&*]/.test(senha), msg: 'Caractere especial' },
+                    ];
+                    const passed = checks.filter(c => c.test).length;
+                    const bars = [document.getElementById('bar1'),document.getElementById('bar2'),document.getElementById('bar3'),document.getElementById('bar4')];
+                    const label = document.getElementById('forca-label');
+                    const hints = document.getElementById('forca-hints');
+
+                    // Reset bars
+                    bars.forEach(b => b.style.background = '#e2e8f0');
+
+                    let cor, texto;
+                    if (passed <= 1) { cor = '#ef4444'; texto = '🔴 Muito fraca'; bars[0].style.background = cor; }
+                    else if (passed === 2) { cor = '#f97316'; texto = '🟠 Fraca'; bars[0].style.background = cor; bars[1].style.background = cor; }
+                    else if (passed === 3) { cor = '#eab308'; texto = '🟡 Regular'; bars.slice(0,3).forEach(b=>b.style.background=cor); }
+                    else if (passed === 4) { cor = '#22c55e'; texto = '🟢 Forte'; bars.slice(0,4).forEach(b=>b.style.background=cor); }
+                    else { cor = '#16a34a'; texto = '💪 Muito forte'; bars.forEach(b=>b.style.background=cor); }
+
+                    label.style.color = cor;
+                    label.textContent = texto;
+                    const faltando = checks.filter(c => !c.test).map(c => c.msg);
+                    hints.textContent = faltando.length ? 'Faltando: ' + faltando.join(', ') : '';
+                }
+
                 async function atualizarPerfil() {
                     const nome = document.getElementById('nome').value.trim();
                     const email = document.getElementById('email').value.trim();
@@ -2306,25 +2398,25 @@ app.get('/perfil', async (req, res) => {
                     const cidade = document.getElementById('cidade').value.trim();
                     const estado = document.getElementById('estado').value.trim();
                     const numero_casa = document.getElementById('numero_casa').value.trim();
+                    const complemento = document.getElementById('complemento')?.value.trim() || '';
                     const nome = document.getElementById('nome').value.trim();
                     const email = document.getElementById('email').value.trim();
                     const whatsapp = document.getElementById('whatsapp').value.trim();
 
                     const resultado = document.getElementById('resultado-endereco');
 
-                    // Validação básica
-                    if (!nome || !email) {
-                        resultado.innerHTML = '<p class="error">❌ Nome e Email são obrigatórios!</p>';
+                    if (!cep || !rua || !cidade || !estado) {
+                        resultado.innerHTML = '<p class="error">❌ CEP, Rua, Cidade e Estado são obrigatórios!</p>';
                         return;
                     }
 
-                    console.log('📤 Enviando dados:', { nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa });
+                    console.log('📤 Enviando dados:', { nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa, complemento });
 
                     try {
                         const resp = await fetch('/atualizar-perfil', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa })
+                            body: JSON.stringify({ nome, email, whatsapp, cep, rua, bairro, cidade, estado, numero_casa, complemento })
                         });
 
                         const json = await resp.json();
