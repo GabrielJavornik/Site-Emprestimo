@@ -48,7 +48,49 @@
     </div>
   </section>
 
-  <section class="secao-stats" style="background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%); padding: 8rem 0;">
+  <!-- ===== SEÇÃO DE SIMULAÇÃO ===== -->
+  <section id="simulacao" style="background: linear-gradient(135deg, #1e3c72 0%, #2563eb 100%); padding: 4rem 0;">
+    <div class="container" style="width: min(1000px, 92%); margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <h2 style="color: white; font-size: 2.2rem; font-weight: 800; margin: 0 0 0.5rem 0;">🧮 Simule seu Empréstimo Agora</h2>
+        <p style="color: rgba(255,255,255,0.85); font-size: 1rem; margin: 0;">Sem compromisso. Descubra suas condições em segundos — 100% gratuito.</p>
+      </div>
+      <form id="form-simulacao" style="background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 20px 60px rgba(0,0,0,0.25);" novalidate>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+          <div class="campo">
+            <label for="sim-nome">Nome Completo</label>
+            <input type="text" id="sim-nome" name="nome" placeholder="Seu nome completo" required autocomplete="name">
+          </div>
+          <div class="campo">
+            <label for="cpf">CPF</label>
+            <input type="text" id="cpf" placeholder="000.000.000-00" required autocomplete="off">
+            <span id="erro-cpf" style="color:#dc2626; font-size:0.82rem; display:none;" role="alert">CPF inválido</span>
+          </div>
+          <div class="campo">
+            <label for="valor">Valor desejado</label>
+            <input type="text" id="valor" name="valor" placeholder="R$ 0,00" required autocomplete="off">
+          </div>
+          <div class="campo">
+            <label for="parcelas">Parcelas</label>
+            <select id="parcelas" name="parcelas" required style="width:100%; padding:12px 15px; border:2px solid #e2e8f0; border-radius:8px; font-size:1rem; color:#1e293b; background:white; cursor:pointer;">
+              <option value="">Selecione</option>
+              <option value="6">6x</option>
+              <option value="12">12x</option>
+              <option value="18">18x</option>
+              <option value="24">24x</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" style="display:flex; align-items:center; justify-content:center; gap:0.5rem; background:linear-gradient(135deg,#16a34a,#15803d); color:white; border:none; border-radius:12px; padding:1rem 2rem; font-size:1.1rem; font-weight:700; cursor:pointer; width:100%; transition:transform 0.2s;">
+          <span class="material-icons">calculate</span>
+          Simular Agora — É Gratuito!
+        </button>
+      </form>
+      <div id="retorno" style="max-width:900px; margin:1rem auto 0;" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="secao-stats" style="background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%); padding: 4rem 0;">
     <div class="container" style="width: min(1200px, 92%); margin: 0 auto;">
       <div style="text-align: center; margin-bottom: 4rem;">
         <h2 style="color: #1e4d8c; font-size: 2.5rem; font-weight: 800; margin: 0 0 1rem 0;">Por Que Escolher AzulCrédito?</h2>
@@ -90,7 +132,7 @@
     </div>
   </section>
 
-  <section id="como" class="secao" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); padding: 10rem 0;">
+  <section id="como" class="secao" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); padding: 5rem 0;">
     <div class="container" style="width: min(1200px, 92%); margin: 0 auto;">
       <div style="text-align: center; margin-bottom: 5rem;">
         <h2 style="color: #1e4d8c; font-size: 2.8rem; font-weight: 800; margin: 0 0 1rem 0;">📋 Como Funciona O Processo?</h2>
@@ -123,8 +165,41 @@
     </div>
   </section>
 
+  <!-- SEÇÃO DE TAXAS E CONDIÇÕES -->
+  <section id="taxas" style="background: white; padding: 4rem 0;">
+    <div class="container" style="width: min(1200px, 92%); margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 3rem;">
+        <h2 style="color: #1e4d8c; font-size: 2.2rem; font-weight: 800; margin: 0 0 0.8rem 0;">💳 Taxas e Condições</h2>
+        <p style="color: #64748b; font-size: 1rem; margin: 0;">Transparência total, sem letras miúdas.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 2rem; border-radius: 16px; text-align: center; border: 2px solid #bfdbfe;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📊</div>
+          <h3 style="color: #1e40af; font-size: 1.8rem; font-weight: 800; margin: 0 0 0.3rem 0;">5% a.m.</h3>
+          <p style="color: #3b82f6; font-weight: 600; margin: 0; font-size: 0.9rem;">Taxa de juros mensal</p>
+        </div>
+        <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); padding: 2rem; border-radius: 16px; text-align: center; border: 2px solid #bbf7d0;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">💰</div>
+          <h3 style="color: #166534; font-size: 1.8rem; font-weight: 800; margin: 0 0 0.3rem 0;">Até R$ 20k</h3>
+          <p style="color: #16a34a; font-weight: 600; margin: 0; font-size: 0.9rem;">Valor máximo disponível</p>
+        </div>
+        <div style="background: linear-gradient(135deg, #fef9c3, #fef08a); padding: 2rem; border-radius: 16px; text-align: center; border: 2px solid #fde047;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📅</div>
+          <h3 style="color: #854d0e; font-size: 1.8rem; font-weight: 800; margin: 0 0 0.3rem 0;">Até 24x</h3>
+          <p style="color: #a16207; font-weight: 600; margin: 0; font-size: 0.9rem;">Prazo máximo</p>
+        </div>
+        <div style="background: linear-gradient(135deg, #fce7f3, #fbcfe8); padding: 2rem; border-radius: 16px; text-align: center; border: 2px solid #f9a8d4;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">🚫</div>
+          <h3 style="color: #9d174d; font-size: 1.8rem; font-weight: 800; margin: 0 0 0.3rem 0;">R$ 0</h3>
+          <p style="color: #be185d; font-weight: 600; margin: 0; font-size: 0.9rem;">Taxa de adesão</p>
+        </div>
+      </div>
+      <p style="text-align:center; color:#94a3b8; font-size:0.82rem; font-style:italic;">* Taxas sujeitas a análise de crédito individual. O CET (Custo Efetivo Total) é calculado e informado antes da contratação.</p>
+    </div>
+  </section>
+
   <!-- SEÇÃO DE AVALIAÇÕES/TESTEMUNHOS -->
-  <section class="secao-avaliacoes" style="background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%); padding: 10rem 0;">
+  <section class="secao-avaliacoes" style="background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%); padding: 5rem 0;">
     <div class="container" style="width: min(1200px, 92%); margin: 0 auto;">
       <div style="text-align: center; margin-bottom: 5rem;">
         <h2 style="color: #1e4d8c; font-size: 2.8rem; font-weight: 800; margin: 0 0 1rem 0;">⭐ O Que Nossos Clientes Dizem</h2>
@@ -591,6 +666,21 @@
     </div>
   </div>
 
+  <!-- ===== BANNER LGPD / COOKIES ===== -->
+  <div id="banner-lgpd" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1a2e4a; border-top:3px solid #2563eb; z-index:9990; box-shadow:0 -4px 20px rgba(0,0,0,0.25);">
+    <div style="display:flex; align-items:center; gap:1.2rem; padding:1.2rem 2rem; max-width:1200px; margin:0 auto; flex-wrap:wrap;">
+      <span style="font-size:1.8rem; flex-shrink:0;">🍪</span>
+      <div style="flex:1; min-width:200px;">
+        <strong style="color:white; display:block; margin-bottom:0.2rem;">Usamos cookies</strong>
+        <p style="color:rgba(255,255,255,0.8); font-size:0.85rem; margin:0; line-height:1.5;">Utilizamos cookies para melhorar sua experiência. Ao continuar, você concorda com nossa <a href="javascript:void(0)" onclick="mostrarPrivacidade()" style="color:#60a5fa;">Política de Privacidade</a>.</p>
+      </div>
+      <div style="display:flex; gap:0.8rem; flex-shrink:0; flex-wrap:wrap;">
+        <button onclick="aceitarCookies()" style="background:#2563eb; color:white; border:none; border-radius:8px; padding:0.6rem 1.2rem; font-size:0.88rem; font-weight:700; cursor:pointer;">✅ Aceitar</button>
+        <button onclick="fecharBannerLGPD()" style="background:rgba(255,255,255,0.15); color:white; border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:0.6rem 1.2rem; font-size:0.88rem; cursor:pointer;">Só essenciais</button>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 
   <script>
@@ -854,6 +944,30 @@
             msgDiv.innerText = '❌ Erro ao conectar com o servidor.';
         }
     }
+
+    // ===== BANNER LGPD =====
+    function mostrarBannerLGPD() {
+        if (!localStorage.getItem('azulcredito_cookies')) {
+            document.getElementById('banner-lgpd').style.display = 'block';
+        }
+    }
+    function aceitarCookies() {
+        localStorage.setItem('azulcredito_cookies', 'all');
+        fecharBannerLGPD();
+    }
+    function fecharBannerLGPD() {
+        const b = document.getElementById('banner-lgpd');
+        if (b) {
+            b.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+            b.style.transform = 'translateY(100%)';
+            b.style.opacity = '0';
+            setTimeout(() => { b.style.display = 'none'; }, 320);
+        }
+        if (!localStorage.getItem('azulcredito_cookies')) {
+            localStorage.setItem('azulcredito_cookies', 'essential');
+        }
+    }
+    setTimeout(mostrarBannerLGPD, 1500);
   </script>
 
   <a href="https://wa.me/5554992026684?text=Olá! Gostaria de saber mais sobre o empréstimo da AzulCrédito." 

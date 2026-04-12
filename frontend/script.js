@@ -246,30 +246,55 @@ if (form) {
             erroCpf.style.display = 'none';
         }
 
-        const dados = { nome, cpf: cpfLimpo, valor: valorLimpo, parcelas: Number(form.parcelas.value) };
-
-        try {
-            retorno.innerHTML = "<p style='color:orange'>Consultando AzulCrédito...</p>";
-            const resp = await fetch('/simular', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados)
-            });
-            const json = await resp.json();
-
-            if (json.ok) {
-                const zapLink = `https://wa.me/5554992026684?text=Olá! Fiz uma simulação: ${json.nome}, CPF: ${json.cpf}, Valor: R$${valorLimpo.toFixed(2)}, Parcelas: ${json.parcelas}x`;
-                retorno.innerHTML = `
-                    <div class="resultado" style="background:#f0fdf4; padding:20px; border-radius:12px; border:1px solid #bbf7d0; margin-top:15px;">
-                        <h4 style="color: #166534">🎉 Aprovado!</h4>
-                        <p>Valor solicitado: <strong>R$ ${valorLimpo.toFixed(2)}</strong></p>
-                        <a href="${zapLink}" target="_blank" style="background:#25d366; color:white; padding:10px; display:block; text-align:center; border-radius:8px; text-decoration:none; font-weight:bold; margin-top:10px;">CONTRATAR NO WHATSAPP</a>
-                    </div>`;
-                form.reset();
-            }
-        } catch (err) {
-            retorno.innerHTML = "<p style='color:red'>Erro ao conectar com o servidor.</p>";
+        const parcelas = Number(form.parcelas.value);
+        if (!parcelas) {
+            retorno.innerHTML = "<p style='color:#dc2626; margin-top:10px;'>⚠️ Selecione o número de parcelas.</p>";
+            return;
         }
+        if (!nome) {
+            retorno.innerHTML = "<p style='color:#dc2626; margin-top:10px;'>⚠️ Preencha seu nome completo.</p>";
+            return;
+        }
+
+        // Cálculo local — Tabela Price com 5% a.m.
+        const taxa = 0.05;
+        const pmt = valorLimpo * (taxa * Math.pow(1 + taxa, parcelas)) / (Math.pow(1 + taxa, parcelas) - 1);
+        const totalPagar = pmt * parcelas;
+        const totalJuros = totalPagar - valorLimpo;
+
+        const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        retorno.innerHTML = `
+            <div style="background:#f0fdf4; border:2px solid #86efac; border-radius:16px; padding:1.5rem; margin-top:1rem;">
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+                    <span style="font-size:1.6rem;">🎉</span>
+                    <h3 style="color:#166534; margin:0; font-size:1.2rem;">Simulação concluída, ${nome.split(' ')[0]}!</h3>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.8rem; margin-bottom:1.2rem;">
+                    <div style="background:white; border-radius:10px; padding:0.8rem; text-align:center; border:1px solid #bbf7d0;">
+                        <p style="color:#64748b; font-size:0.75rem; margin:0 0 0.3rem 0; font-weight:600; text-transform:uppercase;">Valor solicitado</p>
+                        <strong style="color:#166534; font-size:1.2rem;">${fmt(valorLimpo)}</strong>
+                    </div>
+                    <div style="background:white; border-radius:10px; padding:0.8rem; text-align:center; border:1px solid #bbf7d0;">
+                        <p style="color:#64748b; font-size:0.75rem; margin:0 0 0.3rem 0; font-weight:600; text-transform:uppercase;">Parcela mensal</p>
+                        <strong style="color:#1e40af; font-size:1.2rem;">${fmt(pmt)}</strong>
+                    </div>
+                    <div style="background:white; border-radius:10px; padding:0.8rem; text-align:center; border:1px solid #bbf7d0;">
+                        <p style="color:#64748b; font-size:0.75rem; margin:0 0 0.3rem 0; font-weight:600; text-transform:uppercase;">Total a pagar</p>
+                        <strong style="color:#1e293b; font-size:1.2rem;">${fmt(totalPagar)}</strong>
+                    </div>
+                    <div style="background:white; border-radius:10px; padding:0.8rem; text-align:center; border:1px solid #bbf7d0;">
+                        <p style="color:#64748b; font-size:0.75rem; margin:0 0 0.3rem 0; font-weight:600; text-transform:uppercase;">Em</p>
+                        <strong style="color:#1e293b; font-size:1.2rem;">${parcelas}x</strong>
+                    </div>
+                </div>
+                <p style="color:#64748b; font-size:0.78rem; margin:0 0 1rem 0; text-align:center;">Taxa: 5% a.m. • Juros totais: ${fmt(totalJuros)}</p>
+                <button onclick="abrirModal()" style="width:100%; background:linear-gradient(135deg,#1e3c72,#2563eb); color:white; border:none; border-radius:12px; padding:0.9rem; font-size:1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                    🔐 Entrar ou Criar Conta para Contratar
+                </button>
+                <p style="text-align:center; color:#94a3b8; font-size:0.75rem; margin:0.6rem 0 0 0;">Gratuito • Sem compromisso • 100% seguro</p>
+            </div>`;
+        form.reset();
     });
 }
 

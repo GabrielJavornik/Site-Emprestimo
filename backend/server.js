@@ -656,6 +656,13 @@ pool.query(`
     ON CONFLICT (chave) DO NOTHING
 `).catch(err => console.error('⚠️ Erro ao inserir taxa de juros padrão:', err.message));
 
+// Inserir taxa de multa padrão se não existir
+pool.query(`
+    INSERT INTO CONFIGURACOES (chave, valor, descricao)
+    VALUES ('TAXA_MULTA', '0.05', 'Taxa de multa por atraso em dias (ex: 0.05 = 5% por dia)')
+    ON CONFLICT (chave) DO NOTHING
+`).catch(err => console.error('⚠️ Erro ao inserir taxa de multa padrão:', err.message));
+
 // Adicionar coluna aprovado_em à tabela SIMULACOES se não existir
 pool.query(`
     ALTER TABLE SIMULACOES ADD COLUMN IF NOT EXISTS aprovado_em TIMESTAMP
@@ -2406,9 +2413,14 @@ app.get('/simulacoes', async (req, res) => {
             .header{background:linear-gradient(135deg, #1a2e4a 0%, #1e4d8c 100%);color:white;padding:25px 40px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.15);position:sticky;top:0;z-index:100;border-radius:0;}
             .header > div:first-child{font-size:1.5rem;font-weight:800;letter-spacing:1px;}
             .container{max-width:950px;margin:40px auto;padding:0;}
-            .welcome-banner{background:white;padding:30px 40px;border-radius:16px;margin-bottom:30px;box-shadow:0 4px 20px rgba(0,0,0,0.06);border-top:4px solid linear-gradient(90deg, #1e4d8c 0%, #2563eb 100%);}
+            .welcome-banner{background:white;padding:30px 40px;border-radius:16px;margin-bottom:30px;box-shadow:0 4px 20px rgba(0,0,0,0.06);border-top:4px solid #2563eb;}
             .welcome-banner h2{color:#1a2e4a;font-size:2rem;margin-bottom:8px;}
             .welcome-banner p{color:#64748b;font-size:0.95rem;}
+            .welcome-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:20px;}
+            .welcome-stat-item{background:#f8fafc;border-radius:10px;padding:14px 16px;border-left:3px solid #2563eb;}
+            .welcome-stat-item .stat-label{font-size:0.75rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
+            .welcome-stat-item .stat-value{font-size:1.15rem;font-weight:bold;color:#1a2e4a;}
+            @keyframes spin{to{transform:rotate(360deg);}}
             .card{background:white;padding:40px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.06);margin-bottom:30px;transition:all 0.3s ease;border:none;}
             .card:hover{box-shadow:0 8px 30px rgba(0,0,0,0.1);transform:translateY(-2px);}
             .card h3{color:#1a2e4a;font-size:1.5rem;margin-bottom:25px;display:flex;align-items:center;gap:10px;}
@@ -2439,14 +2451,25 @@ app.get('/simulacoes', async (req, res) => {
             .score-info-item span{color:#2563eb;font-weight:bold;font-size:1.2rem;}
         </style></head><body>
             <div class="header"><div style="font-size:1.2rem;font-weight:bold;">AZUL<span style="color:#2563eb;">CRÉDITO</span></div><div style="display:flex;gap:15px;"><a href="/perfil" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">⚙️ PERFIL</a><a href="/sair" style="color:white;text-decoration:none;font-weight:bold;border:2px solid white;padding:8px 18px;border-radius:10px;transition:all 0.3s;background:rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">SAIR</a></div></div>
-            <div class="container"><div class="welcome-banner"><h2>Bem-vindo, ${req.session.userName}!</h2><p>Aqui você pode simular, gerenciar e acompanhar seus empréstimos</p></div>
-            <div class="card"><h3>Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
-            <label>VALOR DESEJADO (MÁX <span id="max-limite" style="color:#667eea;font-weight:bold;">R$ 20.000</span>)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
-            <label>PARCELAS (MÁX 24)</label><input type="number" id="parcelas" name="parcelas" placeholder="Ex: 12" min="1" max="24" required>
-            <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#667eea; font-weight:bold;">R$ 0,00</span><br><small id="taxa-texto" style="color:#666;">*Incluso taxa de 5% por parcela</small></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;"><div><label>FOTO ID</label><input type="file" name="doc_id" required></div><div><label>RENDA</label><input type="file" name="doc_renda" required></div></div>
-            <button type="submit" class="btn-blue" style="width:100%;">SOLICITAR CRÉDITO AGORA</button></form></div>
-            <div class="card"><h3>Meu Histórico de Empréstimos</h3><div style="overflow-x:auto;"><table><thead><tr><th>DATA</th><th>VALOR</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
+            <div class="container"><div class="welcome-banner"><h2>👋 Bem-vindo, ${req.session.userName}!</h2><p>Aqui você pode simular, gerenciar e acompanhar seus empréstimos</p>
+            <div class="welcome-stats">
+                <div class="welcome-stat-item"><div class="stat-label">💳 Limite Disponível</div><div class="stat-value" id="stat-limite">—</div></div>
+                <div class="welcome-stat-item"><div class="stat-label">📊 Score de Crédito</div><div class="stat-value" id="stat-score">—</div></div>
+                <div class="welcome-stat-item"><div class="stat-label">📋 Empréstimos Ativos</div><div class="stat-value">${result.rows.filter(r=>r.status==='PAGO').length}</div></div>
+                <div class="welcome-stat-item"><div class="stat-label">✅ Totalmente Quitados</div><div class="stat-value">${result.rows.filter(r=>r.status==='QUITADO').length}</div></div>
+            </div></div>
+            <div class="card" id="score-card" style="display:block;"><h3>📊 Meu Score de Crédito</h3><div id="score-loading" style="text-align:center;padding:40px;color:#666;"><div style="display:inline-block;width:50px;height:50px;border:4px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:12px;"></div><br>Carregando seu score...</div></div>
+            <div class="card"><h3>💳 Solicitar Empréstimo</h3><form action="/enviar-proposta" method="POST" enctype="multipart/form-data">
+            <label>VALOR DESEJADO (MÁX <span id="max-limite" style="color:#2563eb;font-weight:bold;">R$ 20.000</span>)</label><input type="text" id="v_mask" placeholder="R$ 0,00" required><input type="hidden" id="v_real" name="valor">
+            <label>NÚMERO DE PARCELAS (MÁX 24)</label><input type="number" id="parcelas" name="parcelas" placeholder="Ex: 12" min="1" max="24" required>
+            <div id="resumo" class="resumo-box"><strong>Total a pagar: </strong><span id="total-txt" style="font-size:1.3rem; color:#2563eb; font-weight:bold;">R$ 0,00</span><br><small id="taxa-texto" style="color:#666;">*Incluso taxa de 5% a.m. (Tabela Price)</small></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+                <div><label>📷 DOCUMENTO DE IDENTIDADE</label><input type="file" name="doc_id" accept=".jpg,.jpeg,.png,.pdf" required><small style="color:#94a3b8;display:block;margin-top:4px;">JPG, PNG ou PDF • Máx. 5 MB</small></div>
+                <div><label>💰 COMPROVANTE DE RENDA</label><input type="file" name="doc_renda" accept=".jpg,.jpeg,.png,.pdf" required><small style="color:#94a3b8;display:block;margin-top:4px;">JPG, PNG ou PDF • Máx. 5 MB</small></div>
+            </div>
+            <button type="submit" class="btn-blue" style="width:100%;font-size:1.1rem;">🚀 SOLICITAR CRÉDITO AGORA</button>
+            <p style="text-align:center;color:#94a3b8;font-size:0.85rem;margin-top:12px;">Sua solicitação será analisada em até 24h úteis</p></form></div>
+            <div class="card"><h3>📋 Meu Histórico de Empréstimos</h3><div style="overflow-x:auto;"><table><thead><tr><th>DATA</th><th>VALOR</th><th>PARCELAS</th><th>MENSAL</th><th>PAGO</th><th>FALTA</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>
             ${result.rows.map((r, idx) => {
                 const totalPago = parseFloat(pagamentosResults[idx].rows[0].total_pago || 0);
                 const temMultaAtiva = parseInt(multasResults[idx].rows[0].qtd || 0) > 0;
@@ -2463,8 +2486,16 @@ app.get('/simulacoes', async (req, res) => {
                 const btnRenegociar = r.status === 'PAGO' && temMultaAtiva && !renegStatus ? `<button class="btn-pdf" style="background:#16a34a;margin-right:5px;" onclick="abrirModalRenegociar(${r.id}, ${parcelas}, ${faltaPagar})">Renegociar</button>` : (renegStatus ? `<span style="background:#dbeafe;color:#0c4a6e;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:bold;">${renegStatus === 'PENDENTE' ? 'Pendente' : renegStatus === 'APROVADA' ? 'Aprovada' : 'Rejeitada'}</span>` : '');
                 return `<tr><td>${new Date(r.criado_em).toLocaleDateString()}</td><td>${formatarMoeda(r.valor)}</td><td style="font-weight:bold;">${parcelasPagas}/${parcelas}</td><td>${formatarMoeda(valorMensal)}</td><td style="font-weight:bold;color:#2ecc71;">${formatarMoeda(totalPago)}<br><small style="color:#666;">(${percentualPago}%)</small></td><td style="font-weight:bold;color:#e74c3c;">${formatarMoeda(faltaPagar)}<br><small style="color:#666;">${parcelasRestantes} parcelas</small></td><td style="text-align:center;"><span class="badge st-${r.status.replace(/\s/g,'')}">${r.status}</span></td><td>${alertaMulta}${btnPix}${btnRenegociar}<button class="btn-pdf" style="background:#27ae60;" onclick="verHistorico(${r.id})">Histórico</button></td></tr>`;
             }).join('')}
-            </tbody></table></div></div>
-            <div class="card" id="score-card" style="display:none;"><h3>Meu Score de Crédito</h3><div id="score-loading" style="text-align:center;padding:40px;color:#666;">Carregando seu score...</div></div>
+            </tbody></table></div>
+            <div style="margin-top:16px;padding:14px 18px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                <span style="font-size:0.8rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Legenda de Status:</span>
+                <span style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:4px 12px;border-radius:50px;font-size:0.8rem;font-weight:bold;">PAGO — Ativo, em dia</span>
+                <span style="background:#fef9c3;color:#854d0e;border:1px solid #fcd34d;padding:4px 12px;border-radius:50px;font-size:0.8rem;font-weight:bold;">ANÁLISE — Aguardando aprovação</span>
+                <span style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:4px 12px;border-radius:50px;font-size:0.8rem;font-weight:bold;">QUITADO — Totalmente pago</span>
+                <span style="background:#fef08a;color:#b45309;border:1px solid #fde047;padding:4px 12px;border-radius:50px;font-size:0.8rem;font-weight:bold;">ATRASADO — Pagamento atrasado</span>
+                <span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:4px 12px;border-radius:50px;font-size:0.8rem;font-weight:bold;">REPROVADO — Solicitação negada</span>
+            </div>
+            </div>
             <div id="modalPagamentos" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;overflow-y:auto;">
                 <div style="background:white;padding:30px;border-radius:15px;width:min(600px,90%);margin:30px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -3007,16 +3038,32 @@ app.get('/simulacoes', async (req, res) => {
                     const val=parseFloat(vR.value)||0;
                     const par=parseInt(pI.value)||0;
                     if(val>0 && par>0){
-                        const tot=val+(val*taxaJuros*par);
-                        const valorParcela=tot/par;
-                        txt.innerHTML=\`<div style="margin-bottom:15px;"><strong>📊 Resumo da Simulação</strong></div>
-                        <div style="margin-bottom:10px;padding:10px;background:#fff9e6;border-radius:8px;">
-                            <div style="margin:8px 0;"><strong>Você pediu:</strong> R$ \${val.toFixed(2).replace('.',',')}</div>
-                            <div style="margin:8px 0;"><strong>Parcelas:</strong> \${par}x</div>
-                            <div style="margin:8px 0;"><strong>Taxa:</strong> \${(taxaJuros*100).toFixed(1)}% por parcela</div>
-                            <div style="margin:8px 0;border-top:1px solid #ddd;padding-top:10px;"><strong>Valor de cada parcela:</strong> <span style="font-size:1.1rem;color:#1e3c72;font-weight:bold;">R$ \${valorParcela.toFixed(2).replace('.',',')}</span></div>
-                            <div style="margin:8px 0;border-top:1px solid #ddd;padding-top:10px;"><strong>Total a pagar:</strong> <span style="font-size:1.3rem;color:#2ecc71;font-weight:bold;">R$ \${tot.toFixed(2).replace('.',',')}</span></div>
-                        </div>\`;
+                        // Tabela Price (PMT) — juros compostos
+                        const r=taxaJuros;
+                        const pmt=val*(r*Math.pow(1+r,par))/(Math.pow(1+r,par)-1);
+                        const tot=pmt*par;
+                        const juros=tot-val;
+                        const fmt=(v)=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+                        txt.innerHTML=\`<div style="margin-bottom:12px;font-size:0.95rem;font-weight:700;color:#1a2e4a;">📊 Simulação (Tabela Price)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                            <div style="padding:12px;background:white;border-radius:8px;border:1px solid #e2e8f0;text-align:center;">
+                                <div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:4px;">VALOR PEDIDO</div>
+                                <div style="font-size:1.1rem;font-weight:bold;color:#1a2e4a;">\${fmt(val)}</div>
+                            </div>
+                            <div style="padding:12px;background:white;border-radius:8px;border:1px solid #e2e8f0;text-align:center;">
+                                <div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:4px;">PARCELA MENSAL</div>
+                                <div style="font-size:1.1rem;font-weight:bold;color:#2563eb;">\${fmt(pmt)}</div>
+                            </div>
+                            <div style="padding:12px;background:white;border-radius:8px;border:1px solid #e2e8f0;text-align:center;">
+                                <div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:4px;">TOTAL A PAGAR</div>
+                                <div style="font-size:1.1rem;font-weight:bold;color:#166534;">\${fmt(tot)}</div>
+                            </div>
+                            <div style="padding:12px;background:white;border-radius:8px;border:1px solid #e2e8f0;text-align:center;">
+                                <div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-bottom:4px;">JUROS TOTAIS</div>
+                                <div style="font-size:1.1rem;font-weight:bold;color:#dc2626;">\${fmt(juros)}</div>
+                            </div>
+                        </div>
+                        <div style="font-size:0.8rem;color:#94a3b8;text-align:center;">Taxa \${(taxaJuros*100).toFixed(1)}% a.m. • Em \${par}x</div>\`;
                         res.style.display="block";
                     }else{res.style.display="none";}
                 }
@@ -3064,9 +3111,12 @@ app.get('/simulacoes', async (req, res) => {
 
                         loading.innerHTML = \`
                             <div class="score-card-content">
-                                <div class="score-value">\${json.score}</div>
-                                <div style="text-align:center;margin-bottom:20px;">
-                                    <span class="badge" style="background:\${json.cor};color:white;border:none;padding:12px 24px;font-size:1rem;">\${json.label}</span>
+                                <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:10px;">
+                                    <div class="score-value" style="margin:0;">\${json.score}</div>
+                                    <div>
+                                        <span class="badge" style="background:\${json.cor};color:white;border:none;padding:12px 24px;font-size:1rem;">\${json.label}</span>
+                                        <p style="color:#64748b;font-size:0.85rem;margin-top:8px;text-align:center;">Seu score de crédito</p>
+                                    </div>
                                 </div>
                                 <div class="score-bar">
                                     <div class="score-fill" style="width:\${pct}%;background:linear-gradient(90deg, \${json.cor} 0%, \${json.cor}cc 100%);"></div>
@@ -3095,6 +3145,12 @@ app.get('/simulacoes', async (req, res) => {
                         }
                         // Atualizar o limite máximo para validação de input
                         limiteMaximo = json.limite * 100; // converter para centavos
+
+                        // Atualizar stats do welcome banner
+                        const statLimite = document.getElementById('stat-limite');
+                        const statScore = document.getElementById('stat-score');
+                        if (statLimite) statLimite.textContent = 'R$ ' + json.limite.toLocaleString('pt-BR');
+                        if (statScore) statScore.innerHTML = \`\${json.score} <span style="font-size:0.8rem;padding:2px 8px;border-radius:50px;background:\${json.cor}22;color:\${json.cor};font-weight:bold;">\${json.label}</span>\`;
                     } catch (e) {
                         console.error('❌ Erro ao carregar score:', e);
                     }
@@ -4059,6 +4115,21 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 </div>
             </div>
 
+            <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #e74c3c;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-top:0;color:#e74c3c;">⚠️ Taxa de Multa por Atraso</h3>
+                <div id="bloco-taxa-multa" style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:250px;">
+                        <label style="display:block;font-weight:bold;color:#333;margin-bottom:8px;">Multa por Pagamento Atrasado</label>
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <input type="number" id="taxa-multa-input" placeholder="0.05" min="0" max="1" step="0.01" style="padding:10px;border:2px solid #ddd;border-radius:6px;flex:1;font-size:1rem;">
+                            <span style="font-weight:bold;color:#666;min-width:50px;" id="taxa-multa-porcentagem">5%</span>
+                        </div>
+                        <small style="color:#666;display:block;margin-top:5px;">*Digite em decimal (ex: 0.05 = 5%, 0.10 = 10%). Aplicada por dia de atraso</small>
+                    </div>
+                    <button id="btn-salvar-taxa-multa" onclick="alterarTaxaMulta()" style="background:#e74c3c;padding:10px 30px;height:fit-content;margin-top:20px;font-weight:bold;cursor:pointer;border:none;border-radius:8px;color:white;transition:all 0.3s;">✅ Salvar Taxa</button>
+                </div>
+            </div>
+
             <div style="background:white;border-radius:15px;padding:25px;margin-bottom:25px;border-left:5px solid #ff9800;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
                 <h3 style="margin-top:0;color:#ff9800;">📝 Renegociações Pendentes</h3>
                 ${renegociacoesPendentes.length === 0
@@ -4618,10 +4689,97 @@ app.get('/admin-azul', adminAuth, async (req, res) => {
                 }
             }
 
+            // Carregar taxa de multa
+            async function carregarTaxaMulta(){
+                try{
+                    const resp=await fetch('/api/config/taxa-multa');
+                    const data=await resp.json();
+                    if(data.ok){
+                        const taxa=data.taxa;
+                        document.getElementById('taxa-multa-input').value=taxa.toFixed(2);
+                        document.getElementById('taxa-multa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
+                    }
+                }catch(err){
+                    console.error('Erro ao carregar taxa de multa:',err);
+                }
+            }
+
+            // Alterar taxa de multa
+            async function alterarTaxaMulta(){
+                const isSuperadmin = document.body.dataset.adminRole === 'superadmin';
+                const input=document.getElementById('taxa-multa-input');
+                const taxa=parseFloat(input.value);
+
+                // Verificação dupla de segurança - frontend
+                if(!isSuperadmin){
+                    alert('Você não tem permissão para alterar a taxa de multa.');
+                    return;
+                }
+
+                if(isNaN(taxa) || taxa<0 || taxa>1){
+                    alert('❌ Taxa deve estar entre 0 e 1 (ex: 0.05 = 5%)');
+                    return;
+                }
+
+                try{
+                    const resp=await fetch('/api/admin/config/taxa-multa',{
+                        method:'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({taxa:taxa}),
+                        credentials: 'include'
+                    });
+
+                    const data=await resp.json();
+
+                    if(!resp.ok || !data.ok){
+                        alert('❌ '+data.msg);
+                        return;
+                    }
+
+                    // Sucesso
+                    document.getElementById('taxa-multa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
+                    alert('✅ Taxa de multa alterada com sucesso para '+(taxa*100).toFixed(2)+'%!');
+                }catch(err){
+                    console.error('Erro:', err);
+                    alert('❌ Erro ao comunicar com servidor. Tente novamente.');
+                }
+            }
+
+            // Event listener para atualizar porcentagem em tempo real (multa)
+            document.addEventListener('input',(e)=>{
+                if(e.target.id==='taxa-multa-input'){
+                    const taxa=parseFloat(e.target.value)||0;
+                    document.getElementById('taxa-multa-porcentagem').innerText=(taxa*100).toFixed(1)+'%';
+                }
+            });
+
+            // Verificar permissão de taxa de multa
+            function verificarPermissaoTaxaMulta() {
+                const isSuperadmin = document.body.dataset.adminRole === 'superadmin';
+                const input = document.getElementById('taxa-multa-input');
+                const btn = document.getElementById('btn-salvar-taxa-multa');
+                const bloco = document.getElementById('bloco-taxa-multa');
+
+                if (!isSuperadmin) {
+                    input.disabled = true;
+                    input.style.opacity = '0.5';
+                    input.style.cursor = 'not-allowed';
+                    btn.disabled = true;
+                    btn.onclick = (e) => { e.preventDefault(); return false; };
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.background = '#95a5a6';
+                    btn.style.pointerEvents = 'none';
+                    bloco.style.opacity = '0.7';
+                }
+            }
+
             // Carregar taxa ao abrir página
             window.addEventListener('load',()=>{
                 carregarTaxaJuros();
+                carregarTaxaMulta();
                 verificarPermissaoTaxa();
+                verificarPermissaoTaxaMulta();
             });
 
             // Exportar PDF
@@ -5718,6 +5876,49 @@ app.post('/api/admin/config/taxa-juros', superadminAuth, async (req, res) => {
         res.json({ ok: true, msg: 'Taxa de juros alterada com sucesso', taxa: taxaNum });
     } catch (err) {
         console.error('❌ Erro ao alterar taxa de juros:', err);
+        res.status(500).json({ ok: false, msg: 'Erro ao alterar taxa' });
+    }
+});
+
+// --- OBTER TAXA DE MULTA ---
+app.get('/api/config/taxa-multa', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT valor FROM CONFIGURACOES WHERE chave = $1', ['TAXA_MULTA']);
+        const taxaMulta = result.rows.length > 0 ? parseFloat(result.rows[0].valor) : 0.05;
+        res.json({ ok: true, taxa: taxaMulta });
+    } catch (err) {
+        console.error('❌ Erro ao obter taxa de multa:', err);
+        res.status(500).json({ ok: false, taxa: 0.05 });
+    }
+});
+
+// --- ALTERAR TAXA DE MULTA (ADMIN) ---
+app.post('/api/admin/config/taxa-multa', superadminAuth, async (req, res) => {
+    try {
+        const { taxa } = req.body;
+        const taxaNum = parseFloat(taxa);
+
+        if (isNaN(taxaNum) || taxaNum < 0 || taxaNum > 1) {
+            return res.status(400).json({ ok: false, msg: 'Taxa deve estar entre 0 e 1 (0 a 100%)' });
+        }
+
+        await pool.query(
+            'UPDATE CONFIGURACOES SET valor = $1, atualizado_em = CURRENT_TIMESTAMP WHERE chave = $2',
+            [taxaNum.toString(), 'TAXA_MULTA']
+        );
+
+        // Registrar ação na auditoria
+        registrarAuditoria(
+            req.session.adminId,
+            req.session.adminUser,
+            'Alterar taxa de multa',
+            `Alterou taxa de multa por atraso para ${(taxaNum * 100).toFixed(2)}%`
+        ).catch(err => console.error('⚠️ Erro ao registrar auditoria:', err.message));
+
+        console.log('✅ Taxa de multa alterada para:', (taxaNum * 100) + '%');
+        res.json({ ok: true, msg: 'Taxa de multa alterada com sucesso', taxa: taxaNum });
+    } catch (err) {
+        console.error('❌ Erro ao alterar taxa de multa:', err);
         res.status(500).json({ ok: false, msg: 'Erro ao alterar taxa' });
     }
 });
